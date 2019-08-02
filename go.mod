@@ -1,3 +1,3 @@
-module go-sky
+module gosky
 
 go 1.12
