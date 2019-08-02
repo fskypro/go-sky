@@ -1,7 +1,7 @@
 package main
 
-//import "fsky.pro/lib"
+import "fsky.pro/lib"
 
 func Test() {
-//	lib.Test()
+	lib.Test()
 }
