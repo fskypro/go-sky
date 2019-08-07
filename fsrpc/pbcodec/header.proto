@@ -1,0 +1,19 @@
+syntax = "proto3";
+package pbcodec;
+
+// 请求头
+message S_ReqHeader {
+	string ServiceName = 1;
+	string MethodName  = 2;
+	uint64 ReqID       = 3;
+}
+
+// 回复头
+message S_RspHeader {
+	string ServiceName = 1;
+	string MethodName  = 2;
+	uint64 ReqID       = 3;
+	string Fail        = 4;
+	string Error       = 5;
+}
+
