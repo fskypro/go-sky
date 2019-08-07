@@ -1,2 +1,2 @@
-# go-sky
+# gosky
 golang common library
