@@ -1,2 +1,0 @@
-# gosky
-golang common library
