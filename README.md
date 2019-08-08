@@ -4,7 +4,7 @@
 
 gosky
 
-golang library of fantasy-sky
+golang library of fanky
 
 * guide</br>
 write your go.mod like below:</br>
