@@ -10,4 +10,8 @@ package udp
 
 import "net"
 
-type F_Receive func(*net.UDPAddr, []byte)
+// 接收消息函数
+type F_Receiver func(*net.UDPAddr, []byte)
+
+// 服务关闭通知函数
+type F_Closer func()

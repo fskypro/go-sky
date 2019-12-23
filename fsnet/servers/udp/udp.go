@@ -25,7 +25,8 @@ import (
 type S_UDPServer struct {
 	udpInfo *S_UDPInfo
 	connPtr *net.UDPConn
-	recvCb  F_Receive
+	recvCb  F_Receiver
+	closeCb F_Closer
 }
 
 func (this *S_UDPServer) serve() {
@@ -71,12 +72,21 @@ func (this *S_UDPServer) Close() {
 	if this.connPtr != nil {
 		this.connPtr.Close()
 		this.connPtr = nil
+
+		if this.closeCb != nil {
+			this.closeCb()
+		}
 	}
 }
 
 // 绑定接收消息函数
-func (this *S_UDPServer) BindReceiver(recv F_Receive) {
+func (this *S_UDPServer) BindReceiver(recv F_Receiver) {
 	this.recvCb = recv
+}
+
+// 绑定关闭通知函数
+func (this *S_UDPServer) BindCloser(closer F_Closer) {
+	this.closeCb = closer
 }
 
 // -----------------------------------------------------------------------------
