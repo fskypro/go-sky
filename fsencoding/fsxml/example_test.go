@@ -1,13 +1,12 @@
-package fsxml
+package fsxml_test
 
 import (
 	"fmt"
 	"strings"
-	"testing"
 )
 
 import (
-	"fsky.pro/fstest"
+	"fsky.pro/fsencoding/fsxml"
 )
 
 const (
@@ -35,24 +34,20 @@ const (
 </root>`
 )
 
-var _doc *S_Doc
+var _doc *fsxml.S_Doc
 
 // 解释 XML
-func TestParseXML(t *testing.T) {
-	fstest.PrintTestBegin("解释 XML 字符串")
+func ExampleParseXML() {
 	var err error
-	_doc, err = LoadString(_xml)
+	_doc, err = fsxml.LoadString(_xml)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
-	fstest.PrintTestEnd()
 }
 
 // 获取测试
-func TestGetting(t *testing.T) {
-	fstest.PrintTestBegin("获取测试")
-
+func ExampleGetting() {
 	root := _doc.Root()            // 获得根节点
 	node := root.Child("xml:fsky") // 获取指定名称的子节点
 
@@ -76,37 +71,29 @@ func TestGetting(t *testing.T) {
 
 	fmt.Printf("xml.<namespace> = %s\n", _doc.GetNamespace("xml")) // 获取指定名称的名字空间
 	fmt.Printf("a.<namespace> = %s\n", _doc.GetNamespace("a"))     // 来自于 <xml:fsky xmlns:a=...>
-
-	fstest.PrintTestEnd()
 }
 
 // 设置测试
-func TestSetting(t *testing.T) {
-	fstest.PrintTestBegin("设置测试")
-
+func ExampleSetting() {
 	root := _doc.Root()            // 获得根节点
 	node := root.Child("xml:fsky") // 获取指定名称的子节点
 	fmt.Println("\n//", strings.Repeat("-", 50), "\n//", "设置：")
-	sub := CreateNode(root.Doc(), "12tagl", "new add node") // 创建一个新节点
+	sub := fsxml.CreateNode(root.Doc(), "12tagl", "new add node") // 创建一个新节点
 	if sub == nil {
 		fmt.Println("错误的 xml tag 名称")
 	}
-	sub = CreateNode(node.Doc(), "xml:tag", "new add node")
+	sub = fsxml.CreateNode(node.Doc(), "xml:tag", "new add node")
 	node.AddChild(sub)
-	attr := NewAttr("attr name", "12 34 56") // 新建一个属性
+	attr := fsxml.NewAttr("attr name", "12 34 56") // 新建一个属性
 	if attr == nil {
 		fmt.Println("错误的属性名称")
 	}
-	attr = NewAttr("xml:attr", "12 34 56")
+	attr = fsxml.NewAttr("xml:attr", "12 34 56")
 	sub.SetAttr(attr)
-
-	fstest.PrintTestEnd()
 }
 
 // 保存测试
-func TestSaving(t *testing.T) {
-	fstest.PrintTestBegin("保存测试")
-
+func ExampleSaving() {
 	// 保存为非格式化 xml 文件
 	fmt.Println("\n//", strings.Repeat("-", 50), "\n//", "保存为 xml 文件：")
 	err := _doc.Save("./test.xml") // 保存为非格式化的 xml 文件
@@ -117,26 +104,22 @@ func TestSaving(t *testing.T) {
 	}
 
 	// 保存为格式化 xml 文件
-	doc := _doc.Clone()                                 // 复制一个文档
-	err = doc.SaveIndent("./test_indent.xml", "\t", LF) // 保存为格式化的 xml 文件
+	doc := _doc.Clone()                                       // 复制一个文档
+	err = doc.SaveIndent("./test_indent.xml", "\t", fsxml.LF) // 保存为格式化的 xml 文件
 	if err != nil {
 		panic(fmt.Sprintf("save indent xml file error, err: %s\n", err.Error()))
 	} else {
 		fmt.Println("./test_indent.xml 文件保存成功")
 	}
-
-	fstest.PrintTestEnd()
 }
 
 // 加载 xml 文件测试
-func TestLoading(t *testing.T) {
-	fstest.PrintTestBegin("加载 xml 文件测试")
+func ExampleLoading() {
 	// 读取 xml 文件
 	fmt.Println("\n//", strings.Repeat("-", 50), "\n//", "读取 xml 文件：")
-	doc, err := LoadFile("./test_indent.xml")
+	doc, err := fsxml.LoadFile("./test_indent.xml")
 	if err != nil {
 		panic(fmt.Sprintf("load indent xml file fail, error: %s\n", err.Error()))
 	}
 	fmt.Printf("doc's children count = %d\n", doc.Root().ChildCount())
-	fstest.PrintTestEnd()
 }
