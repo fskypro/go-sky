@@ -15,6 +15,8 @@ type S_UDPInfo struct {
 	BuffSize int
 }
 
+// 新建 udp 地址
+// add 格式为：ip:port
 func NewUDPInfoAddr(addr string, buffSize int) (info *S_UDPInfo, err error) {
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
@@ -27,6 +29,7 @@ func NewUDPInfoAddr(addr string, buffSize int) (info *S_UDPInfo, err error) {
 	return
 }
 
+// 新建 udp 地址
 func NewUDPInfo(ip string, port int, buffSize int) *S_UDPInfo {
 	info := &S_UDPInfo{}
 	info.UDPAddr.IP = net.ParseIP(ip)

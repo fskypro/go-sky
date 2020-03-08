@@ -25,6 +25,17 @@ func (this *S_Host) GetAddr() string {
 	return fmt.Sprintf("%s:%d", this.IP, this.Port)
 }
 
+func (this *S_Host) String() string {
+	return this.GetAddr()
+}
+
+func (this *S_Host) Clone() *S_Host {
+	return &S_Host{
+		IP:   this.IP,
+		Port: this.Port,
+	}
+}
+
 // -------------------------------------------------------------------
 // GetFreePort 获取一个空闲的端口号
 // -------------------------------------------------------------------
