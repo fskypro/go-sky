@@ -24,7 +24,7 @@ import (
 // inners
 // -------------------------------------------------------------------
 func _toName(xname *xml.Name) string {
-	if xname.Space == "" {
+	if xname.SpaceName == "" {
 		return xname.Local
 	}
 	return fmt.Sprintf("%s:%s", xname.SpaceName, xname.Local)

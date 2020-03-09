@@ -140,3 +140,61 @@ func TestLoading(t *testing.T) {
 	fmt.Printf("doc's children count = %d\n", doc.Root().ChildCount())
 	fstest.PrintTestEnd()
 }
+
+const _xml2 = `
+ <?xml version="1.0" encoding="UTF-8"?>
+    <recording xmlns='urn:ietf:params:xml:ns:recording:1'>
+        <datamode>complete</datamode>
+        <session session_id="MS41MS4xNTQzMDcyODE3">
+        </session>
+        <participant  participant_id="NDAxMjE=">
+            <nameID aor="sip:40121@huawei.com">
+				<name xml:lang="it">40121</name>
+			</nameID>
+        </participant>
+        <participant   participant_id="NDAxMjI=">
+            <nameID aor="tel:40122">
+            <name xml:lang="it">40122</name></nameID>
+        </participant>
+        <stream stream_id="MTI4LjEwNS45LjExNSsxMDA0OA=="
+        session_id="MS41MS4xNTQzMDcyODE3"><label>1</label>
+        </stream>
+        <sessionrecordingassoc session_id="MS41MS4xNTQzMDcyODE3">
+        <associate-time>2018-11-24T15:20:20Z</associate-time>
+        </sessionrecordingassoc>
+        <participantsessionassoc
+        participant_id="NDAxMjE="
+        session_id="MS41MS4xNTQzMDcyODE3">
+        <associate-time>2018-11-24T15:20:20Z</associate-time>
+        </participantsessionassoc>
+        <participantsessionassoc
+        participant_id="NDAxMjI="
+        session_id="MS41MS4xNTQzMDcyODE3">
+        <associate-time>2018-11-24T15:20:20Z</associate-time>
+        </participantsessionassoc>
+        <participantstreamassoc
+        participant_id="NDAxMjE=">
+        <send>MTI4LjEwNS45LjExNSsxMDA0OA==</send>
+        <recv>MTI4LjEwNS45LjExNSsxMDA0OA==</recv>
+        </participantstreamassoc>
+        <participantstreamassoc
+        participant_id="NDAxMjI=">
+        <send>MTI4LjEwNS45LjExNSsxMDA0OA==</send>
+        <recv>MTI4LjEwNS45LjExNSsxMDA0OA==</recv>
+        </participantstreamassoc>
+    </recording>
+`
+
+func TestSip(t *testing.T) {
+	doc, err := LoadString(_xml2)
+	if err != nil {
+		fmt.Println(111, err.Error())
+	}
+	root := doc.Root()
+	nodes := root.ChildrenOfName("participant")
+	for _, n := range nodes {
+		for _, nn := range n.Children() {
+			fmt.Println(222, nn.Attr("aor").Text())
+		}
+	}
+}
