@@ -21,6 +21,25 @@ type S_Host struct {
 	Port uint16 `json:"port"`
 }
 
+// 新建 S_Host
+// addr 格式为：地址或域名:端口号
+// 如果传入的地址格式不正确，则返回 nil
+func NewHost(addr string) *S_Host {
+	ap := strings.Split(addr, ":")
+	if len(ap) != 2 {
+		return nil
+	}
+	port := ap[1]
+	iport, err := strconv.ParseUint(port, 0, 16)
+	if err != nil {
+		return nil
+	}
+	return &S_Host{
+		IP:   ap[0],
+		Port: uint16(iport),
+	}
+}
+
 func (this *S_Host) GetAddr() string {
 	return fmt.Sprintf("%s:%d", this.IP, this.Port)
 }
