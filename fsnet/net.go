@@ -17,15 +17,15 @@ import "strings"
 // 主机结构
 // -------------------------------------------------------------------
 type S_Host struct {
-	IP   string `json:"ip"`
+	Addr string `json:"addr"`
 	Port uint16 `json:"port"`
 }
 
 // 新建 S_Host
-// addr 格式为：地址或域名:端口号
+// addrPort 格式为：地址或域名:端口号
 // 如果传入的地址格式不正确，则返回 nil
-func NewHost(addr string) *S_Host {
-	ap := strings.Split(addr, ":")
+func NewHost(addrPort string) *S_Host {
+	ap := strings.Split(addrPort, ":")
 	if len(ap) != 2 {
 		return nil
 	}
@@ -35,13 +35,13 @@ func NewHost(addr string) *S_Host {
 		return nil
 	}
 	return &S_Host{
-		IP:   ap[0],
+		Addr: ap[0],
 		Port: uint16(iport),
 	}
 }
 
 func (this *S_Host) GetAddr() string {
-	return fmt.Sprintf("%s:%d", this.IP, this.Port)
+	return fmt.Sprintf("%s:%d", this.Addr, this.Port)
 }
 
 func (this *S_Host) String() string {
@@ -50,7 +50,7 @@ func (this *S_Host) String() string {
 
 func (this *S_Host) Clone() *S_Host {
 	return &S_Host{
-		IP:   this.IP,
+		Addr: this.Addr,
 		Port: this.Port,
 	}
 }
