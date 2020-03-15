@@ -18,6 +18,17 @@ type S_ErrorChain struct {
 	Errors []error
 }
 
+func NewErrorChain() *S_ErrorChain {
+	return &S_ErrorChain{
+		Errors: []error{},
+	}
+}
+
+// 缓存的错误个数
+func (this *S_ErrorChain) Count() int {
+	return len(this.Errors)
+}
+
 // Error 返回错误链条中的所有错误，并以换行符分隔
 func (this *S_ErrorChain) Error() string {
 	sb := new(strings.Builder)
@@ -36,7 +47,7 @@ func (this *S_ErrorChain) Append(err error) {
 }
 
 // AppendStrError 追加一个可字符串格式化的错误
-func (this *S_ErrorChain) AppendStrError(format string, args ...interface{}) {
+func (this *S_ErrorChain) AppendStrErrorf(format string, args ...interface{}) {
 	err := StrErrorf(format, args...)
 	this.Lock()
 	defer this.Unlock()
