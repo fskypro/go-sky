@@ -9,6 +9,7 @@
 package fsxml
 
 import (
+	"strconv"
 	"strings"
 )
 
@@ -123,15 +124,61 @@ func (this *S_Node) Child(path string) *S_Node {
 	if path == "" {
 		return this
 	}
+
+	// 解释字键和索引
+	getTagIndex := func(tag string) (key string, index int) {
+		strIdx := ""
+		hasIdx := false
+		for _, c := range tag {
+			if c == '[' {
+				hasIdx = true
+			} else if c == ']' {
+				break
+			} else if hasIdx {
+				strIdx += string([]rune{c})
+			} else {
+				key += string([]rune{c})
+			}
+		}
+		if len(strIdx) > 0 {
+			index, _ = strconv.Atoi(strIdx)
+		}
+		return
+	}
+
 	tags := strings.Split(path, "/")
 	var node *S_Node = this
 	var child *S_Node
 	for _, tag := range tags {
 		child = nil
-		for _, child = range node.childPtrs {
-			if child.name == tag {
-				node = child
-				break
+		tag, idx := getTagIndex(tag)
+		calc := 0
+
+		if idx >= 0 { // 顺序索引
+			for _, child = range node.childPtrs {
+				if child.name != tag {
+					continue
+				}
+				if calc == idx {
+					node = child
+					break
+				} else {
+					calc += 1
+				}
+			}
+		} else { // 逆序索引
+			calc = -1
+			for i := len(node.childPtrs) - 1; i >= 0; i -= 1 {
+				child = node.childPtrs[i]
+				if child.name != tag {
+					continue
+				}
+				if calc == idx {
+					node = child
+					break
+				} else {
+					calc -= 1
+				}
 			}
 		}
 		if node != child {

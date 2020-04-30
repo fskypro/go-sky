@@ -57,7 +57,11 @@ func ExampleGetting() {
 	fmt.Printf("fsky.children.count = %v\n", node.ChildCount())                                   // 获取子节点个数
 	fmt.Printf("fsky.LastChild.Name = %s\n", node.LastChild().Name())                             // 获取最后一个子节点
 	fmt.Printf("root.Child('xml:fsky/value').Text() = %s\n", root.Child("xml:fsky/value").Text()) // 获取子孙节点
-	node.Child("items").ChildByIndex(2).SetIsCData(true)                                          // 获取指定索引的子节点
+	fmt.Printf("root.Child(\"xml:fsky/value[1]\").Text() = %s\n",
+		root.Child("xml:fsky/value[1]").Text()) // 获取指定路径的子孙节点，如果有同名的孙节点，则通过下标引用指定索引子节点
+	fmt.Printf("root.Child(\"xml:fsky/value[-2]\").Text() = %s\n",
+		root.Child("xml:fsky/value[-2]").Text()) // 获取指定路径的子孙节点，如果有同名的孙节点，则通过下标引用指定索引子节点，负索引表示后序（如 -1 表示最后一个）
+	node.Child("items").ChildByIndex(2).SetIsCData(true) // 获取指定索引的子节点
 
 	fmt.Printf("fsky.attributes.count = %v\n", node.AttrCount())                                     // 获取节点的属性个数
 	fmt.Printf("fsky.time = %f\n", node.Attr("time").AsFloat32(0.0))                                 // 以指定类型获取节点属性的值

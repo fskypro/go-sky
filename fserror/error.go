@@ -7,11 +7,3 @@
 **/
 
 package fserror
-
-import "fmt"
-import "errors"
-
-// StrErrorf 新建一个格式化字符串的错误
-func StrErrorf(format string, args ...interface{}) error {
-	return errors.New(fmt.Sprintf(format, args...))
-}
