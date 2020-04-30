@@ -66,16 +66,16 @@ func (this *s_NameText) Text() string {
 }
 
 // 返回字节形式的节点内容
-func (this *S_Node) TextBytes() []byte {
+func (this *s_NameText) TextBytes() []byte {
 	return convert.String2Bytes(this.text)
 }
 
 // 设置节点内容
-func (this *S_Node) SetText(text string) {
+func (this *s_NameText) SetText(text string) {
 	this.text = text
 }
 
 // 设置节点内容
-func (this *S_Node) SetTextBytes(btext []byte) {
+func (this *s_NameText) SetTextBytes(btext []byte) {
 	this.text = convert.Bytes2String(btext)
 }
