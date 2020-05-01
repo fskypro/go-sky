@@ -83,8 +83,10 @@ func (this *S_Error) FmtError() string {
 	}
 
 	var msg string
-	space := ""
-	for _, we := range errs {
+	msg = errs[0].Error()
+
+	space := "  "
+	for _, we := range errs[1:] {
 		msg = fmt.Sprintf("%s%s%s%s", msg, fsenv.Endline, space, we.Error())
 		space = space + "  "
 	}

@@ -34,7 +34,7 @@ func newError3() I_Error {
 }
 
 func TestError(t *testing.T) {
-	fstest.PrintTestBegin("fserror")
+	fstest.PrintTestBegin("fserror.Error")
 	err := newError3()
 	fmt.Println("errors.Is(newError2(), new(s_BaseError)) = ", errors.Is(err, new(s_BaseError)))
 	fmt.Println("errors.Is(newError2(), baseError) = ", errors.Is(err, baseError))
@@ -43,5 +43,14 @@ func TestError(t *testing.T) {
 	fmt.Println("errors.As(newError2(), *s_BaseError) = ", errors.As(err, &tmp))
 	fmt.Println("error message:")
 	fmt.Println(err.FmtError())
+	fstest.PrintTestEnd()
+}
+
+func TestErrors(t *testing.T) {
+	fstest.PrintTestBegin("fserror.Errors")
+	errs := NewErrors()
+	errs.Addf("the first error.")
+	errs.Add(newError3())
+	fmt.Println(errs.FmtErrors())
 	fstest.PrintTestEnd()
 }
