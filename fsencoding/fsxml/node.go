@@ -117,31 +117,40 @@ func (this *S_Node) AttrCount() int {
 }
 
 // 获取指定路径下的子孙节点，如：
-// <root> <aa> <bb> xx </bb> </aa> </root>
-// root.Child("aa/bb") 返回 bb 节点
+// <root> <aa>
+//	<bb k=v1> xx </bb>
+//	<bb k=v2> yy </bb>
+// </aa> </root>
+// root.Child("aa/bb") 返回第一个 bb 节点
+// root.Child("aa/bb[0]") 返回第一个 bb 节点
+// root.Child("aa/bb[-1]") 返回第二个 bb 节点
+// root.Child("aa/bb[k=v2]") 返回第二个 bb 节点
 // 注意：node.Child("") 返回 node 本身
 func (this *S_Node) Child(path string) *S_Node {
 	if path == "" {
 		return this
 	}
 
-	// 解释字键和索引
-	getTagIndex := func(tag string) (key string, index int) {
-		strIdx := ""
-		hasIdx := false
+	// 解释字键和索引或属性键值
+	getTagIndex := func(tag string) (key string, index int, ak, av string) {
+		subscript := ""
+		hasSubscript := false
 		for _, c := range tag {
 			if c == '[' {
-				hasIdx = true
+				hasSubscript = true
 			} else if c == ']' {
 				break
-			} else if hasIdx {
-				strIdx += string([]rune{c})
+			} else if hasSubscript {
+				subscript += string([]rune{c})
 			} else {
 				key += string([]rune{c})
 			}
 		}
-		if len(strIdx) > 0 {
-			index, _ = strconv.Atoi(strIdx)
+		akv := strings.Split(subscript, "=")
+		if len(akv) == 2 {
+			ak, av = strings.TrimSpace(akv[0]), strings.TrimSpace(akv[1])
+		} else if len(subscript) > 0 {
+			index, _ = strconv.Atoi(subscript)
 		}
 		return
 	}
@@ -151,10 +160,24 @@ func (this *S_Node) Child(path string) *S_Node {
 	var child *S_Node
 	for _, tag := range tags {
 		child = nil
-		tag, idx := getTagIndex(tag)
+		tag, idx, ak, av := getTagIndex(tag)
 		calc := 0
 
-		if idx >= 0 { // 顺序索引
+		if len(ak) > 0 { // 查找与指定属性值匹配的节点
+			for _, child = range node.childPtrs {
+				if child.name != tag {
+					continue
+				}
+				attr := child.Attr(ak)
+				if attr == nil {
+					continue
+				}
+				if attr.Text() == av {
+					node = child
+					break
+				}
+			}
+		} else if idx >= 0 { // 顺序索引
 			for _, child = range node.childPtrs {
 				if child.name != tag {
 					continue

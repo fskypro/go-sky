@@ -20,7 +20,9 @@ const (
 		</properties>
 		<test classname="fsxml" id="ExampleParseXML" values="2.3 4.5"></test>
 
-		<value> 100 </value>
+		<value ak='v100'> 100 </value>
+		<value ak="v200"> 200 </value>
+
 		<values> 100 200 300 </values>
 		<items>
 			<item> abcd </item>
@@ -52,15 +54,22 @@ func ExampleGetting() {
 	node := root.Child("xml:fsky") // 获取指定名称的子节点
 
 	fmt.Println("//", strings.Repeat("-", 50), "\n//", "获取：")
-	fmt.Printf("fsky.root = %v\n", root == node.Root())                                           // 通过子孙节点获取根节点
-	fmt.Printf("fsky.name = %v\n", node.Name())                                                   // 获取节点名称
-	fmt.Printf("fsky.children.count = %v\n", node.ChildCount())                                   // 获取子节点个数
-	fmt.Printf("fsky.LastChild.Name = %s\n", node.LastChild().Name())                             // 获取最后一个子节点
-	fmt.Printf("root.Child('xml:fsky/value').Text() = %s\n", root.Child("xml:fsky/value").Text()) // 获取子孙节点
+	fmt.Printf("fsky.root = %v\n", root == node.Root())               // 通过子孙节点获取根节点
+	fmt.Printf("fsky.name = %v\n", node.Name())                       // 获取节点名称
+	fmt.Printf("fsky.children.count = %v\n", node.ChildCount())       // 获取子节点个数
+	fmt.Printf("fsky.LastChild.Name = %s\n", node.LastChild().Name()) // 获取最后一个子节点
+
+	fmt.Printf("root.Child(\"xml:fsky/value\").Text() = %s\n",
+		root.Child("xml:fsky/value").Text()) // 获取子孙节点
 	fmt.Printf("root.Child(\"xml:fsky/value[1]\").Text() = %s\n",
 		root.Child("xml:fsky/value[1]").Text()) // 获取指定路径的子孙节点，如果有同名的孙节点，则通过下标引用指定索引子节点
 	fmt.Printf("root.Child(\"xml:fsky/value[-2]\").Text() = %s\n",
 		root.Child("xml:fsky/value[-2]").Text()) // 获取指定路径的子孙节点，如果有同名的孙节点，则通过下标引用指定索引子节点，负索引表示后序（如 -1 表示最后一个）
+	fmt.Printf("root.Child(\"xml:fsky/value[-2]\").Text() = %s\n",
+		root.Child("xml:fsky/value[-2]").Text()) // 获取指定路径的子孙节点，如果有同名的孙节点，则通过下标引用指定索引子节点，负索引表示后序（如 -1 表示最后一个）
+	fmt.Printf("root.Child(\"xml:fsky/value[ak=v200]\").Text() = %s\n",
+		root.Child("xml:fsky/value[ak=v200]").Text()) // 获取指定路径的子孙节点，并且要求子节点的属性值与下标指定的一致
+
 	node.Child("items").ChildByIndex(2).SetIsCData(true) // 获取指定索引的子节点
 
 	fmt.Printf("fsky.attributes.count = %v\n", node.AttrCount())                                     // 获取节点的属性个数

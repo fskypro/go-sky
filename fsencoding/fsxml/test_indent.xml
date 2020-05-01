@@ -6,8 +6,8 @@
 			<property name="go.version"> go1.13.1 </property>
 		</properties>
 		<test classname="fsxml" id="ExampleParseXML" values="2.3 4.5"></test>
-		<value> 100 </value>
-		<value> 200 </value>
+		<value ak="v100"> 100 </value>
+		<value ak="v200"> 200 </value>
 		<values> 100 200 300 </values>
 		<items>
 			<item> abcd </item>
