@@ -42,7 +42,7 @@ func TestError(t *testing.T) {
 	var tmp *s_BaseError
 	fmt.Println("errors.As(newError2(), *s_BaseError) = ", errors.As(err, &tmp))
 	fmt.Println("error message:")
-	fmt.Println(err.FmtError())
+	fmt.Println(err.Error())
 	fstest.PrintTestEnd()
 }
 

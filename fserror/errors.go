@@ -50,14 +50,14 @@ func (this *S_Errors) FmtErrors() string {
 	var msg string
 	first := this.errs[0]
 	if e, ok := first.(I_Error); ok {
-		msg = "+ " + e.FmtError()
+		msg = "+ " + e.Error()
 	} else {
 		msg = "+ " + first.Error()
 	}
 
 	for _, err := range this.errs[1:] {
 		if e, ok := err.(I_Error); ok {
-			msg = msg + fsenv.Endline + "+ " + e.FmtError()
+			msg = msg + fsenv.Endline + "+ " + e.Error()
 		} else {
 			msg = msg + fsenv.Endline + "+ " + err.Error()
 		}

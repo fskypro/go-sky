@@ -17,10 +17,10 @@ import (
 // I_Error
 // -------------------------------------------------------------------
 type I_Error interface {
-	Error() string
 	Unwrap() error       // 返回包装的底层错误
 	ErrorChain() []error // 获取错误链，第一个元素为最底层发出的第一个错误
-	FmtError() string    // 格式化输出错误链
+	Error() string       // 格式化输出错误链
+	LatestError() string // 最后一个错误
 }
 
 // -------------------------------------------------------------------
@@ -50,10 +50,6 @@ func (this *S_Error) Unwrap() error {
 	return this.werr
 }
 
-func (this *S_Error) Error() string {
-	return this.msg
-}
-
 // 获取错误链条，返回错误数组中，第一个错误为最早出现的错误
 func (this *S_Error) ErrorChain() []error {
 	var errs []error
@@ -65,33 +61,26 @@ func (this *S_Error) ErrorChain() []error {
 	return append(errs, this)
 }
 
-func (this *S_Error) FmtError() string {
-	var base error
-	errs := []I_Error{this}
+func (this *S_Error) LatestError() string {
+	return this.msg
+}
+
+func (this *S_Error) Error() string {
+	space := "  "
+	msg := this.msg
 	werr := this.werr
 	for {
 		if werr == nil {
 			break
 		}
-		if we, ok := werr.(I_Error); ok {
-			errs = append(errs, we)
-			werr = we.Unwrap()
+		if err, ok := werr.(I_Error); ok {
+			msg = msg + fsenv.Endline + space + err.LatestError()
+			werr = err.Unwrap()
+			space = space + "  "
 		} else {
-			base = werr
+			msg = msg + fsenv.Endline + space + werr.Error()
 			break
 		}
-	}
-
-	var msg string
-	msg = errs[0].Error()
-
-	space := "  "
-	for _, we := range errs[1:] {
-		msg = fmt.Sprintf("%s%s%s%s", msg, fsenv.Endline, space, we.Error())
-		space = space + "  "
-	}
-	if base != nil {
-		msg = fmt.Sprintf("%s%s%s%s", msg, fsenv.Endline, space, base.Error())
 	}
 	return msg
 }
