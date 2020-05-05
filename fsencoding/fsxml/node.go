@@ -169,8 +169,18 @@ L:
 				return
 			}
 			// 第一个 tag 结束
-			tag.tag = string(bytes.TrimSpace(tmp))
-			tmp = []byte{}
+			// 注意：这里必须先判断 tag.tag 是否为空，如果为空才对其赋值
+			// 因为有可能在下标开始之前，已经对 tag.tag 赋过值，这里再赋值的话，会冲掉前面的
+			if tag.tag == "" {
+				tag.tag = string(bytes.TrimSpace(tmp))
+				tmp = []byte{}
+			} else if len(bytes.TrimSpace(tmp)) > 0 {
+				// 如果跑到这里来，说明 tag.tag 已经在下标起始之前已经赋过值
+				// 如果这了 tmp 不为空，则可能出现类似这样的路径：aa/bb[2]xx/cc
+				// 这是错误的
+				valid = false
+				return
+			}
 			break L
 		default:
 			tmp = append(tmp, ch)

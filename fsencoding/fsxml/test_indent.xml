@@ -10,7 +10,9 @@
 		<value ak="v200"> 200 </value>
 		<value ak="==[300]"> 300 </value>
 		<value ak="400&#39;500"> 400 </value>
-		<value ak="600&#34;700&#39;800"> 600 700 800 </value>
+		<value ak="600&#34;700&#39;800">
+			<inner> xxxx </inner>
+		</value>
 		<values> 100 200 300 </values>
 		<items>
 			<item> abcd </item>
