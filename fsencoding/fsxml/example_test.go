@@ -22,6 +22,9 @@ const (
 
 		<value ak='v100'> 100 </value>
 		<value ak="v200"> 200 </value>
+		<value ak="==[300]"> 300 </value>
+		<value ak="400'500"> 400 </value>
+		<value ak='600&quot;700&apos;800'> 600 700 800 </value>
 
 		<values> 100 200 300 </values>
 		<items>
@@ -69,6 +72,14 @@ func ExampleGetting() {
 		root.Child("xml:fsky/value[-2]").Text()) // 获取指定路径的子孙节点，如果有同名的孙节点，则通过下标引用指定索引子节点，负索引表示后序（如 -1 表示最后一个）
 	fmt.Printf("root.Child(\"xml:fsky/value[ak=v200]\").Text() = %s\n",
 		root.Child("xml:fsky/value[ak=v200]").Text()) // 获取指定路径的子孙节点，并且要求子节点的属性值与下标指定的一致
+	fmt.Printf("root.Child(\"xml:fsky/value[ak='==[300]']\").Text() = %s\n",
+		root.Child("xml:fsky/value[ak='==[300]']").Text()) // 获取指定路径的子孙节点，并且要求子节点的属性值与下标指定的一致，如果属性值中有中括号，则需要给属性值加上双引号或单引号，或·号
+	fmt.Printf("root.Child(\"xml:fsky/value[ak='==[300]']\").Text() = %s\n",
+		root.Child("xml:fsky/value[ak='==[300]']").Text()) // 获取指定路径的子孙节点，并且要求子节点的属性值与下标指定的一致，如果属性值中有中括号，则需要给属性值加上双引号或单引号，或·号
+	fmt.Println(`root.Child("xml:fsky/value[ak='400"500']").Text() =`,
+		root.Child(`xml:fsky/value[ak="400'500"]`).Text()) // 获取指定路径的子孙节点，并且要求子节点的属性值与下标指定的一致，属性值可以用三种引号括回：双引号、单引号、点括号
+	fmt.Println("root.Child(\"xml:fsky/value[ak=`600\"700'800`]\").Text() =",
+		root.Child("xml:fsky/value[ak=`600\"700'800`]").Text()) // 获取指定路径的子孙节点，并且要求子节点的属性值与下标指定的一致，属性值可以用三种引号括回：双引号、单引号、点括号
 
 	node.Child("items").ChildByIndex(2).SetIsCData(true) // 获取指定索引的子节点
 

@@ -20,14 +20,26 @@ import (
 	"fsky.pro/fsstr/convert"
 )
 
+func _writeAttribute(attr *S_Attr, writer *bufio.Writer) error {
+	_, err := writer.WriteString(fmt.Sprintf(` %s="`, attr.name))
+	if err != nil {
+		return nil
+	}
+	err = xml.EscapeText(writer, attr.TextBytes())
+	if err != nil {
+		return err
+	}
+	_, err = writer.WriteString(`"`)
+	return err
+}
+
 func _writeNode(node *S_Node, writer *bufio.Writer) error {
 	_, err := writer.WriteString(fmt.Sprintf("<%s", node.name))
 	if err != nil {
 		return err
 	}
 	for _, attr := range node.attrPtrs {
-		_, err = writer.WriteString(fmt.Sprintf(" %s=%q", attr.name, attr.text))
-		if err != nil {
+		if err := _writeAttribute(attr, writer); err != nil {
 			return err
 		}
 	}
@@ -101,8 +113,7 @@ func _writeNodeIndent(node *S_Node, writer *bufio.Writer, layer int, indent stri
 		return err
 	}
 	for _, attr := range node.attrPtrs {
-		_, err = writer.WriteString(fmt.Sprintf(" %s=%q", attr.name, attr.text))
-		if err != nil {
+		if err := _writeAttribute(attr, writer); err != nil {
 			return err
 		}
 	}

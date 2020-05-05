@@ -9,9 +9,187 @@
 package fsxml
 
 import (
+	"bytes"
 	"strconv"
 	"strings"
 )
+
+import (
+	"fsky.pro/fsstr/convert"
+)
+
+// 检索子节点路径中的 tag
+type s_TagSearch struct {
+	tag       string
+	index     int
+	attrName  string
+	attrValue string
+}
+
+// 支持：
+// xx/yy/zz
+// xx/yy[1]/zz
+// xx/yy[a="v"]/zz
+// xx/yy[a='v']/zz
+func _firstSearchPath(path string) (tag *s_TagSearch, tail string, valid bool) {
+	path = strings.TrimLeft(path, " ")
+	path = strings.TrimLeft(path, "\t")
+	path = strings.TrimLeft(path, "/")
+
+	valid = true
+	tag = new(s_TagSearch)
+	tmp := make([]byte, 0)
+	inSubscript := false
+	inAttrValue := false
+	attrValueChar := byte(' ')
+
+	var idx int
+	var ch byte
+L:
+	for idx, ch = range convert.String2Bytes(path) {
+		switch ch {
+		case '"', '\'', '`':
+			// 当前在双引号/单引号属性值区段内
+			if attrValueChar == ch {
+				// 当前双引号是转义字符后的，因此不是结束双引号
+				if idx > 1 && path[idx-1] == '\\' { // 转义字符
+					tmp = append(tmp, ch)
+				} else {
+					// 结束属性值区段
+					attrValueChar = ' '
+					inAttrValue = false
+					tag.attrValue = string(tmp)
+					tmp = []byte{}
+				}
+				continue L
+			}
+			// 当前已经在单引号/双引号属性区段内
+			if attrValueChar == '\'' ||
+				attrValueChar == '"' ||
+				attrValueChar == '`' {
+				tmp = append(tmp, ch)
+				continue L
+			}
+
+			// 当前在属性值区段，但不在双引号/单引号区段或单引号区段内
+			if inAttrValue {
+				tmp = bytes.TrimSpace(tmp)
+				// 如果 “=” 后面不紧接双引号或单引号，则认为该属性值不用双引号或单引号括回来
+				if len(tmp) > 0 {
+					tmp = append(tmp, ch)
+				} else {
+					// 进入双引号属性值区段
+					attrValueChar = ch
+				}
+			} else {
+				// 当前不在下标区段内，不允许出现双引号或单引号
+				valid = false
+				return
+			}
+		case '[':
+			// 起始中括在属性值区段内，则该起始中括属于属性值的一部分
+			if inAttrValue {
+				tmp = append(tmp, ch)
+				continue L
+			}
+			// 已经在下标区段内，仍然出现前中括号，则，这是不合法的路径
+			if inSubscript {
+				valid = false
+				return
+			}
+			// tag 部分结束，标记进入下标区段
+			tag.tag = string(bytes.TrimSpace(tmp))
+			tmp = []byte{}
+			inSubscript = true
+		case ']':
+			// 遇到后中括，但是，当前如果当前在属性值区段内，则认为后中括属于属性值的一部分
+			if attrValueChar != ' ' {
+				tmp = append(tmp, ch)
+				continue L
+			}
+			// 没有下标起始括符就出现了结束符号，这是错误的
+			if !inSubscript {
+				valid = false
+				return
+			}
+			// 结束下标区段
+			inSubscript = false
+
+			// 如果当前在属性值区段，但是又没有双引号或单引号起始，
+			// 则该属性值是没双引号或单引号括回的
+			if inAttrValue {
+				// 如果在双引号或单引号结束的时候已经设置，就不需要再这里设置了
+				tag.attrValue = string(tmp)
+				tmp = []byte{}
+				continue L
+			}
+
+			// 如果前面没出现过属性键值下标，则为索引下标
+			if tag.attrName == "" {
+				index, err := strconv.Atoi(string(bytes.TrimSpace(tmp)))
+				if err != nil { // 错误的索引下标
+					valid = false
+					return
+				} else {
+					tag.index = index
+				}
+				tmp = []byte{}
+			}
+
+			// 如果前面已经设置过属性键值下标，则 tmp 一定是空，
+			// 否则就是类似于这种：tagxx[k="v" 44]，这是错误的
+			if len(bytes.TrimSpace(tmp)) > 0 {
+				valid = false
+				return
+			}
+		case '=':
+			// 如果当前处于属性值区，则等号属于属性值的一部分
+			if inAttrValue {
+				tmp = append(tmp, ch)
+				continue L
+			}
+			// 不在下标区域中出现等号，这是错误的
+			if !inSubscript {
+				valid = false
+				return
+			}
+			// 下标区段内出现等号，则认为属性名称结束，进入属性值区段
+			inAttrValue = true
+			tag.attrName = string(bytes.TrimSpace(tmp))
+			tmp = []byte{}
+		case '/':
+			// 如果当前在属性值区段内，则认为斜杠为属性值的一部分
+			if inAttrValue {
+				tmp = append(tmp, ch)
+				continue L
+			}
+			// 在下标区段，但又不在属性值区段出现斜杠，这是错误的
+			if inSubscript {
+				valid = false
+				return
+			}
+			// 第一个 tag 结束
+			tag.tag = string(bytes.TrimSpace(tmp))
+			tmp = []byte{}
+			break L
+		default:
+			tmp = append(tmp, ch)
+		}
+	}
+
+	// 未离开下标区就结束，这是错误的
+	if attrValueChar != ' ' || inSubscript {
+		valid = false
+		return
+	}
+	if len(tmp) > 0 {
+		tag.tag = string(bytes.TrimSpace(tmp))
+	}
+	if idx < len(path) {
+		tail = path[idx+1:]
+	}
+	return
+}
 
 // -------------------------------------------------------------------
 // Node
@@ -118,8 +296,8 @@ func (this *S_Node) AttrCount() int {
 
 // 获取指定路径下的子孙节点，如：
 // <root> <aa>
-//	<bb k=v1> xx </bb>
-//	<bb k=v2> yy </bb>
+//	<bb k='v1'> xx </bb>
+//	<bb k='v2'> yy </bb>
 // </aa> </root>
 // root.Child("aa/bb") 返回第一个 bb 节点
 // root.Child("aa/bb[0]") 返回第一个 bb 节点
@@ -127,88 +305,58 @@ func (this *S_Node) AttrCount() int {
 // root.Child("aa/bb[k=v2]") 返回第二个 bb 节点
 // 注意：node.Child("") 返回 node 本身
 func (this *S_Node) Child(path string) *S_Node {
-	if path == "" {
+	tag, tail, valid := _firstSearchPath(path)
+	if !valid {
+		return nil
+	}
+	if tag.tag == "" {
 		return this
 	}
 
-	// 解释字键和索引或属性键值
-	getTagIndex := func(tag string) (key string, index int, ak, av string) {
-		subscript := ""
-		hasSubscript := false
-		for _, c := range tag {
-			if c == '[' {
-				hasSubscript = true
-			} else if c == ']' {
-				break
-			} else if hasSubscript {
-				subscript += string([]rune{c})
-			} else {
-				key += string([]rune{c})
-			}
-		}
-		akv := strings.Split(subscript, "=")
-		if len(akv) == 2 {
-			ak, av = strings.TrimSpace(akv[0]), strings.TrimSpace(akv[1])
-		} else if len(subscript) > 0 {
-			index, _ = strconv.Atoi(subscript)
-		}
-		return
-	}
-
-	tags := strings.Split(path, "/")
-	var node *S_Node = this
 	var child *S_Node
-	for _, tag := range tags {
-		child = nil
-		tag, idx, ak, av := getTagIndex(tag)
-		calc := 0
-
-		if len(ak) > 0 { // 查找与指定属性值匹配的节点
-			for _, child = range node.childPtrs {
-				if child.name != tag {
-					continue
-				}
-				attr := child.Attr(ak)
-				if attr == nil {
-					continue
-				}
-				if attr.Text() == av {
-					node = child
-					break
-				}
+	if tag.attrName != "" {
+		for _, ch := range this.childPtrs {
+			if ch.Name() != tag.tag {
+				continue
 			}
-		} else if idx >= 0 { // 顺序索引
-			for _, child = range node.childPtrs {
-				if child.name != tag {
-					continue
-				}
-				if calc == idx {
-					node = child
-					break
-				} else {
-					calc += 1
-				}
-			}
-		} else { // 逆序索引
-			calc = -1
-			for i := len(node.childPtrs) - 1; i >= 0; i -= 1 {
-				child = node.childPtrs[i]
-				if child.name != tag {
-					continue
-				}
-				if calc == idx {
-					node = child
-					break
-				} else {
-					calc -= 1
-				}
+			if ch.Attr(tag.attrName).Text() == tag.attrValue {
+				child = ch
+				break
 			}
 		}
-		if node != child {
-			return nil
+	} else if tag.index >= 0 {
+		idx := 0
+		for _, ch := range this.childPtrs {
+			if ch.Name() != tag.tag {
+				continue
+			}
+			if idx == tag.index {
+				child = ch
+				break
+			}
+			idx += 1
+		}
+	} else {
+		idx := -1
+		for i := this.ChildCount() - 1; i >= 0; i -= 1 {
+			ch := this.childPtrs[i]
+			if ch.Name() != tag.tag {
+				continue
+			}
+			if idx == tag.index {
+				child = ch
+				break
+			}
+			idx -= 1
 		}
 	}
-	return node
+	if child == nil {
+		return nil
+	}
+	if len(tail) > 0 {
+		return child.Child(tail)
+	}
+	return child
 }
 
 // 获取指定索引的子节点
