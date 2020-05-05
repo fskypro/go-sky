@@ -12,7 +12,7 @@ import (
 
 func Test_firstSearchPath(t *testing.T) {
 	fstest.PrintTestBegin("_firstSearchPath")
-	tag, tail, valid := _firstSearchPath("value[ak=`600\"700'800`]")
+	tag, tail, valid := _firstSearchPath("participant[participant_id=Kzg2MTA1NTU2MDAwMg==]/nameID/name")
 	fmt.Println("tag.tag=", tag.tag)
 	fmt.Println("tag.index =", tag.index)
 	fmt.Println("tag.attrName =", tag.attrName)

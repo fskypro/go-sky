@@ -121,6 +121,7 @@ L:
 				// 如果在双引号或单引号结束的时候已经设置，就不需要再这里设置了
 				tag.attrValue = string(tmp)
 				tmp = []byte{}
+				inAttrValue = false
 				continue L
 			}
 
