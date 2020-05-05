@@ -100,6 +100,11 @@ func TestGetting(t *testing.T) {
 	fmt.Println("root.Child(\"xml:fsky/value[ak=`600\"700'800`]/inner\").Text() =",
 		root.Child("xml:fsky/value[ak=`600\"700'800`]/inner").Text()) // 获取指定路径的子孙节点，并且要求子节点的属性值与下标指定的一致，属性值可以用三种引号括回：双引号、单引号、点括号
 
+	_, err := root.GetChild("xml:fsky/value[= ]/inner")
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
 	node.Child("items").ChildByIndex(2).SetIsCData(true) // 获取指定索引的子节点
 
 	fmt.Printf("fsky.attributes.count = %v\n", node.AttrCount())                                     // 获取节点的属性个数

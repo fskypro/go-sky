@@ -10,11 +10,13 @@ package fsxml
 
 import (
 	"bytes"
+	"fmt"
 	"strconv"
 	"strings"
 )
 
 import (
+	"fsky.pro/fserror"
 	"fsky.pro/fsstr/convert"
 )
 
@@ -31,12 +33,11 @@ type s_TagSearch struct {
 // xx/yy[1]/zz
 // xx/yy[a="v"]/zz
 // xx/yy[a='v']/zz
-func _firstSearchPath(path string) (tag *s_TagSearch, tail string, valid bool) {
+func _firstSearchPath(path string) (tag *s_TagSearch, tail string, err error) {
 	path = strings.TrimLeft(path, " ")
 	path = strings.TrimLeft(path, "\t")
 	path = strings.TrimLeft(path, "/")
 
-	valid = true
 	tag = new(s_TagSearch)
 	tmp := make([]byte, 0)
 	inSubscript := false
@@ -83,7 +84,7 @@ L:
 				}
 			} else {
 				// 当前不在下标区段内，不允许出现双引号或单引号
-				valid = false
+				err = fmt.Errorf("xml path is not allow to be contain char '%c'", ch)
 				return
 			}
 		case '[':
@@ -94,7 +95,7 @@ L:
 			}
 			// 已经在下标区段内，仍然出现前中括号，则，这是不合法的路径
 			if inSubscript {
-				valid = false
+				err = fmt.Errorf("char '%c' is not allow to be in xml path subscript.", ch)
 				return
 			}
 			// tag 部分结束，标记进入下标区段
@@ -109,7 +110,7 @@ L:
 			}
 			// 没有下标起始括符就出现了结束符号，这是错误的
 			if !inSubscript {
-				valid = false
+				err = fmt.Errorf("char '%c' is not allow to be in xml path.", ch)
 				return
 			}
 			// 结束下标区段
@@ -125,11 +126,12 @@ L:
 				continue L
 			}
 
+			tmp = bytes.TrimSpace(tmp)
 			// 如果前面没出现过属性键值下标，则为索引下标
 			if tag.attrName == "" {
-				index, err := strconv.Atoi(string(bytes.TrimSpace(tmp)))
-				if err != nil { // 错误的索引下标
-					valid = false
+				index, e := strconv.Atoi(string(tmp))
+				if e != nil { // 错误的索引下标
+					err = fmt.Errorf("index subscript in xml path must be an intager, but not %q.", string(tmp))
 					return
 				} else {
 					tag.index = index
@@ -139,8 +141,8 @@ L:
 
 			// 如果前面已经设置过属性键值下标，则 tmp 一定是空，
 			// 否则就是类似于这种：tagxx[k="v" 44]，这是错误的
-			if len(bytes.TrimSpace(tmp)) > 0 {
-				valid = false
+			if len(tmp) > 0 {
+				err = fmt.Errorf("error string %q in xml path subscript.", string(tmp))
 				return
 			}
 		case '=':
@@ -151,13 +153,19 @@ L:
 			}
 			// 不在下标区域中出现等号，这是错误的
 			if !inSubscript {
-				valid = false
+				err = fmt.Errorf("char '%c' is not allow to be in xml path.", ch)
 				return
 			}
+
 			// 下标区段内出现等号，则认为属性名称结束，进入属性值区段
 			inAttrValue = true
 			tag.attrName = string(bytes.TrimSpace(tmp))
 			tmp = []byte{}
+			// 此时，属性名称不能为空
+			if tag.attrName == "" {
+				err = fmt.Errorf("attribute name in subscript of xml path is not allow to be an empty string.")
+				return
+			}
 		case '/':
 			// 如果当前在属性值区段内，则认为斜杠为属性值的一部分
 			if inAttrValue {
@@ -166,7 +174,7 @@ L:
 			}
 			// 在下标区段，但又不在属性值区段出现斜杠，这是错误的
 			if inSubscript {
-				valid = false
+				err = fmt.Errorf("char '%c' is not allow to be in xml path subscript.", ch)
 				return
 			}
 			// 第一个 tag 结束
@@ -177,9 +185,15 @@ L:
 				tmp = []byte{}
 			} else if len(bytes.TrimSpace(tmp)) > 0 {
 				// 如果跑到这里来，说明 tag.tag 已经在下标起始之前已经赋过值
-				// 如果这了 tmp 不为空，则可能出现类似这样的路径：aa/bb[2]xx/cc
+				// 如果这里 tmp 不为空，则可能出现类似这样的路径：aa/bb[2]xx/cc
 				// 这是错误的
-				valid = false
+				if tag.attrName != "" {
+					err = fmt.Errorf(`string %q after xml path sub tag "%s[%s=%s] is invalid.`,
+						string(tmp), tag.tag, tag.attrName, tag.attrValue)
+				} else {
+					err = fmt.Errorf(`string %q after xml path sub tag "%s[%s=%d] is invalid"`,
+						string(tmp), tag.tag, tag.attrName, tag.index)
+				}
 				return
 			}
 			break L
@@ -190,7 +204,7 @@ L:
 
 	// 未离开下标区就结束，这是错误的
 	if attrValueChar != ' ' || inSubscript {
-		valid = false
+		err = fmt.Errorf("error xml path, subscript is not complete.")
 		return
 	}
 	if len(tmp) > 0 {
@@ -315,13 +329,13 @@ func (this *S_Node) AttrCount() int {
 // root.Child("aa/bb[-1]") 返回第二个 bb 节点
 // root.Child("aa/bb[k=v2]") 返回第二个 bb 节点
 // 注意：node.Child("") 返回 node 本身
-func (this *S_Node) Child(path string) *S_Node {
-	tag, tail, valid := _firstSearchPath(path)
-	if !valid {
-		return nil
+func (this *S_Node) GetChild(path string) (*S_Node, error) {
+	tag, tail, err := _firstSearchPath(path)
+	if err != nil {
+		return nil, fserror.Wrapf(err, "get xml child node fail: %q.", path)
 	}
 	if tag.tag == "" {
-		return this
+		return this, nil
 	}
 
 	var child *S_Node
@@ -362,12 +376,21 @@ func (this *S_Node) Child(path string) *S_Node {
 		}
 	}
 	if child == nil {
-		return nil
+		return nil, fmt.Errorf("xml child node is not exist: %q.", path)
 	}
 	if len(tail) > 0 {
-		return child.Child(tail)
+		node, e := child.GetChild(tail)
+		if e != nil {
+			return node, fserror.Wrapf(e, "get xml child node fail: %q.", path)
+		}
+		return node, nil
 	}
-	return child
+	return child, nil
+}
+
+func (this *S_Node) Child(path string) *S_Node {
+	node, _ := this.GetChild(path)
+	return node
 }
 
 // 获取指定索引的子节点
