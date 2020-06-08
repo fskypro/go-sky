@@ -40,12 +40,8 @@ func NewHost(addrPort string) *S_Host {
 	}
 }
 
-func (this *S_Host) GetAddr() string {
-	return fmt.Sprintf("%s:%d", this.Addr, this.Port)
-}
-
 func (this *S_Host) String() string {
-	return this.GetAddr()
+	return fmt.Sprintf("%s:%d", this.Addr, this.Port)
 }
 
 func (this *S_Host) Clone() *S_Host {
