@@ -110,5 +110,8 @@ func LoadReader(reader io.Reader) (*S_Doc, error) {
 	if err != io.EOF {
 		return nil, err
 	}
+	if doc.rootPtr == nil {
+		return nil, fmt.Errorf("no xml root tag in document.")
+	}
 	return doc, nil
 }
