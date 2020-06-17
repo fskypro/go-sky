@@ -33,6 +33,10 @@ func (this *S_Errors) Errors() []error {
 	return this.errs
 }
 
+func (this *S_Errors) Count() int {
+	return len(this.errs)
+}
+
 func (this *S_Errors) HasError(err error) bool {
 	for _, e := range this.errs {
 		if e == err {
