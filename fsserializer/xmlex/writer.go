@@ -6,7 +6,7 @@
 @date: 2020-02-09
 **/
 
-package fsxml
+package xmlex
 
 import (
 	"bufio"
@@ -16,7 +16,7 @@ import (
 )
 
 import (
-	"fsky.pro/fsencoding/fsxml/internal/xml"
+	"fsky.pro/fsserializer/xmlex/internal/xml"
 	"fsky.pro/fsstr/convert"
 )
 

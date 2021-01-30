@@ -6,7 +6,7 @@
 @date: 2020-02-20
 **/
 
-package fsxml
+package xmlex
 
 import (
 	"fmt"

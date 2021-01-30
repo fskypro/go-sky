@@ -1,12 +1,10 @@
-package fsxml
+package xmlex
 
 import (
 	"fmt"
 	"strings"
 	"testing"
-)
 
-import (
 	"fsky.pro/fstest"
 )
 
@@ -27,11 +25,11 @@ const (
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE junit SYSTEM "junit-result.dtd">
 <root>
-	<xml:fsky xmlns:a="https://fsky.pro" tests="2" failures="0" time="0.009" url="fsky.pro/fsencoding/fsxml">
+	<xml:fsky xmlns:a="https://fsky.pro" tests="2" failures="0" time="0.009" url="fsky.pro/fsserializer/xmlex">
 		<properties>
 			<property name="go.version">go1.13.1</property>
 		</properties>
-		<test classname="fsxml" id="ExampleParseXML" values="2.3 4.5"></test>
+		<test classname="xmlex" id="ExampleParseXML" values="2.3 4.5"></test>
 
 		<value ak='v100'> 100 </value>
 		<value ak="v200"> 200 </value>
@@ -76,6 +74,7 @@ func TestGetting(t *testing.T) {
 	node := root.Child("xml:fsky") // 获取指定名称的子节点
 
 	fmt.Println("//", strings.Repeat("-", 50), "\n//", "获取：")
+	fmt.Printf("doc.Header = %v\n", _doc.Header)
 	fmt.Printf("fsky.root = %v\n", root == node.Root())               // 通过子孙节点获取根节点
 	fmt.Printf("fsky.name = %v\n", node.Name())                       // 获取节点名称
 	fmt.Printf("fsky.children.count = %v\n", node.ChildCount())       // 获取子节点个数

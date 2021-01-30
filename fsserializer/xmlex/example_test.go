@@ -1,12 +1,10 @@
-package fsxml_test
+package xmlex_test
 
 import (
 	"fmt"
 	"strings"
-)
 
-import (
-	"fsky.pro/fsencoding/fsxml"
+	"fsky.pro/fsserializer/xmlex"
 )
 
 const (
@@ -14,11 +12,11 @@ const (
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE junit SYSTEM "junit-result.dtd">
 <root>
-	<xml:fsky xmlns:a="https://fsky.pro" tests="2" failures="0" time="0.009" url="fsky.pro/fsencoding/fsxml">
+	<xml:fsky xmlns:a="https://fsky.pro" tests="2" failures="0" time="0.009" url="fsky.pro/fsserializer/xmlex">
 		<properties>
 			<property name="go.version">go1.13.1</property>
 		</properties>
-		<test classname="fsxml" id="ExampleParseXML" values="2.3 4.5"></test>
+		<test classname="xmlex" id="ExampleParseXML" values="2.3 4.5"></test>
 
 		<value ak='v100'> 100 </value>
 		<value ak="v200"> 200 </value>
@@ -41,12 +39,12 @@ const (
 </root>`
 )
 
-var _doc *fsxml.S_Doc
+var _doc *xmlex.S_Doc
 
 // 解释 XML
 func ExampleParseXML() {
 	var err error
-	_doc, err = fsxml.LoadString(_xml)
+	_doc, err = xmlex.LoadString(_xml)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -59,6 +57,7 @@ func ExampleGetting() {
 	node := root.Child("xml:fsky") // 获取指定名称的子节点
 
 	fmt.Println("//", strings.Repeat("-", 50), "\n//", "获取：")
+	fmt.Printf("doc.Header = %v\n", _doc.Header)
 	fmt.Printf("fsky.root = %v\n", root == node.Root())               // 通过子孙节点获取根节点
 	fmt.Printf("fsky.name = %v\n", node.Name())                       // 获取节点名称
 	fmt.Printf("fsky.children.count = %v\n", node.ChildCount())       // 获取子节点个数
@@ -104,17 +103,17 @@ func ExampleSetting() {
 	root := _doc.Root()            // 获得根节点
 	node := root.Child("xml:fsky") // 获取指定名称的子节点
 	fmt.Println("\n//", strings.Repeat("-", 50), "\n//", "设置：")
-	sub := fsxml.CreateNode(root.Doc(), "12tagl", "new add node") // 创建一个新节点
+	sub := xmlex.CreateNode(root.Doc(), "12tagl", "new add node") // 创建一个新节点
 	if sub == nil {
 		fmt.Println("错误的 xml tag 名称")
 	}
-	sub = fsxml.CreateNode(node.Doc(), "xml:tag", "new add node")
+	sub = xmlex.CreateNode(node.Doc(), "xml:tag", "new add node")
 	node.AddChild(sub)
-	attr := fsxml.NewAttr("attr name", "12 34 56") // 新建一个属性
+	attr := xmlex.NewAttr("attr name", "12 34 56") // 新建一个属性
 	if attr == nil {
 		fmt.Println("错误的属性名称")
 	}
-	attr = fsxml.NewAttr("xml:attr", "12 34 56")
+	attr = xmlex.NewAttr("xml:attr", "12 34 56")
 	sub.SetAttr(attr)
 }
 
@@ -131,7 +130,7 @@ func ExampleSaving() {
 
 	// 保存为格式化 xml 文件
 	doc := _doc.Clone()                                       // 复制一个文档
-	err = doc.SaveIndent("./test_indent.xml", "\t", fsxml.LF) // 保存为格式化的 xml 文件
+	err = doc.SaveIndent("./test_indent.xml", "\t", xmlex.LF) // 保存为格式化的 xml 文件
 	if err != nil {
 		panic(fmt.Sprintf("save indent xml file error, err: %s\n", err.Error()))
 	} else {
@@ -143,7 +142,7 @@ func ExampleSaving() {
 func ExampleLoading() {
 	// 读取 xml 文件
 	fmt.Println("\n//", strings.Repeat("-", 50), "\n//", "读取 xml 文件：")
-	doc, err := fsxml.LoadFile("./test_indent.xml")
+	doc, err := xmlex.LoadFile("./test_indent.xml")
 	if err != nil {
 		panic(fmt.Sprintf("load indent xml file fail, error: %s\n", err.Error()))
 	}

@@ -6,7 +6,7 @@
 @date: 2020-02-18
 **/
 
-package fsxml
+package xmlex
 
 const (
 	// xml 命名空间

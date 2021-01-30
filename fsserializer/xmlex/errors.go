@@ -6,7 +6,7 @@
 @date: 2020-02-01
 **/
 
-package fsxml
+package xmlex
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 )
 
 import (
-	"fsky.pro/fsencoding/fsxml/internal/xml"
+	"fsky.pro/fsserializer/xmlex/internal/xml"
 )
 
 // -------------------------------------------------------------------

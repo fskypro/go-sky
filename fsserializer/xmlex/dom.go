@@ -6,7 +6,7 @@
 @date: 2020-02-02
 **/
 
-package fsxml
+package xmlex
 
 import (
 	"bytes"
@@ -14,10 +14,8 @@ import (
 	"io"
 	"os"
 	"strings"
-)
 
-import (
-	"fsky.pro/fsencoding/fsxml/internal/xml"
+	"fsky.pro/fsserializer/xmlex/internal/xml"
 )
 
 // -------------------------------------------------------------------
@@ -91,7 +89,7 @@ func LoadReader(reader io.Reader) (*S_Doc, error) {
 		// 处理指令：<?target instruction?>
 		case xml.ProcInst:
 			inst := t.(xml.ProcInst)
-			text := fmt.Sprintf("<!%s %s>", inst.Target, inst.Inst)
+			text := fmt.Sprintf("<?%s %s?>", inst.Target, inst.Inst)
 			if inst.Target == "xml" {
 				doc.Header = text
 			} else {
@@ -100,7 +98,7 @@ func LoadReader(reader io.Reader) (*S_Doc, error) {
 
 		// 指示：<!directive>
 		case xml.Directive:
-			doc.Directives = append(doc.Directives, fmt.Sprintf("<?%s?>", t.(xml.Directive)))
+			doc.Directives = append(doc.Directives, fmt.Sprintf("<!%s>", t.(xml.Directive)))
 		}
 
 		t, err = decoder.Token()

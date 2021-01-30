@@ -6,7 +6,7 @@
 @date: 2020-02-01
 **/
 
-package fsxml
+package xmlex
 
 // 获取指定名称一组子节点的 text，如：
 // <root> <item> aa </item> <item> bb </item>  </root>

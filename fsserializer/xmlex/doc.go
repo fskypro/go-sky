@@ -6,7 +6,7 @@
 @date: 2020-01-31
 **/
 
-package fsxml
+package xmlex
 
 import (
 	"bytes"

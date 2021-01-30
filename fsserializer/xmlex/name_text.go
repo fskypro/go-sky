@@ -6,7 +6,7 @@
 @date: 2020-02-19
 **/
 
-package fsxml
+package xmlex
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 import (
-	"fsky.pro/fsencoding/fsxml/internal/xml"
+	"fsky.pro/fsserializer/xmlex/internal/xml"
 	"fsky.pro/fsstr/convert"
 )
 
