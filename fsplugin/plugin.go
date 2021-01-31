@@ -40,8 +40,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"plugin"
+
+	"fsky.pro/fsserializer/jsonex"
 )
-import "fsky.pro/fsjson/jsonex"
 
 // -------------------------------------------------------------------
 // 版本配置
