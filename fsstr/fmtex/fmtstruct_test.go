@@ -1,4 +1,4 @@
-package fsfmt
+package fmtex
 
 import "fmt"
 import "testing"

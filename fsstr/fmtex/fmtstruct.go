@@ -6,7 +6,7 @@
 @date: 2019-01-08
 **/
 
-package fsfmt
+package fmtex
 
 import "fmt"
 import "bytes"
