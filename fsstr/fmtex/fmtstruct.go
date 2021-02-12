@@ -8,10 +8,48 @@
 
 package fmtex
 
-import "fmt"
-import "bytes"
-import "strings"
-import "fsky.pro/fsenv"
+import (
+	"bytes"
+	"fmt"
+	"reflect"
+	"strings"
+
+	"fsky.pro/fsenv"
+)
+
+// 获取指针类型成员
+func _getPMember(st interface{}, mname string) interface{} {
+	vst := reflect.ValueOf(st)
+	if vst.Type().Kind() == reflect.Ptr {
+		vst = vst.Elem()
+	}
+	field := vst.FieldByName(strings.Trim(mname, " "))
+	if !field.IsValid() {
+		return nil
+	}
+	if !field.CanInterface() {
+		return nil
+	}
+	return field.Interface()
+}
+
+func _skipPMember(pidx *int, s string) string {
+	var ret string
+	count := 0
+	for ; *pidx < len(s); *pidx = *pidx + 1 {
+		ch := s[*pidx]
+		if ch == ')' {
+			if count == 0 {
+				count += 1
+			} else {
+				ret += string(ch)
+				break
+			}
+		}
+		ret += string(ch)
+	}
+	return ret
+}
 
 // SprintStruct 以初始化结构的格式，将一个结构体格式化为字符串
 // 参数：
@@ -22,8 +60,10 @@ func SprintStruct(st interface{}, prefix, ident string) string {
 	s := fmt.Sprintf("%#v", st)
 	out := bytes.NewBufferString(prefix)
 
-	layer := 0  // 嵌套层数
-	qu := false // 进入双引号
+	layer := 0       // 嵌套层数
+	mname := ""      // 成员名称
+	inmname := false // 是否解释成员名称
+	qu := false      // 进入双引号
 	for i := 0; i < len(s); i += 1 {
 		ch := s[i]
 
@@ -44,6 +84,8 @@ func SprintStruct(st interface{}, prefix, ident string) string {
 
 		// 进入子域
 		case '{':
+			inmname = true
+
 			out.WriteByte(ch)
 			last := i + 1
 			if s[last] == '}' { // 空结构
@@ -63,6 +105,9 @@ func SprintStruct(st interface{}, prefix, ident string) string {
 
 		// 成员间隔
 		case ',':
+			mname = ""
+			inmname = true
+
 			out.WriteByte(ch)
 			out.WriteString(fsenv.Endline + prefix + strings.Repeat(ident, layer))
 			last := i + 1
@@ -70,12 +115,32 @@ func SprintStruct(st interface{}, prefix, ident string) string {
 				i += 1
 			}
 
-		// 变量与值分隔符
+		// 成员名称与值分隔符
 		case ':':
+			inmname = false
 			out.WriteByte(ch)
 			out.WriteByte(' ')
 
+		// 指针型成员
+		case '(':
+			member := _getPMember(st, mname)
+			if member == nil { // 不可导出成员
+				out.WriteString(_skipPMember(&i, s))
+			} else {
+				elem := reflect.ValueOf(member).Elem()
+				if elem.Type().Kind() == reflect.Struct {
+					subPrefix := prefix + strings.Repeat(ident, layer)
+					mstr := SprintStruct(member, subPrefix, ident)
+					out.WriteString(mstr[len(subPrefix):])
+				} else {
+					out.WriteString(fmt.Sprintf("(&%s)(%#v)", elem.Type().Name(), elem.Interface()))
+				}
+				_skipPMember(&i, s)
+			}
 		default:
+			if inmname {
+				mname = mname + string(ch)
+			}
 			out.WriteByte(ch)
 		}
 	}
