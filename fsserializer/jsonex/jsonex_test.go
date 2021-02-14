@@ -1,9 +1,12 @@
 package jsonex
 
-import "fmt"
-import "testing"
-import "fsky.pro/fstest"
-import "fsky.pro/fsstr/fsfmt"
+import (
+	"fmt"
+	"testing"
+
+	"fsky.pro/fsstr/fmtex"
+	"fsky.pro/fstest"
+)
 
 type s_Sub struct {
 	Abc int `json:"abc"`
@@ -12,9 +15,9 @@ type s_Sub struct {
 type s_Root struct {
 	Aa int    `json:"aa"`
 	Bb string `json:"bb"`
-	Cc uint   `json:"cc"`
+	Cc int    `json:"cc"`
 
-	Dd s_Sub `json:"dd"`
+	Dd *s_Sub `json:"dd"`
 }
 
 func TestLoad(t *testing.T) {
@@ -27,6 +30,6 @@ func TestLoad(t *testing.T) {
 	}
 
 	fmt.Println("load jsonex file success:")
-	fmt.Println(fsfmt.SprintStruct(js, "\t", "  "))
+	fmt.Println(fmtex.SprintStruct(js, "\t", "  "))
 	fstest.PrintTestEnd()
 }
