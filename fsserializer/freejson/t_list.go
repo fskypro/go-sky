@@ -8,7 +8,10 @@
 
 package freejson
 
-import "fmt"
+import (
+	"bufio"
+	"fmt"
+)
 
 type S_List struct {
 	s_Base
@@ -65,6 +68,35 @@ func (this *S_List) For(fun F_Elem) {
 // ------------------------------------------------------------------
 func (this *S_List) AsList() *S_List {
 	return this
+}
+
+func (this *S_List) WriteTo(w *bufio.Writer) (int, error) {
+	err := w.WriteByte('[')
+	if err != nil {
+		return 0, err
+	}
+	count := 1
+	var c int
+	for index, elem := range this.elems {
+		if index > 0 {
+			err := w.WriteByte(',')
+			if err != nil {
+				return count, err
+			}
+			count += 1
+		}
+
+		c, err = elem.WriteTo(w)
+		if err != nil {
+			return count, err
+		}
+		count += c
+	}
+	err = w.WriteByte(']')
+	if err == nil {
+		count += 1
+	}
+	return count, err
 }
 
 func (this *S_List) String() string {

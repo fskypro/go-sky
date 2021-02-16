@@ -9,9 +9,11 @@
 package freejson
 
 //import "fmt"
-import "strconv"
-import "strings"
-import "errors"
+import (
+	"errors"
+	"strconv"
+	"strings"
+)
 
 // json 转移符对应 go 的转义符
 var _byte2trans = map[byte]byte{
@@ -509,7 +511,7 @@ func _parseObject(this *s_Parser) (I_Value, error) {
 // -------------------------------------------------------------------
 // package public
 // -------------------------------------------------------------------
-func (this *s_Parser) parse() (root *S_Object, err error) {
+func (this *s_Parser) parse() (value I_Value, err error) {
 	// 去掉前面的注释和空白字符
 	this._skipInvalids()
 	if this._isParseEnd() {
@@ -517,18 +519,30 @@ func (this *s_Parser) parse() (root *S_Object, err error) {
 		return
 	}
 
-	// 创建根节点
-	obj, err := _parseObject(this)
-	if err != nil || obj == nil {
-		err = this._newParseError()
-		return
+	value = nil
+	for _, parser := range this.subParsers {
+		value, err = parser(this)
+		if err != nil {
+			continue
+		}
+		if value != nil {
+			break
+		}
 	}
+	if value == nil {
+		return nil, this._newParseError()
+	}
+
+	// 创建根节点
+	//obj, err := _parseObject(this)
+	//if err != nil || obj == nil {
+	//err = this._newParseError()
+	//return
+	//}
 
 	// 检查文档末尾
 	this._skipInvalids()
-	if this._isParseEnd() {
-		root = obj.(*S_Object)
-	} else {
+	if !this._isParseEnd() {
 		err = this._newParseError()
 	}
 	return

@@ -8,11 +8,14 @@
 
 package freejson
 
-import "io"
-import "fmt"
-import "strings"
-import "fsky.pro/fsstr/convert"
-import "fsky.pro/fsenv"
+import (
+	"fmt"
+	"io"
+	"strings"
+
+	"fsky.pro/fsenv"
+	"fsky.pro/fsstr/convert"
+)
 
 // json 转移符
 var _trans2str = map[byte][]byte{
@@ -219,6 +222,6 @@ func _writeOrigin(this *s_Writer, value I_Value) error {
 // -------------------------------------------------------------------
 // package public
 // -------------------------------------------------------------------
-func (this *s_Writer) Write(obj *S_Object) error {
-	return this.subWriters[obj.Type()](this, obj)
+func (this *s_Writer) Write(value I_Value) error {
+	return this.subWriters[value.Type()](this, value)
 }

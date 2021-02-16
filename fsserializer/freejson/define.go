@@ -34,9 +34,9 @@ var typeNames = map[JType]string{
 }
 
 // 遍历 Object 函数
-// 如果返回 true 则退出遍历
+// 如果返回 false 则退出遍历
 type F_KeyValue func(string, I_Value) bool
 
 // 遍历 List 函数
-// 如果返回 true 则退出遍历
+// 如果返回 false 则退出遍历
 type F_Elem func(int, I_Value) bool

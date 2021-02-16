@@ -8,7 +8,10 @@
 
 package freejson
 
-import "fmt"
+import (
+	"bufio"
+	"fmt"
+)
 
 // -------------------------------------------------------------------
 // S_Int64
@@ -53,6 +56,10 @@ func (this *S_Int64) ToInt32() int32 {
 // --------------------------------------------------------
 func (this *S_Int64) AsInt64() *S_Int64 {
 	return this
+}
+
+func (this *S_Int64) WriteTo(w *bufio.Writer) (int, error) {
+	return w.WriteString(this.String())
 }
 
 func (this *S_Int64) String() string {
@@ -104,6 +111,10 @@ func (this *S_UInt64) AsUInt64() *S_UInt64 {
 	return this
 }
 
+func (this *S_UInt64) WriteTo(w *bufio.Writer) (int, error) {
+	return w.WriteString(this.String())
+}
+
 func (this *S_UInt64) String() string {
 	return fmt.Sprintf("%v", this.value)
 }
@@ -139,6 +150,10 @@ func (this *S_Float64) ToFloat32() float32 {
 // --------------------------------------------------------
 func (this *S_Float64) AsFloat64() *S_Float64 {
 	return this
+}
+
+func (this *S_Float64) WriteTo(w *bufio.Writer) (int, error) {
+	return w.WriteString(this.String())
 }
 
 func (this *S_Float64) String() string {

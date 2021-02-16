@@ -8,6 +8,8 @@
 
 package freejson
 
+import "bufio"
+
 type S_Null struct {
 	s_Base
 }
@@ -30,6 +32,10 @@ func (this *S_Null) V() interface{} {
 
 func (this *S_Null) AsNull() *S_Null {
 	return this
+}
+
+func (this *S_Null) WriteTo(w *bufio.Writer) (int, error) {
+	return w.WriteString("null")
 }
 
 func (this *S_Null) String() string {

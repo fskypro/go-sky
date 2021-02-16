@@ -60,7 +60,8 @@ var str = `
 
 func Example() {
 	// 解释
-	r, err := FromString(str)
+	v, err := FromString(str)
+	r := v.(*S_Object)
 	if err != nil {
 		fmt.Println("parse json string fail: ", err.Error())
 		return
@@ -85,7 +86,8 @@ func Example() {
 	}
 
 	// 重新读取文件
-	r, err = Load("./test.json")
+	v, err = Load("./test.json")
+	r = v.(*S_Object)
 	if err != nil {
 		fmt.Printf("\n load json file fail: %s\n", err.Error())
 		return

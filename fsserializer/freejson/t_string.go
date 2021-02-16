@@ -8,8 +8,12 @@
 
 package freejson
 
-import "fmt"
-import "fsky.pro/fsstr/convert"
+import (
+	"bufio"
+	"fmt"
+
+	"fsky.pro/fsstr/convert"
+)
 
 type S_String struct {
 	s_Base
@@ -42,6 +46,10 @@ func (this *S_String) Bytes() []byte {
 
 func (this *S_String) AsString() *S_String {
 	return this
+}
+
+func (this *S_String) WriteTo(w *bufio.Writer) (int, error) {
+	return w.WriteString(this.String())
 }
 
 func (this *S_String) String() string {

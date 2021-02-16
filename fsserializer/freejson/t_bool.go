@@ -8,7 +8,10 @@
 
 package freejson
 
-import "fmt"
+import (
+	"bufio"
+	"fmt"
+)
 
 type S_Bool struct {
 	s_Base
@@ -34,6 +37,10 @@ func (this *S_Bool) V() bool {
 // --------------------------------------------------------
 func (this *S_Bool) AsBool() *S_Bool {
 	return this
+}
+
+func (this *S_Bool) WriteTo(w *bufio.Writer) (int, error) {
+	return w.WriteString(this.String())
 }
 
 func (this *S_Bool) String() string {

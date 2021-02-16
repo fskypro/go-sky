@@ -1,8 +1,11 @@
 package freejson
 
-import "fmt"
-import "testing"
-import "fsky.pro/fstest"
+import (
+	"fmt"
+	"testing"
+
+	"fsky.pro/fstest"
+)
 
 var s = `
   // 这是单行注释
@@ -56,7 +59,8 @@ func TestFromString(t *testing.T) {
 	fstest.PrintTestBegin("FromString")
 
 	// 解释
-	r, err := FromString(s)
+	v, err := FromString(s)
+	r := v.(*S_Object)
 	if err != nil {
 		fmt.Println("parse json string fail: ", err.Error())
 		return
@@ -81,7 +85,8 @@ func TestFromString(t *testing.T) {
 	}
 
 	// 重新读取文件
-	r, err = Load("./test.json")
+	vv, err := Load("./test.json")
+	r = vv.(*S_Object)
 	if err != nil {
 		fmt.Printf("\n load json file fail: %s\n", err.Error())
 		return
@@ -92,6 +97,29 @@ func TestFromString(t *testing.T) {
 		fmt.Printf("%s: %v\n", k, v)
 		return true
 	})
+
+	fstest.PrintTestEnd()
+}
+
+func TestList(t *testing.T) {
+	fstest.PrintTestBegin("FromList")
+	doc := `["aa", "bb", 123, 567, {"k1": 345, "k2": 678}]`
+	v, err := FromString(doc)
+	if err != nil {
+		fmt.Println("load list fail: ", err.Error())
+		return
+	}
+
+	l := v.(*S_List)
+	l.For(func(index int, elem I_Value) bool {
+		fmt.Printf("%v: %v\n", index, elem)
+		return true
+	})
+
+	err = Save(v, "./list.json", nil)
+	if err != nil {
+		fmt.Println("save list fail: ", err.Error())
+	}
 
 	fstest.PrintTestEnd()
 }

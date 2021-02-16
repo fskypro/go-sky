@@ -8,6 +8,8 @@
 
 package freejson
 
+import "bufio"
+
 // -------------------------------------------------------------------
 // json value interface
 // -------------------------------------------------------------------
@@ -24,6 +26,7 @@ type I_Value interface {
 	AsFloat64() *S_Float64
 	AsBool() *S_Bool
 
+	WriteTo(*bufio.Writer) (int, error)
 	String() string
 }
 
