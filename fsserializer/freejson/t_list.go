@@ -47,12 +47,24 @@ func (this *S_List) Del(elem I_Value) {
 	}
 }
 
+// 清除所有元素
+func (this *S_List) Clear() {
+	this.elems = []I_Value{}
+}
+
 // 获取指定索引处的值
 func (this *S_List) Get(index int) I_Value {
 	if index > 0 && index < len(this.elems) {
 		return this.elems[index]
+	} else if index < 0 && index >= -len(this.elems) {
+		return this.elems[len(this.elems)+index]
 	}
 	return nil
+}
+
+// 元素个数
+func (this *S_List) Count() int {
+	return len(this.elems)
 }
 
 // 遍历

@@ -62,10 +62,21 @@ func (this *S_Object) Del(key string) I_Value {
 	return nil
 }
 
+// 清除所有元素
+func (this *S_Object) Clear() {
+	this.keys = []string{}
+	this.elems = make(map[string]I_Value)
+}
+
 // 获取指定 key 的值
 func (this *S_Object) Get(key string) I_Value {
 	value, _ := this.elems[key]
 	return value
+}
+
+// 获取元素个数
+func (this *S_Object) Count() int {
+	return len(this.keys)
 }
 
 // 遍历
