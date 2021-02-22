@@ -1,8 +1,11 @@
 package fsreflect
 
-import "fmt"
-import "testing"
-import "fsky.pro/fstest"
+import (
+	"fmt"
+	"testing"
+
+	"fsky.pro/fstest"
+)
 
 type AA struct {
 	value string `db:"xx"`
@@ -34,8 +37,8 @@ func TestFieldTagMap(t *testing.T) {
 	fstest.PrintTestBegin("FieldTagMap")
 
 	c := CC{}
-	fmt.Println(FieldTagMap(c, "db"))
-	fmt.Println(TagFieldMap(&c, "db"))
+	fmt.Println(FieldTagsMap(c, "db"))
+	fmt.Println(TagFieldsMap(&c, "db"))
 
 	fstest.PrintTestEnd()
 }
@@ -44,8 +47,8 @@ func TestTagFieldMap(t *testing.T) {
 	fstest.PrintTestBegin("TagFieldMap")
 
 	c := CC{}
-	fmt.Println(FieldTagMap(c, "db"))
-	fmt.Println(TagFieldMap(&c, "db"))
+	fmt.Println(FieldTagsMap(c, "db"))
+	fmt.Println(TagFieldsMap(&c, "db"))
 
 	fstest.PrintTestEnd()
 }

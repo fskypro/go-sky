@@ -1,6 +1,6 @@
 /**
 @copyright: fantasysky 2016
-@brief: 实现一些反射相关的功能函数
+@brief: struct tag
 @author: fanky
 @version: 1.0
 @date: 2019-01-25
