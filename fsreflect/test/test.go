@@ -1,5 +1,7 @@
 package test
 
+import "fmt"
+
 type DD struct {
 	Value int
 }
@@ -34,6 +36,10 @@ func (this *Obj) GetPDD() *DD {
 
 func (this *Obj) GetNilDD() *DD {
 	return this.nildd
+}
+
+func (this *Obj) call(a int, b string) string {
+	return fmt.Sprintf("%d: %s", a, b)
 }
 
 func NewObj() *Obj {

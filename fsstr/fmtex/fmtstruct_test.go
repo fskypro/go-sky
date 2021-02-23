@@ -49,19 +49,22 @@ type Config struct {
 	_pstring   *string
 	_up        unsafe.Pointer
 
-	_array   [2]int
-	_parray  *[2]string
-	_dbarray [1]S_DBInfo
+	_array     [2]int
+	_parray    *[2]string
+	_dbarray   [1]S_DBInfo
+	_hidearray [3]int `fmthide:"true"`
 
-	_slice    []int
-	_pslice   *[]string
-	_dbslice  []*S_DBInfo
-	_pdbslice *[]*S_DBInfo
+	_slice     []int
+	_pslice    *[]string
+	_dbslice   []*S_DBInfo
+	_pdbslice  *[]*S_DBInfo
+	_hideslice []*S_DBInfo `fmthide:"true"` // 不展开
 
-	_map    map[int]string
-	_pmap   *map[int]string
-	_dbmap  map[int]S_DBInfo
-	_pdbmap *map[int]*S_DBInfo
+	_map      map[int]string
+	_pmap     *map[int]string
+	_dbmap    map[int]S_DBInfo
+	_pdbmap   *map[int]*S_DBInfo
+	_hidepmap *map[string]string `fmthide:"true"` // 不展开
 
 	_struct    s_NetInfo
 	_pstruct   *s_NetInfo
@@ -73,7 +76,12 @@ type Config struct {
 	_func      func(int, string) error
 	_interface interface{}
 
-	_nest *AA
+	_nest *AA // 嵌套结构
+
+	_anon struct { // 匿名结构
+		aaa int
+		bbb string
+	}
 }
 
 func TestSprintStruct(t *testing.T) {
@@ -128,19 +136,22 @@ func TestSprintStruct(t *testing.T) {
 		_string:    "xxxxx",
 		_pstring:   &_pstring,
 
-		_array:   _array,
-		_parray:  &_parray,
-		_dbarray: _dbarray,
+		_array:     _array,
+		_parray:    &_parray,
+		_dbarray:   _dbarray,
+		_hidearray: [3]int{1, 2, 3},
 
-		_slice:    nil,
-		_pslice:   &_pslice,
-		_dbslice:  _dbslice,
-		_pdbslice: &_dbslice,
+		_slice:     nil,
+		_pslice:    &_pslice,
+		_dbslice:   _dbslice,
+		_pdbslice:  &_dbslice,
+		_hideslice: []*S_DBInfo{&S_DBInfo{}, &S_DBInfo{}, &S_DBInfo{}},
 
-		_map:    _map,
-		_pmap:   &_map,
-		_dbmap:  _dbmap,
-		_pdbmap: &_pdbmap,
+		_map:      _map,
+		_pmap:     &_map,
+		_dbmap:    _dbmap,
+		_pdbmap:   &_pdbmap,
+		_hidepmap: &map[string]string{"aa": "123", "bb": "456"},
 
 		_struct:    _struct,
 		_pstruct:   _pstruct,
@@ -153,8 +164,12 @@ func TestSprintStruct(t *testing.T) {
 		_interface: nil,
 
 		_nest: &AA{123456, s_NetInfo{"net", 100}, &S_DBInfo{"db", 200}},
-	}
 
+		_anon: struct {
+			aaa int
+			bbb string
+		}{1688, "阿里巴巴"},
+	}
 	fmt.Println(SprintStruct(cfg, ">>", "    "))
 
 	fstest.PrintTestEnd()

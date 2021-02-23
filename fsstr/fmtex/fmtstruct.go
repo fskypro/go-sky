@@ -72,13 +72,13 @@ func (this *s_Writer) writeEndline() {
 }
 
 // ---------------------------------------------------------
-func (this *s_Writer) writeValue(v reflect.Value) {
+func (this *s_Writer) writeValue(v reflect.Value, tag *reflect.StructTag) {
 	if v.Type().Kind() != reflect.Ptr {
 		printer, ok := _printers[v.Type().Kind()]
 		if ok {
-			printer(this, v)
+			printer(this, v, tag)
 		} else {
-			_printOther(this, v)
+			_printOther(this, v, tag)
 		}
 		return
 	}
@@ -92,17 +92,35 @@ func (this *s_Writer) writeValue(v reflect.Value) {
 	elem := v.Elem()
 	pprinter, ok := _pprinters[elem.Type().Kind()]
 	if ok {
-		pprinter(this, elem)
+		pprinter(this, elem, tag)
 	} else {
-		_printPOther(this, elem)
+		_printPOther(this, elem, tag)
 	}
 }
 
 // -------------------------------------------------------------------
 // module private
 // -------------------------------------------------------------------
+// 通过 tag 来控制 array/slice/dict 元素是否隐藏
+func _isHide(tag *reflect.StructTag) bool {
+	if tag == nil {
+		return false
+	}
+	return tag.Get("fmthide") == "true"
+}
+
 // 数组/切片
-func _printArray(w *s_Writer, v reflect.Value) {
+// 如果 tag 的 fmtex 为 false 的话，则不展开
+func _printArray(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+	if _isHide(tag) {
+		if v.Type().Kind() == reflect.Array {
+			w.writeStringf("%v{...}", v.Type())
+		} else {
+			w.writeStringf("%v{...}(len=%d)", v.Type(), v.Len())
+		}
+		return
+	}
+
 	if v.Len() == 0 {
 		w.writeStringf("%#v", v)
 		return
@@ -119,13 +137,13 @@ func _printArray(w *s_Writer, v reflect.Value) {
 	w.writeEndline()                // 换行
 	w.incLayer()                    // 增加嵌套数
 	w.writeIdents()                 // 写入第一个元素的缩进
-	w.writeValue(e)                 // 写入第一个元素
+	w.writeValue(e, nil)            // 写入第一个元素
 
 	for i := 1; i < v.Len(); i++ {
 		w.writeByte(',')
 		w.writeEndline()
 		w.writeIdents()
-		w.writeValue(v.Index(i))
+		w.writeValue(v.Index(i), nil)
 	}
 	w.writeEndline() // 换行
 	w.decLayer()     // 减少嵌套
@@ -133,7 +151,16 @@ func _printArray(w *s_Writer, v reflect.Value) {
 	w.writeByte('}') //数组结束
 }
 
-func _printPArray(w *s_Writer, v reflect.Value) {
+func _printPArray(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+	if _isHide(tag) {
+		if v.Type().Kind() == reflect.Array {
+			w.writeStringf("%v{...}", v.Type())
+		} else {
+			w.writeStringf("&%v{...}(len=%d)", v.Type(), v.Len())
+		}
+		return
+	}
+
 	if v.Len() == 0 {
 		w.writeStringf("&%v{}", v.Type())
 		return
@@ -154,12 +181,12 @@ func _printPArray(w *s_Writer, v reflect.Value) {
 		w.writeEndline()
 		w.incLayer()
 		w.writeIdents()
-		w.writeValue(e)
+		w.writeValue(e, nil)
 		for i := 1; i < v.Len(); i++ {
 			w.writeByte(',')
 			w.writeEndline()
 			w.writeIdents()
-			w.writeValue(v.Index(i))
+			w.writeValue(v.Index(i), nil)
 		}
 		w.decLayer()
 		w.writeEndline()
@@ -170,7 +197,12 @@ func _printPArray(w *s_Writer, v reflect.Value) {
 
 // -----------------------------------------------
 // 映射
-func _printMap(w *s_Writer, v reflect.Value) {
+func _printMap(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+	if _isHide(tag) {
+		w.writeStringf("%v{...}(len=%d)", v.Type(), v.Len())
+		return
+	}
+
 	iter := v.MapRange()
 	// 没有元素
 	if !iter.Next() {
@@ -191,7 +223,7 @@ func _printMap(w *s_Writer, v reflect.Value) {
 	w.incLayer()    // 增加嵌套数
 	w.writeIdents() // 第一个元素的缩进
 	w.writeStringf("%#v: ", iter.Key())
-	w.writeValue(iter.Value())
+	w.writeValue(iter.Value(), nil)
 
 	// 写入其他元素
 	for iter.Next() {
@@ -199,7 +231,7 @@ func _printMap(w *s_Writer, v reflect.Value) {
 		w.writeEndline()
 		w.writeIdents()
 		w.writeStringf("%#v: ", iter.Key())
-		w.writeValue(iter.Value())
+		w.writeValue(iter.Value(), nil)
 	}
 	w.decLayer()
 	w.writeEndline()
@@ -207,7 +239,12 @@ func _printMap(w *s_Writer, v reflect.Value) {
 	w.writeByte('}')
 }
 
-func _printPMap(w *s_Writer, v reflect.Value) {
+func _printPMap(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+	if _isHide(tag) {
+		w.writeStringf("&%v{...}(len=%d)", v.Type(), v.Len())
+		return
+	}
+
 	iter := v.MapRange()
 	// 没有元素
 	if !iter.Next() {
@@ -221,11 +258,11 @@ func _printPMap(w *s_Writer, v reflect.Value) {
 	// value 的值为基础类型，则不对元素进行换行处理
 	if _isBaseType(iter.Value().Type()) {
 		w.writeStringf("%#v: ", iter.Key())
-		w.writeValue(iter.Value())
+		w.writeValue(iter.Value(), nil)
 		for iter.Next() {
 			w.writeStringf(", ")
 			w.writeStringf("%#v: ", iter.Key())
-			w.writeValue(iter.Value())
+			w.writeValue(iter.Value(), nil)
 		}
 	} else {
 		w.writeEndline() // 换行
@@ -233,14 +270,14 @@ func _printPMap(w *s_Writer, v reflect.Value) {
 		w.incLayer()
 		w.writeIdents()
 		w.writeStringf("%#v: ", iter.Key())
-		w.writeValue(iter.Value())
+		w.writeValue(iter.Value(), nil)
 
 		for iter.Next() {
 			w.writeByte(',')
 			w.writeEndline()
 			w.writeIdents()
 			w.writeStringf("%#v: ", iter.Key())
-			w.writeValue(iter.Value())
+			w.writeValue(iter.Value(), nil)
 		}
 		w.decLayer()
 		w.writeEndline()
@@ -251,7 +288,7 @@ func _printPMap(w *s_Writer, v reflect.Value) {
 
 // -----------------------------------------------
 // 结构体
-func _printStruct(w *s_Writer, v reflect.Value) {
+func _printStruct(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	if v.NumField() == 0 {
 		w.writeStringf("%#v", v)
 		return
@@ -260,12 +297,13 @@ func _printStruct(w *s_Writer, v reflect.Value) {
 	w.writeStringf("%v{", t)
 	w.incLayer()
 
-	// 写其他成员
+	// 写成员
 	for i := 0; i < v.NumField(); i++ {
 		w.writeEndline()
 		w.writeIdents()
 		w.writeStringf("%s: ", t.Field(i).Name)
-		w.writeValue(v.Field(i))
+		ftag := t.Field(i).Tag
+		w.writeValue(v.Field(i), &ftag)
 		w.writeByte(',')
 	}
 
@@ -276,52 +314,52 @@ func _printStruct(w *s_Writer, v reflect.Value) {
 }
 
 // 结构体指针
-func _printPStruct(w *s_Writer, v reflect.Value) {
+func _printPStruct(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	w.writeByte('&')
-	_printStruct(w, v)
+	_printStruct(w, v, tag)
 }
 
 // ------------------------------------------------
 // 有符号整型
-func _printNumber(w *s_Writer, v reflect.Value) {
+func _printNumber(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	w.writeStringf("%v(%#v)", v.Type(), v)
 }
 
 // 有符号指针类型
-func _printPNumber(w *s_Writer, v reflect.Value) {
+func _printPNumber(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	w.writeStringf("&%v(%#v)", v.Type(), v)
 }
 
 // ------------------------------------------------
 // 无符号整型
-func _printUNumber(w *s_Writer, v reflect.Value) {
+func _printUNumber(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	w.writeStringf("%v(%v=%#v)", v.Type(), v, v)
 }
 
 // 无符号指针类型
-func _printPUNumber(w *s_Writer, v reflect.Value) {
+func _printPUNumber(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	w.writeStringf("&%v(%v=%#v)", v.Type(), v, v)
 }
 
 // ------------------------------------------------
 // 复数
-func _printComplex(w *s_Writer, v reflect.Value) {
+func _printComplex(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	w.writeStringf("%v%v", v.Type(), v)
 }
 
 // 复数指针
-func _printPComplex(w *s_Writer, v reflect.Value) {
+func _printPComplex(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	w.writeStringf("&%v%v", v.Type(), v)
 }
 
 // ------------------------------------------------
 // 其他类型
-func _printOther(w *s_Writer, v reflect.Value) {
+func _printOther(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	w.writeStringf("%#v", v)
 }
 
 // 其他类型的指针类型
-func _printPOther(w *s_Writer, v reflect.Value) {
+func _printPOther(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	w.writeStringf("&%v(%#v)", v.Type(), v)
 }
 
@@ -335,12 +373,12 @@ func _isBaseType(t reflect.Type) bool {
 	return ok
 }
 
-var _printers map[reflect.Kind]func(*s_Writer, reflect.Value)  // 类型打印方法
-var _pprinters map[reflect.Kind]func(*s_Writer, reflect.Value) // 指针类型方法
-var _baseTypes map[reflect.Kind]interface{}                    // 基础类型，这些类型如果为 array、slice、map 的成员，则分列成员时，不换行
+var _printers map[reflect.Kind]func(*s_Writer, reflect.Value, *reflect.StructTag)  // 类型打印方法
+var _pprinters map[reflect.Kind]func(*s_Writer, reflect.Value, *reflect.StructTag) // 指针类型方法
+var _baseTypes map[reflect.Kind]interface{}                                        // 基础类型，这些类型如果为 array、slice、map 的成员，则分列成员时，不换行
 
 func init() {
-	_printers = map[reflect.Kind]func(*s_Writer, reflect.Value){
+	_printers = map[reflect.Kind]func(*s_Writer, reflect.Value, *reflect.StructTag){
 		reflect.Array:      _printArray,
 		reflect.Slice:      _printArray,
 		reflect.Map:        _printMap,
@@ -360,7 +398,7 @@ func init() {
 		reflect.Complex64:  _printComplex,
 		reflect.Complex128: _printComplex,
 	}
-	_pprinters = map[reflect.Kind]func(*s_Writer, reflect.Value){
+	_pprinters = map[reflect.Kind]func(*s_Writer, reflect.Value, *reflect.StructTag){
 		reflect.Array:      _printPArray,
 		reflect.Slice:      _printPArray,
 		reflect.Map:        _printPMap,
@@ -416,7 +454,7 @@ func init() {
 func StreamStruct(w io.Writer, obj interface{}, prefix, ident string) {
 	writer := _newWriter(w, prefix, ident)
 	writer.writeStringf(prefix)
-	writer.writeValue(reflect.ValueOf(obj))
+	writer.writeValue(reflect.ValueOf(obj), nil)
 	writer.flush()
 }
 

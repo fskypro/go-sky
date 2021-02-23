@@ -52,3 +52,22 @@ func newValueError(stype, fname, ftype, vtype string) *S_ValueError {
 func (this *S_ValueError) Error() string {
 	return fmt.Sprintf("the type of field %q in %q is %q, but not %q.", this.fname, this.stype, this.ftype, this.vtype)
 }
+
+// -------------------------------------------------------------------
+// 方法不存在错误
+// -------------------------------------------------------------------
+type S_MethodError struct {
+	stype string // 结构体类型名称
+	fname string // 域名称
+}
+
+func newMethodError(stype, fname string) *S_FieldError {
+	return &S_FieldError{
+		stype: stype,
+		fname: fname,
+	}
+}
+
+func (this *S_MethodError) Error() string {
+	return fmt.Sprintf("method name %q is not exists in type %q", this.fname, this.stype)
+}
