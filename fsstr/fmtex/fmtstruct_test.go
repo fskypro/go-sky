@@ -52,19 +52,20 @@ type Config struct {
 	_array     [2]int
 	_parray    *[2]string
 	_dbarray   [1]S_DBInfo
-	_hidearray [3]int `fmthide:"true"`
+	_hidearray [4]int `fmtcount:"2"`
 
 	_slice     []int
 	_pslice    *[]string
 	_dbslice   []*S_DBInfo
 	_pdbslice  *[]*S_DBInfo
-	_hideslice []*S_DBInfo `fmthide:"true"` // 不展开
+	_hideslice []*S_DBInfo `fmtcount:"0"` // 不展开
 
-	_map      map[int]string
-	_pmap     *map[int]string
-	_dbmap    map[int]S_DBInfo
-	_pdbmap   *map[int]*S_DBInfo
-	_hidepmap *map[string]string `fmthide:"true"` // 不展开
+	_map          map[int]string
+	_pmap         *map[int]string
+	_dbmap        map[int]S_DBInfo
+	_pdbmap       *map[int]*S_DBInfo
+	_nohidepmap   *map[string]string `fmtcount:"-1"` // 展开全部（跟没有 tag 是一样的）
+	_showitwopmap *map[string]string `fmtcount:"2"`  // 只显示两个元素
 
 	_struct    s_NetInfo
 	_pstruct   *s_NetInfo
@@ -139,7 +140,7 @@ func TestSprintStruct(t *testing.T) {
 		_array:     _array,
 		_parray:    &_parray,
 		_dbarray:   _dbarray,
-		_hidearray: [3]int{1, 2, 3},
+		_hidearray: [4]int{1, 2, 3, 4},
 
 		_slice:     nil,
 		_pslice:    &_pslice,
@@ -147,11 +148,12 @@ func TestSprintStruct(t *testing.T) {
 		_pdbslice:  &_dbslice,
 		_hideslice: []*S_DBInfo{&S_DBInfo{}, &S_DBInfo{}, &S_DBInfo{}},
 
-		_map:      _map,
-		_pmap:     &_map,
-		_dbmap:    _dbmap,
-		_pdbmap:   &_pdbmap,
-		_hidepmap: &map[string]string{"aa": "123", "bb": "456"},
+		_map:          _map,
+		_pmap:         &_map,
+		_dbmap:        _dbmap,
+		_pdbmap:       &_pdbmap,
+		_nohidepmap:   &map[string]string{"aa": "123", "bb": "456"},
+		_showitwopmap: &map[string]string{"aa": "123", "bb": "456", "cc": "789"},
 
 		_struct:    _struct,
 		_pstruct:   _pstruct,

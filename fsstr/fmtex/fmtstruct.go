@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"fsky.pro/fsenv"
@@ -101,19 +102,35 @@ func (this *s_Writer) writeValue(v reflect.Value, tag *reflect.StructTag) {
 // -------------------------------------------------------------------
 // module private
 // -------------------------------------------------------------------
-// 通过 tag 来控制 array/slice/dict 元素是否隐藏
-func _isHide(tag *reflect.StructTag) bool {
+// 对于 array/slice/map 展示的元素个数
+// -1：全部显示；0：不显示；>0 显示指定个数
+func _fmtCount(tag *reflect.StructTag) int {
 	if tag == nil {
-		return false
+		return -1
 	}
-	return tag.Get("fmthide") == "true"
+	v, err := strconv.Atoi(tag.Get("fmtcount"))
+	if err != nil {
+		return -1
+	}
+	return v
 }
 
 // 数组/切片
 // 如果 tag 的 fmtex 为 false 的话，则不展开
 func _printArray(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
-	if _isHide(tag) {
-		if v.Type().Kind() == reflect.Array {
+	isArray := v.Type().Kind() == reflect.Array
+	ecount := v.Len()
+	fcount := _fmtCount(tag)
+
+	// 没有元素
+	if ecount == 0 {
+		w.writeStringf("%#v", v)
+		return
+	}
+
+	// tag 指示不显示任何元素
+	if fcount == 0 {
+		if isArray {
 			w.writeStringf("%v{...}", v.Type())
 		} else {
 			w.writeStringf("%v{...}(len=%d)", v.Type(), v.Len())
@@ -121,169 +138,167 @@ func _printArray(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 		return
 	}
 
-	if v.Len() == 0 {
-		w.writeStringf("%#v", v)
-		return
-	}
+	// 显示全部元素
+	fmtAll := fcount < 0 || fcount >= ecount
 
+	// 第一个元素
 	e := v.Index(0)
-	// 元素为基础类型，则不对元素进行换行出来
+
+	// 元素为基础类型，则不对元素进行换行处理
 	if _isBaseType(e.Type()) {
-		w.writeStringf("%#v", v)
+		// 显示全部
+		if fmtAll {
+			w.writeStringf("%#v", v)
+			return
+		}
+		// 只显示部分
+		w.writeStringf("%v{", v.Type())
+		for i := 0; i < fcount; i++ {
+			w.writeStringf("%#v, ", v.Index(i))
+		}
+		w.writeStringf("...}")
+		if !isArray {
+			w.writeStringf("(len=%d)", ecount)
+		}
 		return
 	}
 
+	// 每个元素换行隔开
+	// 显示的个数为指定个数，或全部
+	if fcount < 0 {
+		fcount = ecount
+	}
+
+	// 写入类型
 	w.writeStringf("%v{", v.Type()) // 写入类型
 	w.writeEndline()                // 换行
-	w.incLayer()                    // 增加嵌套数
-	w.writeIdents()                 // 写入第一个元素的缩进
-	w.writeValue(e, nil)            // 写入第一个元素
 
-	for i := 1; i < v.Len(); i++ {
+	// 写入第一个元素
+	w.incLayer() // 增加嵌套数
+	w.writeIdents()
+	w.writeValue(e, nil)
+
+	// 写入其他元素
+	for i := 1; i < fcount; i++ {
 		w.writeByte(',')
 		w.writeEndline()
 		w.writeIdents()
 		w.writeValue(v.Index(i), nil)
 	}
+
+	// 如果没显示完，则打印省略号
+	if !fmtAll {
+		w.writeByte(',')
+		w.writeEndline()
+		w.writeIdents()
+		w.writeStringf("...")
+	}
+
 	w.writeEndline() // 换行
 	w.decLayer()     // 减少嵌套
-	w.writeIdents()
+	w.writeIdents()  // 缩进
 	w.writeByte('}') //数组结束
+
+	// 如果是 slice 显示元素总数
+	if !isArray && !fmtAll {
+		w.writeStringf("(len=%d)", ecount)
+	}
 }
 
 func _printPArray(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
-	if _isHide(tag) {
-		if v.Type().Kind() == reflect.Array {
-			w.writeStringf("%v{...}", v.Type())
-		} else {
-			w.writeStringf("&%v{...}(len=%d)", v.Type(), v.Len())
-		}
-		return
-	}
-
-	if v.Len() == 0 {
-		w.writeStringf("&%v{}", v.Type())
-		return
-	}
-
-	// 写入类型
-	w.writeStringf("&%v{", v.Type())
-
-	e := v.Index(0)
-	// 元素为基础类型，则不对元素进行换行出来
-	if _isBaseType(e.Type()) {
-		w.writeStringf("%#v", e) // 第一个元素
-		for i := 1; i < v.Len(); i++ {
-			w.writeStringf(", ")
-			w.writeStringf("%#v", v.Index(i))
-		}
-	} else {
-		w.writeEndline()
-		w.incLayer()
-		w.writeIdents()
-		w.writeValue(e, nil)
-		for i := 1; i < v.Len(); i++ {
-			w.writeByte(',')
-			w.writeEndline()
-			w.writeIdents()
-			w.writeValue(v.Index(i), nil)
-		}
-		w.decLayer()
-		w.writeEndline()
-		w.writeIdents()
-	}
-	w.writeByte('}')
+	w.writeByte('&')
+	_printArray(w, v, tag)
 }
 
 // -----------------------------------------------
 // 映射
 func _printMap(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
-	if _isHide(tag) {
+	ecount := v.Len()
+	fcount := _fmtCount(tag)
+	iter := v.MapRange()
+
+	// 没有元素
+	if !iter.Next() {
+		w.writeStringf("%v{}", v.Type())
+		return
+	}
+
+	// tag 指示不显示任何元素
+	if fcount == 0 {
 		w.writeStringf("%v{...}(len=%d)", v.Type(), v.Len())
 		return
 	}
 
-	iter := v.MapRange()
-	// 没有元素
-	if !iter.Next() {
-		w.writeStringf("%#v", v)
-		return
-	}
+	// 显示全部元素
+	fmtAll := fcount < 0 || fcount >= ecount
 
 	// value 的值为基础类型，则不对元素进行换行处理
 	if _isBaseType(iter.Value().Type()) {
-		w.writeStringf("%#v", v)
+		if fmtAll {
+			w.writeStringf("%#v", v)
+			return
+		}
+		// 只显示部分元素
+		w.writeStringf("%v{", v.Type())
+		for fcount > 0 {
+			w.writeStringf("%#v, ", iter.Value())
+			fcount -= 1
+			iter.Next()
+		}
+		w.writeStringf("...}(len=%d)", ecount)
 		return
 	}
 
-	w.writeStringf("%v{", v.Type()) // 写入类型
-	w.writeEndline()                // 换行
+	// 每个元素换行隔开
+	// 显示的个数为指定个数，或全部
+	if fcount < 0 {
+		fcount = ecount
+	}
+
+	// 写入类型
+	w.writeStringf("%v{", v.Type())
+	w.writeEndline()
 
 	// 写入第一个元素
 	w.incLayer()    // 增加嵌套数
 	w.writeIdents() // 第一个元素的缩进
 	w.writeStringf("%#v: ", iter.Key())
 	w.writeValue(iter.Value(), nil)
+	iter.Next()
 
 	// 写入其他元素
-	for iter.Next() {
+	for fcount > 1 {
 		w.writeByte(',')
 		w.writeEndline()
 		w.writeIdents()
 		w.writeStringf("%#v: ", iter.Key())
 		w.writeValue(iter.Value(), nil)
+		fcount -= 1
+		iter.Next()
 	}
-	w.decLayer()
+
+	// 如果没显示完，则打印省略号
+	if !fmtAll {
+		w.writeByte(',')
+		w.writeEndline()
+		w.writeIdents()
+		w.writeStringf("...")
+	}
+
 	w.writeEndline()
+	w.decLayer()
 	w.writeIdents()
 	w.writeByte('}')
+
+	// 如果没显示完所有元素，则显示总数
+	if !fmtAll {
+		w.writeStringf("(len=%d)", ecount)
+	}
 }
 
 func _printPMap(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
-	if _isHide(tag) {
-		w.writeStringf("&%v{...}(len=%d)", v.Type(), v.Len())
-		return
-	}
-
-	iter := v.MapRange()
-	// 没有元素
-	if !iter.Next() {
-		w.writeStringf("&%v{}", v.Type())
-		return
-	}
-
-	// 写入类型
-	w.writeStringf("&%v{", v.Type())
-
-	// value 的值为基础类型，则不对元素进行换行处理
-	if _isBaseType(iter.Value().Type()) {
-		w.writeStringf("%#v: ", iter.Key())
-		w.writeValue(iter.Value(), nil)
-		for iter.Next() {
-			w.writeStringf(", ")
-			w.writeStringf("%#v: ", iter.Key())
-			w.writeValue(iter.Value(), nil)
-		}
-	} else {
-		w.writeEndline() // 换行
-
-		w.incLayer()
-		w.writeIdents()
-		w.writeStringf("%#v: ", iter.Key())
-		w.writeValue(iter.Value(), nil)
-
-		for iter.Next() {
-			w.writeByte(',')
-			w.writeEndline()
-			w.writeIdents()
-			w.writeStringf("%#v: ", iter.Key())
-			w.writeValue(iter.Value(), nil)
-		}
-		w.decLayer()
-		w.writeEndline()
-		w.writeIdents()
-	}
-	w.writeByte('}')
+	w.writeByte('&')
+	_printMap(w, v, tag)
 }
 
 // -----------------------------------------------
