@@ -111,6 +111,8 @@ func TestList(t *testing.T) {
 	}
 
 	l := v.(*S_List)
+	fmt.Println(l.String())
+
 	l.For(func(index int, elem I_Value) bool {
 		fmt.Printf("%v: %v\n", index, elem)
 		return true

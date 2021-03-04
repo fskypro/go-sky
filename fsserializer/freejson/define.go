@@ -28,9 +28,9 @@ var typeNames = map[JType]string{
 	TList:    "list",
 	TString:  "string",
 	TBool:    "bool",
-	TInt64:   "int",
-	TUInt64:  "uint",
-	TFloat64: "float",
+	TInt64:   "int64",
+	TUInt64:  "uint64",
+	TFloat64: "float64",
 }
 
 // 遍历 Object 函数

@@ -15,15 +15,7 @@ type S_Null struct {
 }
 
 func NewNull() *S_Null {
-	return &S_Null{}
-}
-
-func (*S_Null) Type() JType {
-	return TNull
-}
-
-func (this *S_Null) Name() string {
-	return typeNames[this.Type()]
+	return &S_Null{s_Base: createBase(TNull)}
 }
 
 func (this *S_Null) V() interface{} {

@@ -21,19 +21,14 @@ type S_String struct {
 }
 
 func NewString(value string) *S_String {
-	return &S_String{value: []byte(value)}
+	return &S_String{
+		s_Base: createBase(TString),
+		value:  []byte(value),
+	}
 }
 
 func newString(bstr []byte) *S_String {
 	return &S_String{value: bstr}
-}
-
-func (*S_String) Type() JType {
-	return TString
-}
-
-func (this *S_String) Name() string {
-	return typeNames[this.Type()]
 }
 
 func (this *S_String) V() string {

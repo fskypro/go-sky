@@ -21,17 +21,10 @@ type S_Object struct {
 
 func NewObject() *S_Object {
 	return &S_Object{
-		keys:  make([]string, 0),
-		elems: make(map[string]I_Value),
+		s_Base: createBase(TObject),
+		keys:   make([]string, 0),
+		elems:  make(map[string]I_Value),
 	}
-}
-
-func (*S_Object) Type() JType {
-	return TObject
-}
-
-func (this *S_Object) Name() string {
-	return typeNames[this.Type()]
 }
 
 // 判断指定 key 是否存在
@@ -110,6 +103,7 @@ func (this *S_Object) WriteTo(w *bufio.Writer) (int, error) {
 			}
 			count += 1
 		}
+		w.WriteString(fmt.Sprintf("%q:", key))
 		c, err = this.elems[key].WriteTo(w)
 		if err != nil {
 			return count, err

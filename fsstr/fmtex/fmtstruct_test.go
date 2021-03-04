@@ -14,8 +14,9 @@ type s_NetInfo struct {
 }
 
 type S_DBInfo struct {
-	Host string
-	Port uint16
+	Host   string
+	Port   uint16
+	Tables []string
 }
 
 type AA struct {
@@ -99,14 +100,14 @@ func TestSprintStruct(t *testing.T) {
 
 	_array := [2]int{1, 2}
 	_parray := [2]string{"123", "456"}
-	_dbarray := [1]S_DBInfo{S_DBInfo{"host", 80}}
+	_dbarray := [1]S_DBInfo{S_DBInfo{"host", 80, []string{"xx"}}}
 
 	_pslice := []string{"aaaa", "bbbb", "cccc"}
-	_dbslice := []*S_DBInfo{&S_DBInfo{}, &S_DBInfo{"host", 8080}}
+	_dbslice := []*S_DBInfo{&S_DBInfo{}, &S_DBInfo{"host", 8080, []string{"xxx", "yyy"}}}
 
 	_map := map[int]string{1: "xxx", 2: "yyy"}
-	_dbmap := map[int]S_DBInfo{1: S_DBInfo{"host", 1000}}
-	_pdbmap := map[int]*S_DBInfo{2: &S_DBInfo{"host1", 2000}, 3: &S_DBInfo{"host2", 3000}}
+	_dbmap := map[int]S_DBInfo{1: S_DBInfo{"host", 1000, nil}}
+	_pdbmap := map[int]*S_DBInfo{2: &S_DBInfo{"host1", 2000, nil}, 3: &S_DBInfo{"host2", 3000, []string{"1111"}}}
 
 	_struct := s_NetInfo{"net host", 123}
 	_pstruct := &s_NetInfo{"net host", 456}
@@ -116,7 +117,7 @@ func TestSprintStruct(t *testing.T) {
 	_func := func(int, string) error { return nil }
 
 	cfg := &Config{
-		AA: AA{123456, s_NetInfo{}, &S_DBInfo{"host", 123}},
+		AA: AA{123456, s_NetInfo{}, &S_DBInfo{"host", 123, []string{}}},
 
 		_bool:      false,
 		_pbool:     &_pbool,
@@ -165,14 +166,19 @@ func TestSprintStruct(t *testing.T) {
 
 		_interface: nil,
 
-		_nest: &AA{123456, s_NetInfo{"net", 100}, &S_DBInfo{"db", 200}},
+		_nest: &AA{123456, s_NetInfo{"net", 100}, &S_DBInfo{"db", 200, []string{"t1", "t2", "t3", "t4"}}},
 
 		_anon: struct {
 			aaa int
 			bbb string
 		}{1688, "阿里巴巴"},
 	}
-	fmt.Println(SprintStruct(cfg, ">>", "    "))
+	extras := S_FmtExtras{
+		Prefix:    ">>",
+		Ident:     "  ",
+		FmtCounts: map[string]int{"_nest.dbInfo.Tables": 2},
+	}
+	fmt.Println(SprintStruct(cfg, &extras))
 
 	fstest.PrintTestEnd()
 }

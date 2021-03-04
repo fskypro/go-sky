@@ -20,16 +20,9 @@ type S_List struct {
 
 func NewList() *S_List {
 	return &S_List{
-		elems: make([]I_Value, 0),
+		s_Base: createBase(TList),
+		elems:  make([]I_Value, 0),
 	}
-}
-
-func (*S_List) Type() JType {
-	return TList
-}
-
-func (this *S_List) Name() string {
-	return typeNames[this.Type()]
 }
 
 // 添加元素

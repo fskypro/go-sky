@@ -19,15 +19,10 @@ type S_Bool struct {
 }
 
 func NewBool(value bool) *S_Bool {
-	return &S_Bool{value: value}
-}
-
-func (*S_Bool) Type() JType {
-	return TBool
-}
-
-func (this *S_Bool) Name() string {
-	return typeNames[this.Type()]
+	return &S_Bool{
+		s_Base: createBase(TBool),
+		value:  value,
+	}
 }
 
 func (this *S_Bool) V() bool {

@@ -1,0 +1,44 @@
+[Debug]|2021/02/28 21:18:29.000302 /root/dev/libs/gosky/fslog/log_test.go:27: debug aaaaaaa
+
+-------------------------------------------------- 21:18:29 --------------------------------------------------
+[Info] |2021/02/28 21:18:29.004214 /root/dev/libs/gosky/fslog/log_test.go:46: info aaaaaaa
+
+-------------------------------------------------- 21:18:29 --------------------------------------------------
+[Error]|2021/02/28 21:18:29.005332 /root/dev/libs/gosky/fslog/log_test.go:65: error aaaaaaa
+
+-------------------------------------------------- 21:18:29 --------------------------------------------------
+[Hack] |2021/02/28 21:18:29.007646 /root/dev/libs/gosky/fslog/log_test.go:85: hack aaaaaaa
+
+-------------------------------------------------- 21:18:29 --------------------------------------------------
+[Trace]|2021/02/28 21:18:29.008751 /root/dev/libs/gosky/fslog/log_test.go:106: trace aaaaaaa
+	fsky.pro/fslog.TestTrace(0xc000001b00)
+		/root/dev/libs/gosky/fslog/log_test.go:106 +0x373
+	testing.tRunner(0xc000001b00, 0x55a1e8)
+		/opt/go-1.15.6/src/testing/testing.go:1123 +0xef
+	created by testing.(*T).Run
+		/opt/go-1.15.6/src/testing/testing.go:1168 +0x2b3
+	
+[Fatal]|2021/02/28 21:18:29.009484 /root/dev/libs/gosky/fslog/log_test.go:112: xxxxxxx
+
+-------------------------------------------------- 21:19:30 --------------------------------------------------
+[Debug]|2021/02/28 21:19:30.550902 /root/dev/libs/gosky/fslog/log_test.go:27: debug aaaaaaa
+
+-------------------------------------------------- 21:19:30 --------------------------------------------------
+[Info] |2021/02/28 21:19:30.551913 /root/dev/libs/gosky/fslog/log_test.go:46: info aaaaaaa
+
+-------------------------------------------------- 21:19:30 --------------------------------------------------
+[Error]|2021/02/28 21:19:30.552804 /root/dev/libs/gosky/fslog/log_test.go:65: error aaaaaaa
+
+-------------------------------------------------- 21:19:30 --------------------------------------------------
+[Hack] |2021/02/28 21:19:30.553753 /root/dev/libs/gosky/fslog/log_test.go:85: hack aaaaaaa
+
+-------------------------------------------------- 21:19:30 --------------------------------------------------
+[Trace]|2021/02/28 21:19:30.556168 /root/dev/libs/gosky/fslog/log_test.go:106: trace aaaaaaa
+	fsky.pro/fslog.TestTrace(0xc000001b00)
+		/root/dev/libs/gosky/fslog/log_test.go:106 +0x373
+	testing.tRunner(0xc000001b00, 0x55a1e8)
+		/opt/go-1.15.6/src/testing/testing.go:1123 +0xef
+	created by testing.(*T).Run
+		/opt/go-1.15.6/src/testing/testing.go:1168 +0x2b3
+	
+[Fatal]|2021/02/28 21:19:30.556712 /root/dev/libs/gosky/fslog/log_test.go:112: xxxxxxx

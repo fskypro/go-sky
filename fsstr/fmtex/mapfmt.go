@@ -8,18 +8,20 @@
 
 package fmtex
 
-import "fmt"
-import "bytes"
-import "strings"
-import "strconv"
+import (
+	"bytes"
+	"fmt"
+	"strconv"
+	"strings"
+)
 
 // Smprintf 通过传入 map[string]interface{} 对指定字符串进行格式化
 //	format: 要被格式化的字符串
 //	margs：格式化参数
-//	譬如：Smprintf("123 %[name]s 456", map[string]interface{}{"name": "xxx"})
-//	返回：123 xxx 456
+//	譬如：Smprintf("123 %[k1]s 456; %.2[k2]f", map[string]interface{}{"k1": "xxx", "k2": 3.3333})
+//	返回：123 xxx 456; 3.33
 func Smprintf(format string, margs map[string]interface{}) string {
-	buf := bytes.NewBuffer(make([]byte, 0))
+	buf := bytes.NewBuffer([]byte{})
 	args := make([]interface{}, 0)
 	count := len(format) // 格式化串长度
 	inFmt := false       // 是否进入格式化
@@ -54,7 +56,7 @@ func Smprintf(format string, margs map[string]interface{}) string {
 		// 判断是否进入格式化
 		if ch == '%' {
 			next := i + 1
-			if next < count && format[next] == '%' {
+			if next < count && format[next] == '%' { // 双 %% 号，只取一个
 				inFmt = false
 				i = next
 				buf.WriteByte('%')

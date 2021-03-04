@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"fsky.pro/fsenv"
@@ -24,20 +23,24 @@ import (
 // temp writer
 // -------------------------------------------------------------------
 type s_Writer struct {
-	w      *bufio.Writer
-	prefix string
-	ident  string
+	w         *bufio.Writer
+	prefix    string
+	ident     string
+	fmtcounts map[string]int
+
 	layer  int
 	idents string
+	path   []string
 }
 
-func _newWriter(w io.Writer, prefix, ident string) *s_Writer {
+func _newWriter(w io.Writer, extras *S_FmtExtras) *s_Writer {
 	return &s_Writer{
-		w:      bufio.NewWriter(w),
-		prefix: prefix,
-		ident:  ident,
-		layer:  0,
-		idents: prefix,
+		w:         bufio.NewWriter(w),
+		prefix:    extras.Prefix,
+		ident:     extras.Ident,
+		fmtcounts: extras.FmtCounts,
+		layer:     0,
+		idents:    extras.Prefix,
 	}
 }
 
@@ -53,6 +56,25 @@ func (this *s_Writer) incLayer() {
 func (this *s_Writer) decLayer() {
 	this.layer--
 	this.idents = this.prefix + strings.Repeat(this.ident, this.layer)
+}
+
+func (this *s_Writer) enterPath(name string) {
+	this.path = append(this.path, name)
+}
+
+func (this *s_Writer) leavePath() {
+	this.path = this.path[0 : len(this.path)-1]
+}
+
+// 对于 array/slice/map 展示的元素个数
+// -1：全部显示；0：不显示；>0 显示指定个数
+func (this *s_Writer) getFmtCount() int {
+	path := strings.Join(this.path, ".")
+	count, ok := this.fmtcounts[path]
+	if ok {
+		return count
+	}
+	return -1
 }
 
 // ---------------------------------------------------------
@@ -102,25 +124,13 @@ func (this *s_Writer) writeValue(v reflect.Value, tag *reflect.StructTag) {
 // -------------------------------------------------------------------
 // module private
 // -------------------------------------------------------------------
-// 对于 array/slice/map 展示的元素个数
-// -1：全部显示；0：不显示；>0 显示指定个数
-func _fmtCount(tag *reflect.StructTag) int {
-	if tag == nil {
-		return -1
-	}
-	v, err := strconv.Atoi(tag.Get("fmtcount"))
-	if err != nil {
-		return -1
-	}
-	return v
-}
 
 // 数组/切片
 // 如果 tag 的 fmtex 为 false 的话，则不展开
 func _printArray(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	isArray := v.Type().Kind() == reflect.Array
 	ecount := v.Len()
-	fcount := _fmtCount(tag)
+	fcount := w.getFmtCount()
 
 	// 没有元素
 	if ecount == 0 {
@@ -140,6 +150,9 @@ func _printArray(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 
 	// 显示全部元素
 	fmtAll := fcount < 0 || fcount >= ecount
+	if fmtAll {
+		fcount = ecount
+	}
 
 	// 第一个元素
 	e := v.Index(0)
@@ -161,12 +174,6 @@ func _printArray(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 			w.writeStringf("(len=%d)", ecount)
 		}
 		return
-	}
-
-	// 每个元素换行隔开
-	// 显示的个数为指定个数，或全部
-	if fcount < 0 {
-		fcount = ecount
 	}
 
 	// 写入类型
@@ -214,7 +221,7 @@ func _printPArray(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 // 映射
 func _printMap(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	ecount := v.Len()
-	fcount := _fmtCount(tag)
+	fcount := w.getFmtCount()
 	iter := v.MapRange()
 
 	// 没有元素
@@ -231,6 +238,9 @@ func _printMap(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 
 	// 显示全部元素
 	fmtAll := fcount < 0 || fcount >= ecount
+	if fmtAll {
+		fcount = ecount
+	}
 
 	// value 的值为基础类型，则不对元素进行换行处理
 	if _isBaseType(iter.Value().Type()) {
@@ -247,12 +257,6 @@ func _printMap(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 		}
 		w.writeStringf("...}(len=%d)", ecount)
 		return
-	}
-
-	// 每个元素换行隔开
-	// 显示的个数为指定个数，或全部
-	if fcount < 0 {
-		fcount = ecount
 	}
 
 	// 写入类型
@@ -313,12 +317,16 @@ func _printStruct(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	w.incLayer()
 
 	// 写成员
+	var name string
 	for i := 0; i < v.NumField(); i++ {
+		name = t.Field(i).Name
 		w.writeEndline()
 		w.writeIdents()
-		w.writeStringf("%s: ", t.Field(i).Name)
+		w.writeStringf("%s: ", name)
 		ftag := t.Field(i).Tag
+		w.enterPath(name)
 		w.writeValue(v.Field(i), &ftag)
+		w.leavePath()
 		w.writeByte(',')
 	}
 
@@ -460,15 +468,21 @@ func init() {
 // -------------------------------------------------------------------
 // public
 // -------------------------------------------------------------------
+type S_FmtExtras struct {
+	Prefix    string         // 前缀
+	Ident     string         // 缩进字符串
+	FmtCounts map[string]int // 显示指定数量的元素，格式为：map["aa.bb.cc"] = count（只对 array、slice、map 有效）
+}
+
 // SprintStruct 以初始化结构的格式，将一个结构体格式化为字符串，并写入流中
 // 参数：
 //  w: 流缓冲
 //	st: 要格式化的结构体
 //	prefix: 整个输出结构体的每一行的前缀
 //	ident: 缩进字符串
-func StreamStruct(w io.Writer, obj interface{}, prefix, ident string) {
-	writer := _newWriter(w, prefix, ident)
-	writer.writeStringf(prefix)
+func StreamStruct(w io.Writer, obj interface{}, extras *S_FmtExtras) {
+	writer := _newWriter(w, extras)
+	writer.writeStringf(extras.Prefix)
 	writer.writeValue(reflect.ValueOf(obj), nil)
 	writer.flush()
 }
@@ -478,8 +492,8 @@ func StreamStruct(w io.Writer, obj interface{}, prefix, ident string) {
 //	st: 要格式化的结构体
 //	prefix: 整个输出结构体的每一行的前缀
 //	ident: 缩进字符串
-func SprintStruct(obj interface{}, prefix, ident string) string {
+func SprintStruct(obj interface{}, extras *S_FmtExtras) string {
 	out := bytes.NewBuffer([]byte{})
-	StreamStruct(out, obj, prefix, ident)
+	StreamStruct(out, obj, extras)
 	return out.String()
 }

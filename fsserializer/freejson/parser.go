@@ -284,7 +284,7 @@ func _parseString(this *s_Parser) (value I_Value, err error) {
 
 // 解释数学数值
 // int64：- 或 + 或 数字开头
-// uint64：u+数字(十进制)；b+[0|1](二进制)；0+小于7的数字(八进制)；0x|0X+[0-9|a-b](十六进制)
+// uint64：u+数字(十进制)；b+[0|1](二进制)；0o+小于7的数字(八进制)；0x|0X+[0-9|a-b](十六进制)
 // float64：+ 或 - + 带小数点的数字
 func _parseNumber(this *s_Parser) (I_Value, error) {
 	prefix := string(this._look(2))
@@ -303,7 +303,7 @@ func _parseNumber(this *s_Parser) (I_Value, error) {
 		}
 		return NewUInt64(value), nil
 	}
-	if prefix == "0b" { // 二进制
+	if prefix == "0b" || prefix == "0B" { // 二进制
 		this._skip(2)
 		strValue := string(this._pickUntil(false, ',', ' ', '\t', '\r', '\n', '}', ']'))
 		value, err := strconv.ParseUint(strValue, 2, 64)
@@ -324,7 +324,19 @@ func _parseNumber(this *s_Parser) (I_Value, error) {
 		}
 		return NewUInt64(value), nil
 	}
-	if first == '0' { // 八进制或小于 1 的浮点数
+	if prefix == "0o" || prefix == "0O" { // 八进制
+		this._skip(2)
+		bsValue := this._pickUntil(false, ',', ' ', '\t', '\r', '\n', '}', ']')
+		if bsValue == nil {
+			return nil, errors.New("")
+		}
+		value, err := strconv.ParseUint(string(bsValue), 8, 64)
+		if err != nil {
+			return nil, err
+		}
+		return NewUInt64(value), nil
+	}
+	if first == '0' { // 小于 1 的浮点数
 		strValue := string(this._pickUntil(false, ',', ' ', '\t', '\r', '\n', '}', ']'))
 		if strings.Index(strValue, ".") >= 0 { // 小于 1 的浮点数
 			value, err := strconv.ParseFloat(strValue, 64)
@@ -332,13 +344,12 @@ func _parseNumber(this *s_Parser) (I_Value, error) {
 				return nil, err
 			}
 			return NewFloat64(value), nil
-		} else { // 八进制
-			value, err := strconv.ParseUint(strValue, 8, 64)
-			if err != nil {
-				return nil, err
-			}
-			return NewUInt64(value), nil
 		}
+		value, err := strconv.ParseInt(strValue, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		return NewInt64(value), nil
 	}
 
 	// 有符号整数或者浮点数
