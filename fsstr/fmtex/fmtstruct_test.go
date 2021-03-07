@@ -173,7 +173,7 @@ func TestSprintStruct(t *testing.T) {
 			bbb string
 		}{1688, "阿里巴巴"},
 	}
-	extras := S_FmtExtras{
+	extras := S_FmtOpts{
 		Prefix:    ">>",
 		Ident:     "  ",
 		FmtCounts: map[string]int{"_nest.dbInfo.Tables": 2},

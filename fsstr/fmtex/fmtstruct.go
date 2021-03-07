@@ -33,14 +33,14 @@ type s_Writer struct {
 	path   []string
 }
 
-func _newWriter(w io.Writer, extras *S_FmtExtras) *s_Writer {
+func _newWriter(w io.Writer, opts *S_FmtOpts) *s_Writer {
 	return &s_Writer{
 		w:         bufio.NewWriter(w),
-		prefix:    extras.Prefix,
-		ident:     extras.Ident,
-		fmtcounts: extras.FmtCounts,
+		prefix:    opts.Prefix,
+		ident:     opts.Ident,
+		fmtcounts: opts.FmtCounts,
 		layer:     0,
-		idents:    extras.Prefix,
+		idents:    opts.Prefix,
 	}
 }
 
@@ -468,7 +468,7 @@ func init() {
 // -------------------------------------------------------------------
 // public
 // -------------------------------------------------------------------
-type S_FmtExtras struct {
+type S_FmtOpts struct {
 	Prefix    string         // 前缀
 	Ident     string         // 缩进字符串
 	FmtCounts map[string]int // 显示指定数量的元素，格式为：map["aa.bb.cc"] = count（只对 array、slice、map 有效）
@@ -480,9 +480,9 @@ type S_FmtExtras struct {
 //	st: 要格式化的结构体
 //	prefix: 整个输出结构体的每一行的前缀
 //	ident: 缩进字符串
-func StreamStruct(w io.Writer, obj interface{}, extras *S_FmtExtras) {
-	writer := _newWriter(w, extras)
-	writer.writeStringf(extras.Prefix)
+func StreamStruct(w io.Writer, obj interface{}, opts *S_FmtOpts) {
+	writer := _newWriter(w, opts)
+	writer.writeStringf(opts.Prefix)
 	writer.writeValue(reflect.ValueOf(obj), nil)
 	writer.flush()
 }
@@ -492,8 +492,8 @@ func StreamStruct(w io.Writer, obj interface{}, extras *S_FmtExtras) {
 //	st: 要格式化的结构体
 //	prefix: 整个输出结构体的每一行的前缀
 //	ident: 缩进字符串
-func SprintStruct(obj interface{}, extras *S_FmtExtras) string {
+func SprintStruct(obj interface{}, opts *S_FmtOpts) string {
 	out := bytes.NewBuffer([]byte{})
-	StreamStruct(out, obj, extras)
+	StreamStruct(out, obj, opts)
 	return out.String()
 }
