@@ -177,5 +177,8 @@ func (this *S_ServerProxy) Run(ctx context.Context, ch chan *S_RunState) {
 func (this *S_ServerProxy) Close() error {
 	this.closed = true
 	this.connected = false
-	return this.Client.Close()
+	if this.Client != nil {
+		return this.Client.Close()
+	}
+	return nil
 }
