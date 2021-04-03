@@ -16,10 +16,11 @@ type S_DBInfo struct {
 	MaxIdleConns    int           // 连接池中保持连接的最大连接数
 	ConnMaxLifetime time.Duration // 控线连接的最长有效期
 
-	Host   string
-	Port   uint16
-	User   string
-	Passwd string
+	Host     string
+	Port     int
+	User     string
+	Password string
 
-	DBName string // 数据库名称，可以省略
+	DBName  string // 数据库名称，可以省略
+	Timeout uint   // 超时（秒）
 }

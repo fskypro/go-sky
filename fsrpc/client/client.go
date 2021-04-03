@@ -8,69 +8,21 @@
 
 package client
 
-import "io"
-import "bufio"
-import "fmt"
-import "sync"
-import "net"
-import "time"
-import "strings"
-import "errors"
-import "reflect"
-import "net/http"
-import "fsky.pro/fslog"
-import "fsky.pro/fserror"
-import "fsky.pro/fsrpc"
+import (
+	"bufio"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"reflect"
+	"strings"
+	"sync"
 
-// -----------------------------------------------------------------------------
-// Error type
-// -----------------------------------------------------------------------------
-// 远程请求失败错误
-type S_ServerError string
-
-func (e S_ServerError) Error() string {
-	return string(e)
-}
-
-// 调用服务函数返回错误
-type T_ServiceError string
-
-func (e T_ServiceError) Error() string {
-	return string(e)
-}
-
-// -----------------------------------------------------------------------------
-// request info
-// -----------------------------------------------------------------------------
-// 请求信息
-type S_ReqInfo struct {
-	ServiceName string          // 请求的服务对象名称
-	MethodName  string          // 请求的方法
-	Arg         interface{}     // 请求参数
-	Reply       interface{}     // 请求回复参数
-	Error       error           // 请求失败或调用服务器服务函数返回错误
-	Done        chan *S_ReqInfo //请求返回后数据放入的通道
-}
-
-// 结束远程调用，将结构写入用户通道
-func (req *S_ReqInfo) _done() {
-	select {
-	case req.Done <- req:
-	default:
-		// 如果 req.Done 阻塞（已满），则程序会跑这里来，
-		// 这时，等待 100 毫秒再尝试往通道发送
-		go func() {
-			time.Sleep(time.Millisecond * 100)
-			select {
-			case req.Done <- req:
-			default:
-				// 如果 100 毫秒后，还是无法发送，则丢弃该请求
-				// 这样做的目的是防止程序被无限期阻塞，因此 req.Done 必须设置足够的缓冲数量
-				fslog.Errorf("fsrpc: a reqiest(%s.%s) has been discarded!", req.ServiceName, req.MethodName)
-			}
-		}()
-	}
-}
+	"fsky.pro/fserror"
+	"fsky.pro/fslog"
+	"fsky.pro/fsrpc"
+)
 
 // -----------------------------------------------------------------------------
 // client struct
@@ -89,7 +41,7 @@ type S_Client struct {
 }
 
 // 客户端已关闭错误
-var _errShutdown = errors.New("connection is shut down")
+var _errShutdown = errors.New("connection is not running")
 
 // -------------------------------------------------------------------
 // S_Client inner methods
@@ -97,17 +49,16 @@ var _errShutdown = errors.New("connection is shut down")
 // 发送请求
 func (c *S_Client) _send(reqInfo *S_ReqInfo) {
 	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	// 链接已关闭
 	if c.shutdown || c.closing {
 		reqInfo.Error = _errShutdown
-		c.mutex.Unlock()
-		reqInfo._done()
+		reqInfo.send()
 		return
 	}
 	reqID := c.currReqID
 	c.currReqID++
 	c.pending[reqID] = reqInfo
-	c.mutex.Unlock()
 
 	// 编码数据并发送请求
 	c.Lock()
@@ -123,12 +74,10 @@ func (c *S_Client) _send(reqInfo *S_ReqInfo) {
 	}
 
 	// 写入数据失败，则清空缓存数据
-	c.mutex.Lock()
 	reqInfo = c.pending[reqID]
 	delete(c.pending, reqID)
-	c.mutex.Unlock()
 	reqInfo.Error = err
-	reqInfo._done()
+	reqInfo.send()
 }
 
 // 接收请求
@@ -144,9 +93,10 @@ func (c *S_Client) _receive() {
 
 		reqID := header.ReqID
 		c.mutex.Lock()
+		defer c.mutex.Unlock()
+
 		reqInfo := c.pending[reqID]
 		delete(c.pending, reqID)
-		c.mutex.Unlock()
 
 		switch {
 		case reqInfo == nil:
@@ -158,24 +108,23 @@ func (c *S_Client) _receive() {
 			reqInfo.Error = S_ServerError(header.Fail)
 			c.codec.ReadResponseReply(nil)
 			fslog.Errorf("fsrpc: server error, request('%s.%s') fail: %s", header.ServiceName, header.MethodName, header.Fail)
-			reqInfo._done()
+			reqInfo.send()
 		case header.Error != "":
 			// 调用返回错误
 			reqInfo.Error = T_ServiceError(header.Error)
 			c.codec.ReadResponseReply(nil)
-			reqInfo._done()
+			reqInfo.send()
 		default:
 			err := c.codec.ReadResponseReply(reqInfo.Reply)
 			if err != nil {
 				reqInfo.Error = errors.New("read reply error: " + err.Error())
 				fslog.Errorf("fsrsp: read request(%s.%s)'s reply error: %s", header.ServiceName, header.MethodName, err.Error())
 			}
-			reqInfo._done()
+			reqInfo.send()
 		}
 	}
 
 	// 清理所有请求队列
-	c.mutex.Lock()
 	c.shutdown = true
 	closing := c.closing
 	if err == io.EOF {
@@ -187,9 +136,8 @@ func (c *S_Client) _receive() {
 	}
 	for _, reqInfo := range c.pending {
 		reqInfo.Error = err
-		reqInfo._done()
+		reqInfo.send()
 	}
-	c.mutex.Unlock()
 	if err != io.EOF && !closing {
 		fslog.Error("fsrpc: client protocol error: " + err.Error())
 	}
@@ -203,8 +151,7 @@ func (c *S_Client) DialTCP(host string, port uint16) error {
 	addr := fmt.Sprintf("%s:%d", host, port)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		fslog.Error("fsrpc: " + err.Error())
-		return err
+		return fmt.Errorf("dial tcp(%s:%d) error: %v", host, port, err)
 	} else {
 		c.codec.Initialize(conn)
 		go c._receive()
@@ -222,8 +169,7 @@ func (c *S_Client) DialHTTPPath(host string, port uint16, path string) error {
 	addr := fmt.Sprintf("%s:%d", host, port)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		fslog.Errorf("fsrpc: http dial server(%s) fail: %s\n", addr, err.Error())
-		return err
+		return fmt.Errorf("dial http server(%s:%d) error: %v", host, port, err)
 	}
 
 	// 发送链接校验
@@ -240,19 +186,12 @@ func (c *S_Client) DialHTTPPath(host string, port uint16, path string) error {
 			return nil
 		} else {
 			// 校验失败（原则上不会出现这种情况）
-			err = fserror.StrErrorf("http server(%s) verify fail!\n", addr)
-			fslog.Error("fsrpc: " + err.Error())
+			err = fmt.Errorf("dial http server(%s:%d) error, verify fail", host, port)
 		}
-	} else {
-		fslog.Errorf("fsrpc: get http server(%s) verify response fail: %s\n", addr, err.Error())
 	}
+	err = fmt.Errorf("dial http server(%s:%d) error, no respond from server", host, port)
 	conn.Close()
-	return &net.OpError{
-		Op:   "dial-http",
-		Net:  "tcp " + addr,
-		Addr: nil,
-		Err:  err,
-	}
+	return err
 }
 
 // 异步调用服务器方法
@@ -276,7 +215,7 @@ func (c *S_Client) Go(svrc string, arg interface{}, reply interface{}, chReq cha
 			fslog.Panic("fsrpc: S_ReqInfo channel is unbuffered!")
 		}
 	}
-	reqInfo.Done = chReq
+	reqInfo.ReqCh = chReq
 	c._send(reqInfo)
 	return reqInfo
 }
@@ -284,7 +223,7 @@ func (c *S_Client) Go(svrc string, arg interface{}, reply interface{}, chReq cha
 // 同步调用服务器方法
 // 注意：对于同一个 client，如果使用了 Call，就不能同时又使用 Go
 func (c *S_Client) Call(svrc string, arg interface{}, reply interface{}) error {
-	reqInfo := <-c.Go(svrc, arg, reply, make(chan *S_ReqInfo, 1)).Done
+	reqInfo := <-c.Go(svrc, arg, reply, make(chan *S_ReqInfo, 1)).ReqCh
 	return reqInfo.Error
 }
 
@@ -303,28 +242,28 @@ func (c *S_Client) AyncCall(svrc string, arg interface{}, cb interface{}, data i
 
 	// 回调参数个数
 	if cbt.NumIn() != 3 {
-		return fserror.StrErrorf("cb function must contains 3 arguments(error, type of pointer, any tpye), but not %d", cbt.NumIn())
+		return fmt.Errorf("cb function must contains 3 arguments(error, type of pointer, any tpye), but not %d", cbt.NumIn())
 	}
 
 	// 回调的第一个参数
 	if cbt.In(0) != fserror.RTypeStdError {
-		return fserror.StrErrorf("the first argument type of cb must be error, but not %q", cbt.In(0))
+		return fmt.Errorf("the first argument type of cb must be error, but not %q", cbt.In(0))
 	}
 
 	// 回调的第二个参数
 	replyType := cbt.In(1)
 	if replyType.Kind() != reflect.Ptr {
-		return fserror.StrErrorf("the second argument type of cb must be a pointer, but not %q", replyType)
+		return fmt.Errorf("the second argument type of cb must be a pointer, but not %q", replyType)
 	}
 
 	// 回调的第三个参数类型必须是 interface{}
 	if cbt.In(2).Kind() != reflect.Interface {
-		return fserror.StrErrorf("the third argument type of cb must be interface{}, but not %q", cbt.In(2))
+		return fmt.Errorf("the third argument type of cb must be interface{}, but not %q", cbt.In(2))
 	}
 
 	// 创建返回值
 	reply := reflect.New(replyType.Elem()).Interface()
-	reqInfo := <-c.Go(svrc, arg, reply, nil).Done
+	reqInfo := <-c.Go(svrc, arg, reply, nil).ReqCh
 
 	errv := fserror.NilErrorValue
 	if reqInfo.Error != nil {
@@ -341,12 +280,11 @@ func (c *S_Client) AyncCall(svrc string, arg interface{}, cb interface{}, data i
 // 关闭链接
 func (c *S_Client) Close() error {
 	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	if c.closing {
-		c.mutex.Unlock()
 		return _errShutdown
 	}
 	c.closing = true
-	c.mutex.Unlock()
 	return c.codec.Close()
 }
 

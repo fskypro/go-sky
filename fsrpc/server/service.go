@@ -8,13 +8,18 @@
 
 package server
 
-import "reflect"
-import "sync"
-import "strings"
-import "fsky.pro/fsutil"
-import "fsky.pro/fserror"
-import "fsky.pro/fslog"
-import . "fsky.pro/fsrpc"
+import (
+	"fmt"
+	"reflect"
+	"strings"
+	"sync"
+
+	"fsky.pro/fserror"
+	"fsky.pro/fslog"
+	"fsky.pro/fsutil"
+
+	. "fsky.pro/fsrpc"
+)
 
 // -----------------------------------------------------------------------------
 // 可调用方法信息
@@ -28,7 +33,7 @@ type s_MethodInfo struct {
 	method    reflect.Method // 请求方法
 	argType   reflect.Type   // 方法参数类型
 	replyType reflect.Type   // 回复客户端类型
-	numCalls  uint           // 客户端请求次数
+	numCalls  uint64         // 客户端请求次数
 }
 
 // -----------------------------------------------------------------------------
@@ -44,7 +49,7 @@ func (m *s_MethodInfo) _getArgValue(codec S_ServerCodec, req *S_ReqHeader) (argv
 		argv = reflect.New(m.argType) // 非指针类型
 	}
 	if err = codec.ReadRequestArg(req, argv.Interface()); err != nil {
-		err = fserror.StrErrorf("read request of %s.%s body fail: %s\n", req.ServiceName, req.MethodName, err.Error())
+		err = fmt.Errorf("read request of %s.%s body fail: %s\n", req.ServiceName, req.MethodName, err.Error())
 		return
 	}
 	if !argIsPtr { // 如果是非指针类型，则将获取到的值转换为非指针类型
@@ -83,7 +88,7 @@ func (svrc *s_Service) getArgValue(codec S_ServerCodec, req *S_ReqHeader) (argv 
 	methodInfo, ok := svrc.methods[req.MethodName]
 	// 请求的方法不存在，或者不是 RPC 方法（没有以 _rpc 结尾）
 	if !ok {
-		err = fserror.StrErrorf("service(%q) method %q is not a rpc method!", req.ServiceName, req.MethodName)
+		err = fmt.Errorf("service(%q) method %q is not a rpc method!", req.ServiceName, req.MethodName)
 		codec.ReadRequestArg(req, nil)
 		return
 	}
@@ -186,7 +191,7 @@ func _takeMethods(rcvrType reflect.Type) (methods map[string]*s_MethodInfo) {
 func newService(rcvr interface{}, sname string) (svr *s_Service, err error) {
 	// rcvr 必须是一个结构示例指针
 	if reflect.TypeOf(rcvr).Kind() != reflect.Ptr {
-		err = fserror.StrErrorf("service(%v) must be an instance of struct pointer", rcvr)
+		err = fmt.Errorf("service(%v) must be an instance of struct pointer", rcvr)
 		return
 	}
 
@@ -197,7 +202,7 @@ func newService(rcvr interface{}, sname string) (svr *s_Service, err error) {
 
 	// 处理器类型必须是 public
 	if !fsutil.IsExposed(svrName) {
-		err = fserror.StrErrorf("service %q must be public!", svrName)
+		err = fmt.Errorf("service %q must be public!", svrName)
 		return
 	}
 

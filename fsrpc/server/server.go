@@ -8,16 +8,18 @@
 
 package server
 
-import "fmt"
-import "io"
-import "net"
-import "sync"
-import "errors"
-import "reflect"
-import "net/http"
-import "fsky.pro/fslog"
-import "fsky.pro/fserror"
-import "fsky.pro/fsrpc"
+import (
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"reflect"
+	"sync"
+
+	"fsky.pro/fslog"
+	"fsky.pro/fsrpc"
+)
 
 // ---------------------------------------------------------------------------------------
 // S_Server
@@ -157,7 +159,7 @@ func (s *S_Server) _handleService(wg *sync.WaitGroup, sendMutex *sync.Mutex, cod
 	// 根据服务名称，加载服务对象
 	svrc, ok := s.services.Load(header.ServiceName)
 	if !ok {
-		err = fserror.StrErrorf("request service %q is not exists!", header.ServiceName)
+		err = fmt.Errorf("request service %q is not exists!", header.ServiceName)
 		codec.ReadRequestArg(header, nil)
 	} else {
 		// 获取调用服务的传入参数
@@ -225,7 +227,7 @@ func (s *S_Server) RegisterByName(rcvr interface{}, name string) (err error) {
 	}
 	_, loaded := s.services.LoadOrStore(service.name, service)
 	if loaded {
-		err = fserror.StrErrorf("fsrpc: %q has been registered!", service.name)
+		err = fmt.Errorf("fsrpc: %q has been registered!", service.name)
 		fslog.Errorf(err.Error())
 	}
 	return

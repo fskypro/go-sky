@@ -11,6 +11,7 @@ package fsdb
 import (
 	"database/sql"
 	"errors"
+
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -39,6 +40,10 @@ func (this *S_DBMgr) Close() {
 	if this.DBPtr != nil {
 		this.DBPtr.Close()
 	}
+}
+
+func (this *S_DBMgr) Opened() bool {
+	return this.DBPtr != nil
 }
 
 func (this *S_DBMgr) Ping() error {

@@ -481,6 +481,9 @@ type S_FmtOpts struct {
 //	prefix: 整个输出结构体的每一行的前缀
 //	ident: 缩进字符串
 func StreamStruct(w io.Writer, obj interface{}, opts *S_FmtOpts) {
+	if opts == nil {
+		opts = &S_FmtOpts{"    ", "    ", nil}
+	}
 	writer := _newWriter(w, opts)
 	writer.writeStringf(opts.Prefix)
 	writer.writeValue(reflect.ValueOf(obj), nil)

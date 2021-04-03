@@ -1,31 +1,29 @@
 /**
-* @file: util.go
-* @copyright: 2016 fantasysky
-* @author: fanky
-* @version: 1.0
-* @date: 2018-08-30
- */
+@copyright: fantasysky 2016
+@website: https://www.fsky.pro
+@brief: util
+@author: fanky
+@version: 1.0
+@date: 2021-04-02
+**/
 
-// 通用工具套件
 package fsutil
 
 import (
-	"reflect"
-	"unicode"
-	"unicode/utf8"
+	"bytes"
+	"encoding/gob"
+	"fmt"
 )
 
-// -------------------------------------------------------------------
-// IsExposed 判断指定名称是否为可导出名称（大写字母开头）
-func IsExposed(name string) bool {
-	first, _ := utf8.DecodeRuneInString(name)
-	return unicode.IsUpper(first)
-}
-
-// IsExposedOrBuiltinType 判断指定类型是否是可导出类型，或者是匿名类型
-func IsExposedOrBuiltinType(t reflect.Type) bool {
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
+// 深拷贝对象
+func DeepCopy(dst, src interface{}) error {
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(src); err != nil {
+		return fmt.Errorf("encode src instance error: %v", err)
 	}
-	return IsExposed(t.Name()) || t.PkgPath() == ""
+	reader := bytes.NewReader(buf.Bytes())
+	if err := gob.NewDecoder(reader).Decode(dst); err != nil {
+		return fmt.Errorf("decode memory buffer error: %v", err)
+	}
+	return nil
 }

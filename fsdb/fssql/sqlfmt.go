@@ -8,14 +8,18 @@
 
 package fssql
 
-import "fmt"
-import "strings"
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
 
 // FmtSelectPrepare 格式化一个 prepare sql 查询语句
 // 参数：
 //	tbName：表名
 //	colValuePtrs：数据库列名与传出值映射（注意：传出值，必须为指针）
 //	vm：prepare 查询值标识符，mysql 为 ?
+//		如果 vm == "?[]" 表示表示符带下标：?1, ?2, ?3, ?4...
 func FmtSelectPrepare(tbName string, colValuePtrs map[string]interface{}, where, vm string) (sqltx string, valuePtrs []interface{}) {
 	sqltx = fmt.Sprintf("select %%s from %s where %%s", tbName)
 	colNames := make([]string, 0)
@@ -33,6 +37,7 @@ func FmtSelectPrepare(tbName string, colValuePtrs map[string]interface{}, where,
 //	tbName：表名
 //	colValues：数据库列名与插入值映射
 //	vm：prepare 插入值表示符，mysql 为 ?
+//		如果 vm == "?[]" 表示表示符带下标：?1, ?2, ?3, ?4...
 // 返回值：
 //	values: 为插入列的值数组（按插入时的顺序传出）
 func FmtInsertPrepare(tbName string, colValues map[string]interface{}, vm string) (sqltx string, values []interface{}) {
@@ -40,10 +45,13 @@ func FmtInsertPrepare(tbName string, colValues map[string]interface{}, vm string
 	colNames := make([]string, 0)
 	values = make([]interface{}, 0)
 	qms := make([]string, 0)
+
+	idx := 1
 	for colName, value := range colValues {
 		colNames = append(colNames, colName)
 		values = append(values, value)
-		qms = append(qms, vm)
+		qms = append(qms, strings.ReplaceAll(vm, "[]", strconv.Itoa(idx)))
+		idx++
 	}
 	sqltx = fmt.Sprintf(sqltx, strings.Join(colNames, ","), strings.Join(qms, ","))
 	return
@@ -55,15 +63,20 @@ func FmtInsertPrepare(tbName string, colValues map[string]interface{}, vm string
 //	colValues：数据库列名与更新值映射
 //	where：条件语句
 //	vm：propare 插入值标识符，mysq 为 ?
+//		如果 vm == "?[]" 表示表示符带下标：?1, ?2, ?3, ?4...
 // 返回值：
 //	values: 为更新列的值数组（按更新时的顺序传出）
 func FmtUpdatePrepare(tbName string, colValues map[string]interface{}, where, vm string) (sqltx string, values []interface{}) {
 	sqltx = fmt.Sprintf("update %s set %%s where %%s", tbName)
 	sets := make([]string, 0)
 	values = make([]interface{}, 0)
+
+	idx := 1
 	for colName, value := range colValues {
-		sets = append(sets, fmt.Sprintf("%s=?", colName))
+		vmm := strings.ReplaceAll(vm, "[]", strconv.Itoa(idx))
+		sets = append(sets, fmt.Sprintf("%s=%s", vmm, colName))
 		values = append(values, value)
+		idx++
 	}
 	sqltx = fmt.Sprintf(sqltx, strings.Join(sets, ","), where)
 	return
