@@ -8,15 +8,17 @@
 
 package fslog
 
-import "fmt"
-import "log"
-import "io"
-import "sync"
-import "bytes"
-import "strings"
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"log"
+	"runtime/debug"
+	"strings"
+	"sync"
 
-import "runtime/debug"
-import "fsky.pro/fsenv"
+	"fsky.pro/fsenv"
+)
 
 // -----------------------------------------------------------------------------
 // Logger
@@ -70,15 +72,15 @@ type _logChannelInfo struct {
 
 // {log 频道标签: _logChannelInfo}
 var _logChannels = map[string]*_logChannelInfo{
-	"debug": &_logChannelInfo{"[Debug]", true}, // 调试频道
-	"info":  &_logChannelInfo{"[Info]", true},  // 信息提示频道
-	"warn":  &_logChannelInfo{"[Warn]", true},  // 警告频道
-	"error": &_logChannelInfo{"[Error]", true}, // 错误频道
-	"hack":  &_logChannelInfo{"[Hack]", true},  // 欺诈警告频道
-	"trace": &_logChannelInfo{"[Trace]", true}, // 调用链输出频道
+	"debug": &_logChannelInfo{"[DEBUG]", true}, // 调试频道
+	"info":  &_logChannelInfo{"[INFO]", true},  // 信息提示频道
+	"warn":  &_logChannelInfo{"[WARN]", true},  // 警告频道
+	"error": &_logChannelInfo{"[ERROR]", true}, // 错误频道
+	"hack":  &_logChannelInfo{"[HACK]", true},  // 欺诈警告频道
+	"trace": &_logChannelInfo{"[TRACE]", true}, // 调用链输出频道
 
-	"panic": &_logChannelInfo{"[Panic]", false}, // 因重大错误，终止应用频道
-	"fatal": &_logChannelInfo{"[Fatal]", false}, // 因重大错误，终止应用，并打印调用链的频道
+	"panic": &_logChannelInfo{"[PANIC]", false}, // 因重大错误，终止应用频道
+	"fatal": &_logChannelInfo{"[FATAL]", false}, // 因重大错误，终止应用，并打印调用链的频道
 }
 
 // -------------------------------------------------------------------

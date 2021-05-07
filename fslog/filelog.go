@@ -8,14 +8,17 @@
 
 package fslog
 
-import "os"
-import "path"
-import "time"
-import "fmt"
-import "strings"
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path"
+	"strings"
+	"time"
 
-import "fsky.pro/fsio"
-import "fsky.pro/fsenv"
+	"fsky.pro/fsenv"
+	"fsky.pro/fsio"
+)
 
 // -----------------------------------------------------------------------------
 // inners
@@ -36,12 +39,14 @@ func _getLogFilePath(froot, fprefix, fpostfix string) string {
 }
 
 // 新建一个 log 文件
-func _newLogFile(froot, fprefix, fpostfix string, utcPostfix bool) *os.File {
+func _newLogFile(froot, fprefix, fpostfix string, utcPostfix bool) (string, *os.File) {
 	logPath := _getLogFilePath(froot, fprefix, fpostfix)
 	exists := fsio.IsPathExists(logPath)
+
 	pFile, err := os.OpenFile(logPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660)
 	if err != nil {
-		Fatalf("create log file %p fail: %s%s", logPath, err.Error(), fsenv.Endline)
+		fmt.Printf("ERROR: create log file %q fail: %v%s", logPath, err, fsenv.Endline)
+		return "", os.Stdout
 	}
 	if exists {
 		now := time.Now()
@@ -54,7 +59,31 @@ func _newLogFile(froot, fprefix, fpostfix string, utcPostfix bool) *os.File {
 			fsenv.Endline)
 		pFile.WriteString(splitter)
 	}
-	return pFile
+	return logPath, pFile
+}
+
+// -----------------------------------------------------------------------------
+// new log command
+// ---------------------------------------------------------
+type s_NewLogCmd struct {
+	cmd string
+}
+
+func _newLogCmd(cmd string) *s_NewLogCmd {
+	return &s_NewLogCmd{cmd}
+}
+
+func (this *s_NewLogCmd) exec(logger *S_FileLogger, log string) {
+	if this.cmd == "" {
+		return
+	}
+	cmd := exec.Command(this.cmd, log)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		logger.Errorf("execute new log file command(%s) fail, error: %v.", this.cmd, err)
+	} else {
+		logger.Infof("execute new log file command(%s) success! output:%s\t%s", this.cmd, fsenv.Endline, out)
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -65,11 +94,13 @@ func _newLogFile(froot, fprefix, fpostfix string, utcPostfix bool) *os.File {
 type S_FileLogger struct {
 	*S_BaseLogger
 
-	utcPostfix bool   // 是否使用 UTC 时间作为日志文件名的日期后缀
-	froot      string // log 文件所在目录
-	fprefix    string // log 文件名前缀
-	fpostfix   string // log 文件名日期后缀
-	pFile      *os.File
+	utcPostfix bool         // 是否使用 UTC 时间作为日志文件名的日期后缀
+	froot      string       // log 文件所在目录
+	fprefix    string       // log 文件名前缀
+	fpostfix   string       // log 文件名日期后缀
+	logPath    string       // log 路径
+	pFile      *os.File     // log 输出
+	newLogCmd  *s_NewLogCmd // 新建 log 文件时，触发该命令
 }
 
 // 新建一个 FileLogger。
@@ -78,14 +109,16 @@ type S_FileLogger struct {
 //	utcPostfix：是否以 UTC 时间作为 log 文件后缀
 func NewFileLogger(froot string, fprefix string, utcPostfix bool) *S_FileLogger {
 	fpostfix := _getLogNamePostfix(utcPostfix) // 日期后缀
-	pFile := _newLogFile(froot, fprefix, fpostfix, utcPostfix)
+	logPath, w := _newLogFile(froot, fprefix, fpostfix, utcPostfix)
 	logger := &S_FileLogger{
-		S_BaseLogger: NewBaseLogger(pFile),
+		S_BaseLogger: NewBaseLogger(w),
 		utcPostfix:   utcPostfix,
 		froot:        froot,
 		fprefix:      fprefix,
 		fpostfix:     fpostfix,
-		pFile:        pFile,
+		logPath:      logPath,
+		pFile:        w,
+		newLogCmd:    _newLogCmd(""),
 	}
 	logger.onBeferPrint = logger._onBeferPrint
 	return logger
@@ -103,21 +136,47 @@ func (this *S_FileLogger) _onBeferPrint(string) {
 		return
 	}
 
-	pFile := _newLogFile(this.froot, this.fprefix, postfix, this.utcPostfix)
+	logPath, pFile := _newLogFile(this.froot, this.fprefix, postfix, this.utcPostfix)
 	newLogger := NewBaseLogger(pFile)
+
 	this.Lock()
-	defer this.Unlock()
+	if this.logPath != "" {
+		this.pFile.Close() // 关闭旧的文件
+	}
 	this.pFile.Close()
 	this.fpostfix = postfix
 	this.pFile = pFile
 	this.logger = newLogger.logger
+	this.logPath = logPath
+	this.Unlock()
+
+	if logPath != "" {
+		this.newLogCmd.exec(this, logPath)
+	}
 }
 
 // -------------------------------------------------------------------
 // public
 // -------------------------------------------------------------------
 func (this *S_FileLogger) Close() {
-	this.pFile.Close()
+	this.Lock()
+	defer this.Unlock()
+	if this.logPath != "" {
+		this.pFile.Close()
+	}
+	this.logPath = ""
+	this.pFile = os.Stdout
+	this.logger = NewBaseLogger(this.pFile).logger
+}
+
+// 新建 log 文件时将会执行该命令，并把新建的 log 文件作为命令行参数传出
+func (this *S_FileLogger) SetNewLogCmd(cmd string) {
+	this.Lock()
+	this.newLogCmd = _newLogCmd(cmd)
+	this.Unlock()
+	if this.logPath != "" {
+		this.newLogCmd.exec(this, this.logPath)
+	}
 }
 
 // --------------------------------------------------------
