@@ -9,6 +9,7 @@
 package fslog
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -66,19 +67,23 @@ func _newLogFile(froot, fprefix, fpostfix string, utcPostfix bool) (string, *os.
 // new log command
 // ---------------------------------------------------------
 type s_NewLogCmd struct {
-	cmd string
+	cmd  string
+	args []string
 }
 
-func _newLogCmd(cmd string) *s_NewLogCmd {
-	return &s_NewLogCmd{cmd}
+func _newLogCmd(cmd string, args ...string) *s_NewLogCmd {
+	return &s_NewLogCmd{cmd, args}
 }
 
 func (this *s_NewLogCmd) exec(logger *S_FileLogger, log string) {
 	if this.cmd == "" {
 		return
 	}
-	cmd := exec.Command(this.cmd, log)
+	args := []string{log}
+	args = append(args, this.args...)
+	cmd := exec.Command(this.cmd, args...)
 	out, err := cmd.CombinedOutput()
+	out = bytes.ReplaceAll(bytes.TrimSpace(out), []byte(fsenv.Endline), []byte("\n\t"))
 	if err != nil {
 		logger.Errorf("execute new log file command(%s) fail, error: %v.", this.cmd, err)
 	} else {
@@ -170,9 +175,9 @@ func (this *S_FileLogger) Close() {
 }
 
 // 新建 log 文件时将会执行该命令，并把新建的 log 文件作为命令行参数传出
-func (this *S_FileLogger) SetNewLogCmd(cmd string) {
+func (this *S_FileLogger) SetNewLogCmd(cmd string, args ...string) {
 	this.Lock()
-	this.newLogCmd = _newLogCmd(cmd)
+	this.newLogCmd = _newLogCmd(cmd, args...)
 	this.Unlock()
 	if this.logPath != "" {
 		this.newLogCmd.exec(this, this.logPath)

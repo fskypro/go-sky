@@ -1,7 +1,10 @@
 package fslog
 
-import "testing"
-import "fsky.pro/fstest"
+import (
+	"testing"
+
+	"fsky.pro/fstest"
+)
 
 func TestDebug(t *testing.T) {
 	fstest.PrintTestBegin("Debug")
@@ -23,7 +26,7 @@ func TestDebug(t *testing.T) {
 	Debug("test debug 666666!")
 
 	// fslogger
-	fl := NewFileLogger("./", "test", false)
+	fl := NewFileLogger("./logs", "test", false)
 	fl.Debug("debug", "aaaaaaa")
 	fstest.PrintTestEnd()
 }
@@ -42,8 +45,9 @@ func TestInfo(t *testing.T) {
 	Info("test info 444444!")
 
 	// fslogger
-	fl := NewFileLogger("./", "test", false)
+	fl := NewFileLogger("./logs", "test", false)
 	fl.Info("info", "aaaaaaa")
+	fl.SetNewLogCmd("./linklog.sh", "arg")
 	fstest.PrintTestEnd()
 }
 
@@ -61,7 +65,7 @@ func TestError(t *testing.T) {
 	Error("test error 444444!")
 
 	// fslogger
-	fl := NewFileLogger("./", "test", false)
+	fl := NewFileLogger("./logs", "test", false)
 	fl.Error("error", "aaaaaaa")
 
 	fstest.PrintTestEnd()
@@ -81,7 +85,7 @@ func TestHack(t *testing.T) {
 	Hack("test hack 444444!")
 
 	// fslogger
-	fl := NewFileLogger("./", "test", false)
+	fl := NewFileLogger("./logs", "test", false)
 	fl.Hack("hack", "aaaaaaa")
 
 	fstest.PrintTestEnd()
@@ -100,7 +104,7 @@ func TestTrace(t *testing.T) {
 	Trace("test trace 444444!")
 
 	// fslogger
-	fl := NewFileLogger("./", "test", false)
+	fl := NewFileLogger("./logs", "test", false)
 	// 替换全局 fslogger
 	SetLogger(fl)
 	Trace("trace", "aaaaaaa") // 直接用 fslog.Trace 即可
