@@ -40,14 +40,14 @@ func _getLogFilePath(froot, fprefix, fpostfix string) string {
 }
 
 // 新建一个 log 文件
-func _newLogFile(froot, fprefix, fpostfix string, utcPostfix bool) (string, *os.File) {
+func _newLogFile(froot, fprefix, fpostfix string, utcPostfix bool) (string, *os.File, error) {
 	logPath := _getLogFilePath(froot, fprefix, fpostfix)
 	exists := fsio.IsPathExists(logPath)
 
 	pFile, err := os.OpenFile(logPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660)
 	if err != nil {
-		fmt.Printf("ERROR: create log file %q fail: %v%s", logPath, err, fsenv.Endline)
-		return "", os.Stdout
+		err = fmt.Errorf("create log file %q fail: %v", logPath, err)
+		return "", os.Stdout, err
 	}
 	if exists {
 		now := time.Now()
@@ -60,7 +60,7 @@ func _newLogFile(froot, fprefix, fpostfix string, utcPostfix bool) (string, *os.
 			fsenv.Endline)
 		pFile.WriteString(splitter)
 	}
-	return logPath, pFile
+	return logPath, pFile, nil
 }
 
 // -----------------------------------------------------------------------------
@@ -99,22 +99,24 @@ func (this *s_NewLogCmd) exec(logger *S_FileLogger, log string) {
 type S_FileLogger struct {
 	*S_BaseLogger
 
-	utcPostfix bool         // 是否使用 UTC 时间作为日志文件名的日期后缀
-	froot      string       // log 文件所在目录
-	fprefix    string       // log 文件名前缀
-	fpostfix   string       // log 文件名日期后缀
-	logPath    string       // log 路径
-	pFile      *os.File     // log 输出
-	newLogCmd  *s_NewLogCmd // 新建 log 文件时，触发该命令
+	utcPostfix bool                // 是否使用 UTC 时间作为日志文件名的日期后缀
+	froot      string              // log 文件所在目录
+	fprefix    string              // log 文件名前缀
+	fpostfix   string              // log 文件名日期后缀
+	logPath    string              // log 路径
+	pFile      *os.File            // log 输出
+	newLogCmd  *s_NewLogCmd        // 新建 log 文件时，触发该命令
+	newLogCB   func(string, error) // 新建 log 文件通知回调
 }
 
 // 新建一个 FileLogger。
 //	froot：log 文件所在目录
 //	fprefix：log 文件名的前缀
 //	utcPostfix：是否以 UTC 时间作为 log 文件后缀
-func NewFileLogger(froot string, fprefix string, utcPostfix bool) *S_FileLogger {
+//	如果创建 log 文件失败，则返回的第二个错误参数，将会提示失败原因，但 log 仍然可以用，只是 log 默认输出到标准输出
+func NewFileLogger(froot string, fprefix string, utcPostfix bool) (*S_FileLogger, error) {
 	fpostfix := _getLogNamePostfix(utcPostfix) // 日期后缀
-	logPath, w := _newLogFile(froot, fprefix, fpostfix, utcPostfix)
+	logPath, w, err := _newLogFile(froot, fprefix, fpostfix, utcPostfix)
 	logger := &S_FileLogger{
 		S_BaseLogger: NewBaseLogger(w),
 		utcPostfix:   utcPostfix,
@@ -126,7 +128,7 @@ func NewFileLogger(froot string, fprefix string, utcPostfix bool) *S_FileLogger 
 		newLogCmd:    _newLogCmd(""),
 	}
 	logger.onBeferPrint = logger._onBeferPrint
-	return logger
+	return logger, err
 }
 
 // -------------------------------------------------------------------
@@ -141,7 +143,7 @@ func (this *S_FileLogger) _onBeferPrint(string) {
 		return
 	}
 
-	logPath, pFile := _newLogFile(this.froot, this.fprefix, postfix, this.utcPostfix)
+	logPath, pFile, err := _newLogFile(this.froot, this.fprefix, postfix, this.utcPostfix)
 	newLogger := NewBaseLogger(pFile)
 
 	this.Lock()
@@ -157,6 +159,9 @@ func (this *S_FileLogger) _onBeferPrint(string) {
 
 	if logPath != "" {
 		this.newLogCmd.exec(this, logPath)
+	}
+	if this.newLogCB != nil {
+		this.newLogCB(logPath, err)
 	}
 }
 
@@ -182,6 +187,13 @@ func (this *S_FileLogger) SetNewLogCmd(cmd string, args ...string) {
 	if this.logPath != "" {
 		this.newLogCmd.exec(this, this.logPath)
 	}
+}
+
+// 设置新建 log 文件回调
+// cb 第一个参数表示新建文件的路径
+// cb 第二个参数表示创建文件失败错误，如果创建成功，则为 nil
+func (this *S_FileLogger) SetNewLogCallback(cb func(string, error)) {
+	this.newLogCB = cb
 }
 
 // --------------------------------------------------------
