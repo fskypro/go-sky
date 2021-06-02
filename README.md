@@ -12,6 +12,6 @@ write your go.mod like below:</br>
 &nbsp;&nbsp;&nbsp;&nbsp; replace fsky.pro/fslog => github.com/fskypro/gosky/fslog latest <br>
 &nbsp;&nbsp;&nbsp;&nbsp; replace fsky.pro/fsmysql => github.com/fskypro/gosky/fsdb/fsmysql latest <br>
 and import packages like this in your code:</br>
-&nbsp;&nbsp;&nbsp;&nbsp; import "fsky.pro/fsenv"
-&nbsp;&nbsp;&nbsp;&nbsp; import "fsky.pro/fslog"
-&nbsp;&nbsp;&nbsp;&nbsp; import "fsky.pro/fsmysql"
+&nbsp;&nbsp;&nbsp;&nbsp; import "fsky.pro/fsenv"  <br>
+&nbsp;&nbsp;&nbsp;&nbsp; import "fsky.pro/fslog"  <br>
+&nbsp;&nbsp;&nbsp;&nbsp; import "fsky.pro/fsmysql"  <br>
