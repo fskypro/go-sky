@@ -1,12 +1,15 @@
 package fsio
 
-import "fmt"
-import "testing"
-import "fsky.pro/fstest"
+import (
+	"fmt"
+	"testing"
+
+	"fsky.pro/fstest"
+)
 
 func TestCopyFile(t *testing.T) {
 	fstest.PrintTestBegin("CopyFile")
-	src, dst := "./util.go", "util2.go"
+	src, dst := "./util.go", "util2.txt"
 	err := CopyFile(src, dst)
 	if err != nil {
 		fmt.Println(err.Error())

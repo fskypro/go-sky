@@ -116,3 +116,16 @@ func SetFieldValue(obj interface{}, fname string, fv interface{}) error {
 	}
 	return nil
 }
+
+// 判断参数 a 能否转换为 b 的类型
+func CanConvertToTypeOf(a interface{}, b interface{}) bool {
+	if a == nil {
+		return b == nil
+	}
+	if b == nil {
+		return false
+	}
+	ta := reflect.TypeOf(a)
+	tb := reflect.TypeOf(b)
+	return ta.ConvertibleTo(tb) && tb.ConvertibleTo(ta)
+}
