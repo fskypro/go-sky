@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"fsky.pro/fsreflect/test"
+	"fsky.pro/fsstr/fmtex"
 	"fsky.pro/fstest"
 )
 
@@ -56,6 +57,39 @@ func TestSetFieldValue(t *testing.T) {
 	fmt.Println("obj.dd = ", obj.GetDD())
 	fmt.Println("obj.pdd = ", obj.GetPDD())
 	fmt.Println("obj.nildd = ", *obj.GetNilDD())
+
+	fstest.PrintTestEnd()
+}
+
+func TestCopyStructObject(t *testing.T) {
+	fstest.PrintTestBegin("CopyStructObject")
+
+	type A struct {
+		V string
+	}
+
+	type S struct {
+		V1 string
+		v2 int
+		v3 *A
+	}
+
+	s := &S{
+		V1: "xxx",
+		v2: 100,
+		v3: &A{"yyy"},
+	}
+	var ss *S = new(S)
+
+	err := CopyStructObject(ss, s)
+	if err != nil {
+		fmt.Println("copy struct error:", err.Error())
+		return
+	}
+	fmt.Println(fmtex.SprintStruct(ss, nil))
+
+	s.v3.V = "zzz"
+	fmt.Println(fmtex.SprintStruct(ss, nil))
 
 	fstest.PrintTestEnd()
 }

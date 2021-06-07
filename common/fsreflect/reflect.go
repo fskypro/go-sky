@@ -18,6 +18,8 @@
 package fsreflect
 
 import (
+	"errors"
+	"fmt"
 	"reflect"
 	"unsafe"
 )
@@ -52,12 +54,12 @@ func GetFieldValue(obj interface{}, fname string) (fv interface{}, err error) {
 		if field.IsNil() {
 			return
 		}
-		up := field.Elem().UnsafeAddr()
-		vv := reflect.NewAt(field.Elem().Type(), unsafe.Pointer(up))
+		up := unsafe.Pointer(field.Elem().UnsafeAddr())
+		vv := reflect.NewAt(field.Elem().Type(), up)
 		fv = vv.Interface()
 	} else {
-		up := field.UnsafeAddr()
-		vv := reflect.NewAt(field.Type(), unsafe.Pointer(up))
+		up := unsafe.Pointer(field.UnsafeAddr())
+		vv := reflect.NewAt(field.Type(), up)
 		fv = vv.Elem().Interface()
 	}
 
@@ -109,14 +111,75 @@ func SetFieldValue(obj interface{}, fname string, fv interface{}) error {
 		if field.CanSet() {
 			field.Set(vv)
 		} else {
-			up := unsafe.Pointer(field.UnsafeAddr())
-			pv := reflect.NewAt(field.Type(), up) // 创建一个新的指针，指向原来 field 的位置
+			up := unsafe.Pointer(field.UnsafeAddr()) // 获取 field 的指针（注意：不能把 field.UnsafeAddr() 存放到临时变量，否则可能会被 GC）
+			pv := reflect.NewAt(field.Type(), up)    // 创建一个新的指针，指向原来 field 的位置
 			pv.Elem().Set(vv)
 		}
 	}
 	return nil
 }
 
+// -------------------------------------------------------------------
+// 浅拷贝结构对象
+func CopyStructObject(dst interface{}, src interface{}) error {
+	vdst := reflect.ValueOf(dst)
+	if vdst.IsNil() {
+		return errors.New("dst argmuent must be a unnil pointer of struct.")
+	}
+
+	// 目标参数必须为指针
+	if vdst.Type().Kind() != reflect.Ptr {
+		return errors.New("dst argument must be a pointer of struct object.")
+	}
+	vdst = vdst.Elem()
+
+	// 如果源参数为空指针，则将目标参数设置为 nil
+	if src == nil {
+		if vdst.CanSet() {
+			vdst.Set(reflect.ValueOf(nil))
+		} else {
+			return errors.New("dst argument is not accessable.")
+		}
+		return nil
+	}
+
+	// 源参数为指针的话，则先转为值
+	vsrc := reflect.ValueOf(src)
+	if vsrc.Type().Kind() == reflect.Ptr {
+		vsrc = vsrc.Elem()
+	}
+	tsrc := vsrc.Type()
+
+	// 限制类型必须为结构体
+	if tsrc.Kind() != reflect.Struct {
+		return fmt.Errorf("type of src argument must be a pointer of struct or struct.")
+	}
+
+	// 判断目标和源是否同类型
+	if tsrc != vdst.Type() {
+		return fmt.Errorf("type of dst argument must be the same as the type of src argument(%v). but not %v", vsrc.Type(), vdst.Type())
+	}
+
+	// 将 src 所有成员复制给 dst
+	for i := 0; i < tsrc.NumField(); i++ {
+		vfSrc := vsrc.Field(i)
+		vfDst := vdst.Field(i)
+		if vfDst.CanSet() {
+			vfDst.Set(vfSrc)
+		} else {
+			upSrc := unsafe.Pointer(vfSrc.UnsafeAddr())
+			pfSrc := reflect.NewAt(vfSrc.Type(), upSrc)
+			v := pfSrc.Elem().Interface()
+
+			upDst := unsafe.Pointer(vfDst.UnsafeAddr())
+			pfDst := reflect.NewAt(vfDst.Type(), upDst)
+			pfDst.Elem().Set(reflect.ValueOf(v))
+		}
+	}
+	return nil
+}
+
+// -------------------------------------------------------------------
 // 判断参数 a 能否转换为 b 的类型
 func CanConvertToTypeOf(a interface{}, b interface{}) bool {
 	if a == nil {

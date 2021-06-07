@@ -31,11 +31,73 @@ func TestFmtInsertPrepare(t *testing.T) {
 
 	cols := map[string]interface{}{
 		"aaa": "aaa",
+		"bbb": 10.1,
+		"ccc": 1000,
+	}
+
+	sqltx, values := FmtInsertPrepare("table", cols)
+	fmt.Println(sqltx)
+	for i, v := range values {
+		fmt.Printf("values[%d]=%v\n", i, v)
+	}
+
+	fstest.PrintTestEnd()
+}
+
+func TestFmtInsertsPrepare(t *testing.T) {
+	fstest.PrintTestBegin("FmtInsertsPrepare")
+
+	vs1 := map[string]interface{}{
+		"aaa": "aaa",
+		"bbb": 1.1,
+		"ccc": 1000,
+	}
+	vs2 := map[string]interface{}{
+		//"aaa": "xxxx",
+		"bbb": 2.1,
+		"ccc": 2000,
+	}
+
+	sqltx, values := FmtInsertPrepare("table", vs1, vs2)
+	fmt.Println(sqltx)
+	for i, v := range values {
+		fmt.Printf("values[%d]=%v\n", i, v)
+	}
+
+	fstest.PrintTestEnd()
+}
+
+func TestFmtInsertIgnorePrepare(t *testing.T) {
+	fstest.PrintTestBegin("FmtInsertPrepare")
+
+	cols := map[string]interface{}{
+		"aaa": "aaa",
 		"bbb": []byte("bbb"),
 		"ccc": 1000,
 	}
 
-	sqltx, _ := FmtInsertPrepare("table", cols)
+	sqltx, _ := FmtInsertIgnorePrepare("table", cols)
+	fmt.Println(sqltx)
+
+	fstest.PrintTestEnd()
+}
+
+func TestFmtInsertUpdatePrepare(t *testing.T) {
+	fstest.PrintTestBegin("FmtInsertPrepare")
+
+	inserts := map[string]interface{}{
+		"aaa": "aaa",
+		"bbb": []byte("bbb"),
+		"ccc": 1000,
+	}
+
+	updates := map[string]interface{}{
+		"aaa": "bbb",
+		"bbb": []byte("ccc"),
+		"ccc": 2000,
+	}
+
+	sqltx, _ := FmtInsertUpdatePrepare("table", inserts, updates)
 	fmt.Println(sqltx)
 
 	fstest.PrintTestEnd()
@@ -48,10 +110,11 @@ func TestFmtUpdatePrepare(t *testing.T) {
 		"aaa": "aaa",
 		"bbb": []byte("bbb"),
 		"ccc": 1000,
-		"ddd": Unquote{"`ddd`+300"},
+		"ddd": "`ddd`+300",
 	}
 
-	sqltx, _ := FmtUpdatePrepare("table", cols, "where `aaa`='aaa'")
+	sqltx, values := FmtUpdatePrepare("table", cols, "`aaa`=?", "abc")
+	fmt.Println(values)
 	fmt.Println(sqltx)
 
 	fstest.PrintTestEnd()
