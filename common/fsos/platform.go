@@ -6,7 +6,7 @@
 @date: 2019-06-25
 **/
 
-package fsenv
+package fsos
 
 import "unsafe"
 

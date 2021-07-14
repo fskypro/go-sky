@@ -8,28 +8,81 @@
 
 package fsnet
 
-import "fmt"
-import "net"
-import "strconv"
-import "strings"
-import "math/big"
+import (
+	"fmt"
+	"math/big"
+	"math/rand"
+	"net"
+	"strconv"
+	"strings"
+	"time"
+)
 
-// -------------------------------------------------------------------
-// GetFreePort 获取一个空闲的端口号
-// -------------------------------------------------------------------
-func GetFreePort() (port int, err error) {
+// GetFreeTCPPort 获取一个空闲的端口号，找不到则返回 0
+func GetFreeTCPPort() int {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return 0, err
+		return 0
 	}
 	defer ln.Close()
 
 	addr := ln.Addr().String()
 	_, strPort, err := net.SplitHostPort(addr)
 	if err != nil {
-		return 0, err
+		return 0
 	}
-	return strconv.Atoi(strPort)
+	p, err := strconv.Atoi(strPort)
+	if err != nil {
+		return 0
+	}
+	return p
+}
+
+// RandomFreeTCPPort
+// 在指定范围内随机一个空闲端口号(包括 max)
+func RandomFreeTCPPort(min, max int) int {
+	if max < min {
+		min, max = max, min
+	}
+	if min > 65535 {
+		return 0
+	}
+	if max <= 0 {
+		return 0
+	}
+	if max > 65535 {
+		max = 65535
+	}
+	if min <= 0 {
+		min = 1
+	}
+
+	seed := rand.New(rand.NewSource(time.Now().UnixNano()))
+	var halfChoice func(int, int) int
+	halfChoice = func(start, end int) int {
+		if start > end {
+			return 0
+		}
+		p := start + seed.Intn(end-start+1)
+		if ln, e := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(p)); e == nil {
+			ln.Close()
+			return p
+		}
+		// 从左半部分取
+		if seed.Intn(2) == 0 {
+			if port := halfChoice(start, p-1); port > 0 {
+				return port
+			}
+			// 从右半部分取
+			return halfChoice(p+1, max)
+		} else {
+			if port := halfChoice(p+1, max); port > 0 {
+				return port
+			}
+			return halfChoice(start, p-1)
+		}
+	}
+	return halfChoice(min, max)
 }
 
 // -------------------------------------------------------------------

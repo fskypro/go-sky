@@ -1,184 +1,50 @@
 /**
 @copyright: fantasysky 2016
 @website: https://www.fsky.pro
-@brief: reflect utils
+@brief: reflect util
 @author: fanky
 @version: 1.0
-@date: 2021-02-19
+@date: 2021-06-21
 **/
-
-// ------------------------------------------------------------
-// GetFieldValue（获取结构体的私有字段值）
-// SetFieldValue（设置结构体的私有字段值）
-//
-// 获取包的全局变量值、调用包的私有函数、调用结构体的私有函数，不需要
-// 反射，可以用 //go:linkname 指令
-// ------------------------------------------------------------
 
 package fsreflect
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
-	"unsafe"
+
+	"fsky.pro/fsstrconv"
 )
 
-// 获取结构体字段值，包括私有字段
-func GetFieldValue(obj interface{}, fname string) (fv interface{}, err error) {
-	v := reflect.ValueOf(obj)
-	if v.Type().Kind() == reflect.Ptr {
-		v = v.Elem()
+// -------------------------------------------------------------------
+// private
+// -------------------------------------------------------------------
+// 将 v 强制转换为类型 t 的值，尽可能的转换，如：
+//   string("123") -> int(123)
+//   int(123) -> "123"
+//   int64(456) -> int32(456)
+func hardConvert(v interface{}, t reflect.Type) (reflect.Value, bool) {
+	if v == nil {
+		return reflect.Zero(t), true
 	}
-
-	var field reflect.Value
-	for i := 0; i < v.NumField(); i++ {
-		if v.Type().Field(i).Name == fname {
-			field = v.Field(i)
-			break
+	tv := reflect.TypeOf(v)
+	if tv == t {
+		return reflect.ValueOf(v), true
+	} else if t.Kind() == reflect.String {
+		return reflect.ValueOf(fmt.Sprintf("%v", v)), true
+	} else if tv.Kind() == reflect.String {
+		if cv, err := fsstrconv.Str2TypeOf(v.(string), reflect.New(t).Elem().Interface()); err == nil {
+			return reflect.ValueOf(cv), true
 		}
+		return reflect.Zero(t), false
+	} else if tv.ConvertibleTo(t) {
+		return reflect.ValueOf(v).Convert(t), true
 	}
-
-	if !field.IsValid() {
-		err = newFieldError(v.Type().Name(), fname)
-		return
-	}
-
-	if field.CanInterface() {
-		fv = field.Interface()
-		return
-	}
-
-	// 成员为指针类型
-	if field.Type().Kind() == reflect.Ptr {
-		if field.IsNil() {
-			return
-		}
-		up := unsafe.Pointer(field.Elem().UnsafeAddr())
-		vv := reflect.NewAt(field.Elem().Type(), up)
-		fv = vv.Interface()
-	} else {
-		up := unsafe.Pointer(field.UnsafeAddr())
-		vv := reflect.NewAt(field.Type(), up)
-		fv = vv.Elem().Interface()
-	}
-
-	return
-}
-
-// 设置结构体字段值，包括私有字段
-func SetFieldValue(obj interface{}, fname string, fv interface{}) error {
-	v := reflect.ValueOf(obj)
-	if v.Type().Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-
-	var field reflect.Value
-	for i := 0; i < v.NumField(); i++ {
-		if v.Type().Field(i).Name == fname {
-			field = v.Field(i)
-			break
-		}
-	}
-
-	// 域名不存在
-	if !field.IsValid() {
-		return newFieldError(v.Type().Name(), fname)
-	}
-
-	vv := reflect.ValueOf(fv)
-	// 指定的域类型为指针类型
-	if field.Type().Kind() == reflect.Ptr {
-		// 传入值为 nil
-		if fv == nil {
-			vv = reflect.Zero(field.Type()) // 创建 nil 值
-		} else if vv.Type() != field.Type() { // 设置了不同类型的值
-			return newValueError(v.Type().Name(), fname, field.Type().Name(), vv.Type().Name())
-		}
-		if field.CanSet() {
-			field.Set(vv)
-		} else {
-			upp := unsafe.Pointer(field.UnsafeAddr()) // 指针的指针
-			ppv := reflect.NewAt(field.Type(), upp)   // 创建指针的指针对象（该指针的指针，指向 field 原来的位置）
-			ppv.Elem().Set(vv)                        // 将指针的指针，指向的位置（即 field 的内存位置）修改为新的值
-		}
-	} else {
-		if fv == nil {
-			return newValueError(v.Type().Name(), fname, field.Type().Name(), "nil")
-		} else if field.Type() != vv.Type() {
-			return newValueError(v.Type().Name(), fname, field.Type().Name(), vv.Type().Name())
-		}
-		if field.CanSet() {
-			field.Set(vv)
-		} else {
-			up := unsafe.Pointer(field.UnsafeAddr()) // 获取 field 的指针（注意：不能把 field.UnsafeAddr() 存放到临时变量，否则可能会被 GC）
-			pv := reflect.NewAt(field.Type(), up)    // 创建一个新的指针，指向原来 field 的位置
-			pv.Elem().Set(vv)
-		}
-	}
-	return nil
+	return reflect.Zero(t), false
 }
 
 // -------------------------------------------------------------------
-// 浅拷贝结构对象
-func CopyStructObject(dst interface{}, src interface{}) error {
-	vdst := reflect.ValueOf(dst)
-	if vdst.IsNil() {
-		return errors.New("dst argmuent must be a unnil pointer of struct.")
-	}
-
-	// 目标参数必须为指针
-	if vdst.Type().Kind() != reflect.Ptr {
-		return errors.New("dst argument must be a pointer of struct object.")
-	}
-	vdst = vdst.Elem()
-
-	// 如果源参数为空指针，则将目标参数设置为 nil
-	if src == nil {
-		if vdst.CanSet() {
-			vdst.Set(reflect.ValueOf(nil))
-		} else {
-			return errors.New("dst argument is not accessable.")
-		}
-		return nil
-	}
-
-	// 源参数为指针的话，则先转为值
-	vsrc := reflect.ValueOf(src)
-	if vsrc.Type().Kind() == reflect.Ptr {
-		vsrc = vsrc.Elem()
-	}
-	tsrc := vsrc.Type()
-
-	// 限制类型必须为结构体
-	if tsrc.Kind() != reflect.Struct {
-		return fmt.Errorf("type of src argument must be a pointer of struct or struct.")
-	}
-
-	// 判断目标和源是否同类型
-	if tsrc != vdst.Type() {
-		return fmt.Errorf("type of dst argument must be the same as the type of src argument(%v). but not %v", vsrc.Type(), vdst.Type())
-	}
-
-	// 将 src 所有成员复制给 dst
-	for i := 0; i < tsrc.NumField(); i++ {
-		vfSrc := vsrc.Field(i)
-		vfDst := vdst.Field(i)
-		if vfDst.CanSet() {
-			vfDst.Set(vfSrc)
-		} else {
-			upSrc := unsafe.Pointer(vfSrc.UnsafeAddr())
-			pfSrc := reflect.NewAt(vfSrc.Type(), upSrc)
-			v := pfSrc.Elem().Interface()
-
-			upDst := unsafe.Pointer(vfDst.UnsafeAddr())
-			pfDst := reflect.NewAt(vfDst.Type(), upDst)
-			pfDst.Elem().Set(reflect.ValueOf(v))
-		}
-	}
-	return nil
-}
-
+// public
 // -------------------------------------------------------------------
 // 判断参数 a 能否转换为 b 的类型
 func CanConvertToTypeOf(a interface{}, b interface{}) bool {

@@ -13,6 +13,29 @@ import (
 	"fmt"
 )
 
+// -------------------------------------------------------------------
+// ListIter
+// -------------------------------------------------------------------
+type S_ListIter struct {
+	index int
+	owner *S_List
+}
+
+func newListIter(owner *S_List) *S_ListIter {
+	return &S_ListIter{-1, owner}
+}
+
+func (this *S_ListIter) Next() (I_Value, bool) {
+	this.index++
+	if this.index < len(this.owner.elems) {
+		return this.owner.elems[this.index], true
+	}
+	return nil, false
+}
+
+// -------------------------------------------------------------------
+// List
+// -------------------------------------------------------------------
 type S_List struct {
 	s_Base
 	elems []I_Value
@@ -58,6 +81,11 @@ func (this *S_List) Get(index int) I_Value {
 // 元素个数
 func (this *S_List) Count() int {
 	return len(this.elems)
+}
+
+// 获取迭代器
+func (this *S_List) Iter() *S_ListIter {
+	return newListIter(this)
 }
 
 // 遍历

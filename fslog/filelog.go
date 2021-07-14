@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"fsky.pro/fsenv"
+	"fsky.pro/fsos"
 	"fsky.pro/fsio"
 )
 
@@ -57,7 +57,7 @@ func _newLogFile(froot, fprefix, fpostfix string, utcPostfix bool) (string, *os.
 		splitter := fmt.Sprintf("%[3]s%[1]s %[2]s %[1]s%[3]s",
 			strings.Repeat("-", 50),
 			now.Format("15:04:05"),
-			fsenv.Endline)
+			fsos.Endline)
 		pFile.WriteString(splitter)
 	}
 	return logPath, pFile, nil
@@ -83,11 +83,11 @@ func (this *s_NewLogCmd) exec(logger *S_FileLogger, log string) {
 	args = append(args, this.args...)
 	cmd := exec.Command(this.cmd, args...)
 	out, err := cmd.CombinedOutput()
-	out = bytes.ReplaceAll(bytes.TrimSpace(out), []byte(fsenv.Endline), []byte("\n\t"))
+	out = bytes.ReplaceAll(bytes.TrimSpace(out), []byte(fsos.Endline), []byte("\n\t"))
 	if err != nil {
 		logger.Errorf("execute new log file command(%s) fail, error: %v.", this.cmd, err)
 	} else {
-		logger.Infof("execute new log file command(%s) success! output:%s\t%s", this.cmd, fsenv.Endline, out)
+		logger.Infof("execute new log file command(%s) success! output:%s\t%s", this.cmd, fsos.Endline, out)
 	}
 }
 

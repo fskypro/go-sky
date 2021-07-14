@@ -16,7 +16,7 @@ import (
 	"reflect"
 	"strings"
 
-	"fsky.pro/fsenv"
+	"fsky.pro/fsos"
 )
 
 // -------------------------------------------------------------------
@@ -91,7 +91,7 @@ func (this *s_Writer) writeIdents() {
 }
 
 func (this *s_Writer) writeEndline() {
-	this.w.WriteString(fsenv.Endline)
+	this.w.WriteString(fsos.Endline)
 }
 
 // ---------------------------------------------------------
@@ -484,9 +484,28 @@ func StreamStruct(w io.Writer, obj interface{}, opts *S_FmtOpts) {
 	if opts == nil {
 		opts = &S_FmtOpts{"    ", "    ", nil}
 	}
+	tobj := reflect.TypeOf(obj)
+	if tobj == nil {
+		w.Write([]byte("nil"))
+		return
+	}
+
+	vobj := reflect.ValueOf(obj)
+	if tobj.Kind() == reflect.Ptr {
+		if !vobj.IsValid() || vobj.IsNil() {
+			w.Write([]byte(fmt.Sprintf("(%v)(nil)", tobj)))
+			return
+		}
+		if tobj.Elem().Kind() != reflect.Struct {
+			opts.Prefix = ""
+		}
+	} else if tobj.Kind() != reflect.Struct {
+		opts.Prefix = ""
+	}
+
 	writer := _newWriter(w, opts)
 	writer.writeStringf(opts.Prefix)
-	writer.writeValue(reflect.ValueOf(obj), nil)
+	writer.writeValue(vobj, nil)
 	writer.flush()
 }
 

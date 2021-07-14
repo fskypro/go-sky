@@ -12,8 +12,6 @@ package fsmysql
 import (
 	"database/sql"
 	"errors"
-
-	"fsky.pro/fsreflect"
 )
 
 // ----------------------------------------------------------------------------
@@ -63,15 +61,15 @@ func (this *S_QueryResult) Next() bool {
 	return this.rows.Next()
 }
 
-func (this *S_QueryResult) Scan(obj interface{}) error {
+func (this *S_QueryResult) Scan() (interface{}, error) {
 	if this.rows == nil {
-		return this.err
+		return nil, this.err
 	}
 	err := this.rows.Scan(this.valuePtrs...)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return fsreflect.CopyStructObject(obj, this.obj)
+	return this.obj, nil
 }
 
 func (this *S_QueryResult) Close() error {

@@ -40,14 +40,14 @@ func TestSetFieldValue(t *testing.T) {
 	Pcc := "cccc"
 	pcc := "dddd"
 	nildd := &test.DD{3000}
-	SetFieldValue(obj, "Aa", "aaaa")
-	SetFieldValue(obj, "bb", "bbbb")
-	SetFieldValue(obj, "Pcc", &Pcc)
-	SetFieldValue(obj, "pcc", &pcc)
-	SetFieldValue(obj, "DD", test.DD{1000})
-	SetFieldValue(obj, "dd", test.DD{2000})
-	SetFieldValue(obj, "pdd", nil)
-	SetFieldValue(obj, "nildd", nildd)
+	SetFieldValue(obj, "Aa", "aaaa", true)
+	SetFieldValue(obj, "bb", "bbbb", true)
+	SetFieldValue(obj, "Pcc", &Pcc, true)
+	SetFieldValue(obj, "pcc", &pcc, true)
+	SetFieldValue(obj, "DD", test.DD{1000}, true)
+	SetFieldValue(obj, "dd", test.DD{2000}, true)
+	SetFieldValue(obj, "pdd", nil, true)
+	SetFieldValue(obj, "nildd", nildd, true)
 
 	fmt.Println("obj.Aa = ", obj.Aa)
 	fmt.Println("obj.bb = ", obj.GetBB())

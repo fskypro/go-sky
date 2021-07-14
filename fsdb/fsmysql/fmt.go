@@ -15,6 +15,29 @@ import (
 	"strings"
 )
 
+// FmtCreateTableSQL 格式化一个创建表格的 SQL 语句
+// 参数：
+//	tbName：表格名称
+//	cols：[[列名1, 类型和默认值、修饰等], [列名2, 类型和默认值、修饰等], ...}
+//	makeups：指定特殊键，譬如主键、外键、唯一键等
+//	tbAttr：表格属性，如数据引擎、字符集等
+// 返回：
+//	返回创建表格的 sql 语句，不带分号结尾
+func FmtCreateTableSQL(tbName string, cols [][2]string, makeups []string, tbAttr string) string {
+	sqltx := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`(%%s) %s", tbName, tbAttr)
+	items := make([]string, 0)
+	for _, col := range cols {
+		items = append(items, fmt.Sprintf("`%s` %s", col[0], col[1]))
+	}
+	if makeups != nil {
+		for _, extra := range makeups {
+			items = append(items, extra)
+		}
+	}
+	return fmt.Sprintf(sqltx, strings.Join(items, ","))
+}
+
+// -------------------------------------------------------------------
 // FmtSelectPrepare 格式化一个 select prepare sql 查询语句
 // 参数：
 //	colValuePtrs：数据库列名与传出值映射（注意：传出值，必须为指针）
@@ -55,7 +78,7 @@ func FmtSelectPrepare(colValuePtrs map[string]interface{}, from string, tail str
 //	1、插入的列以参数 colValues 的 key 为准
 //	2、如果某个 colValuess 中不存在某些 key，则使用 colValues 中对应 key 值所属类型的默认值
 func FmtInsertPrepare(tbName string, colValues map[string]interface{}, colValuess ...map[string]interface{}) (sqltx string, values []interface{}) {
-	sqltx = fmt.Sprintf("INSERT INTO `%s`(%%s) VALUES%%s", tbName)
+	sqltx = fmt.Sprintf("INSERT INTO `%s`(`%%s`) VALUES%%s", tbName)
 	colNames := make([]string, 0)
 	values = make([]interface{}, 0)
 	items := make([]string, 0, len(colValuess)+1)
@@ -79,7 +102,7 @@ func FmtInsertPrepare(tbName string, colValues map[string]interface{}, colValues
 		}
 		items = append(items, "("+strings.Join(qms, ",")+")")
 	}
-	sqltx = fmt.Sprintf(sqltx, strings.Join(colNames, ","), strings.Join(items, ","))
+	sqltx = fmt.Sprintf(sqltx, strings.Join(colNames, "`,`"), strings.Join(items, ","))
 	return
 }
 

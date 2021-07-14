@@ -17,7 +17,7 @@ import (
 	"strings"
 	"sync"
 
-	"fsky.pro/fsenv"
+	"fsky.pro/fsos"
 )
 
 // -----------------------------------------------------------------------------
@@ -156,7 +156,7 @@ func (this *S_BaseLogger) _isOppened(ch string) bool {
 	}
 	info, ok := _logChannels[ch]
 	if !ok {
-		this._errorf("fslog: can't indicate channel %q is open or not, it is not exists.%s", ch, fsenv.Endline)
+		this._errorf("fslog: can't indicate channel %q is open or not, it is not exists.%s", ch, fsos.Endline)
 		return false
 	}
 	return !info.shieldable
@@ -168,9 +168,9 @@ func (this *S_BaseLogger) _printStack(depth int) {
 
 	// 打印调用链
 	start := _startDepth + depth + 5
-	lines := bytes.Split(debug.Stack(), []byte(fsenv.Endline))
+	lines := bytes.Split(debug.Stack(), []byte(fsos.Endline))
 	for ln := start; ln < len(lines); ln = ln + 1 {
-		this.logger.Printf("\t%s%s", lines[ln], fsenv.Endline)
+		this.logger.Printf("\t%s%s", lines[ln], fsos.Endline)
 	}
 
 	this.logger.SetFlags(_fmtFlags)
@@ -196,7 +196,7 @@ func (this *S_BaseLogger) print(depth int, prefix string, vs []interface{}) stri
 }
 
 func (this *S_BaseLogger) printf(depth int, prefix string, format string, vs []interface{}) string {
-	msg := fmt.Sprintf(format+fsenv.Endline, vs...)
+	msg := fmt.Sprintf(format+fsos.Endline, vs...)
 	if this._isOppened(prefix) {
 		this.onBeferPrint(msg)
 		this.Lock()
@@ -260,11 +260,11 @@ func (this *S_BaseLogger) SetUnshields(chs ...string) bool {
 		ch = strings.ToLower(ch)
 		info, ok := _logChannels[ch]
 		if !ok {
-			this._errorf("fslog: can't set open log channels, channel %q is not exists.%s", ch, fsenv.Endline)
+			this._errorf("fslog: can't set open log channels, channel %q is not exists.%s", ch, fsos.Endline)
 			return false
 		}
 		if !info.shieldable {
-			this._errorf("fslog: can't set open log channels, channel %q can't be shielded!%s", ch, fsenv.Endline)
+			this._errorf("fslog: can't set open log channels, channel %q can't be shielded!%s", ch, fsos.Endline)
 			return false
 		} else {
 			tmp = append(tmp, ch)
@@ -286,7 +286,7 @@ func (this *S_BaseLogger) SetUnshields(chs ...string) bool {
 func (this *S_BaseLogger) Unshield(ch string) bool {
 	ch = strings.ToLower(ch)
 	if _, ok := _logChannels[ch]; !ok {
-		this._errorf("fslog: can't open channel %q, it is not exists!%s", ch, fsenv.Endline)
+		this._errorf("fslog: can't open channel %q, it is not exists!%s", ch, fsos.Endline)
 		return false
 	}
 	this.Lock()
@@ -303,11 +303,11 @@ func (this *S_BaseLogger) Shield(ch string) bool {
 	ch = strings.ToLower(ch)
 	info, ok := _logChannels[ch]
 	if !ok {
-		this._errorf("fslog: can't shied channel %q, it is not exists!%s", ch, fsenv.Endline)
+		this._errorf("fslog: can't shied channel %q, it is not exists!%s", ch, fsos.Endline)
 		return false
 	}
 	if !info.shieldable {
-		this._errorf("can't shied channel %q, it can't be shielded!%s", ch, fsenv.Endline)
+		this._errorf("can't shied channel %q, it can't be shielded!%s", ch, fsos.Endline)
 		return false
 	}
 	this.Lock()

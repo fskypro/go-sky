@@ -110,12 +110,12 @@ func Hackf(format string, vs ...interface{}) {
 
 func Panic(vs ...interface{}) {
 	_logger.printChain(1, "panic", vs)
-	os.Exit(2)
+	panic("")
 }
 
 func Panicf(format string, vs ...interface{}) {
 	_logger.printChainf(1, "panic", format, vs)
-	os.Exit(2)
+	panic("")
 }
 
 func Fatal(vs ...interface{}) {

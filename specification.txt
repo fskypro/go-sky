@@ -9,8 +9,8 @@
     包 public 函数指针类型开头：F_
     包 private 函数指针类型开头：f_
 
-    包 public 自定义类型开头：T_
-    包 private 自定义类型开头：t_
+    包 public 基础类型别名开头：T_
+    包 private 基础类型别名开头：t_
 
     指针类型结尾：Ptr
     通道类型结尾：Ch

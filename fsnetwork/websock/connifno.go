@@ -18,7 +18,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 import (
-	"fsky.pro/fsenv"
+	"fsky.pro/fsos"
 	"fsky.pro/fslog"
 	"fsky.pro/fsnet/servers/base"
 )
@@ -70,7 +70,7 @@ func (this *S_WSConnInfo) _cycRecive(wg *sync.WaitGroup) {
 		// 接收客户端消息
 		_, msg, err := this.connPtr.ReadMessage()
 		if err == nil {
-			fslog.Debugf("S_WSConnInfo: receive message from client(%v):%s\t%s", this, fsenv.Endline, msg)
+			fslog.Debugf("S_WSConnInfo: receive message from client(%v):%s\t%s", this, fsos.Endline, msg)
 			this.ownerPtr.onReceiveMessage(this, msg)
 		} else {
 			switch err.(type) {

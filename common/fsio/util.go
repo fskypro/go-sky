@@ -14,7 +14,7 @@ import "errors"
 import "os"
 import "io/ioutil"
 import "path/filepath"
-import "fsky.pro/fsenv"
+import "fsky.pro/fsos"
 
 // CopyFile 复制文件
 func CopyFile(src, dst string) error {
@@ -79,7 +79,7 @@ func CopyDir(src, dst string, allowDstHasFile bool, out *os.File) error {
 		}
 		dstFile := filepath.Join(dst, srcFile[srcPathLen:])
 		if out != nil {
-			out.Write([]byte(fmt.Sprintf("%s->%s%s", srcFile, dstFile, fsenv.Endline)))
+			out.Write([]byte(fmt.Sprintf("%s->%s%s", srcFile, dstFile, fsos.Endline)))
 		}
 		return CopyFile(srcFile, dstFile)
 	})

@@ -1,4 +1,4 @@
-package fsenv
+package fsos
 
 import "runtime"
 

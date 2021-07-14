@@ -2,6 +2,7 @@ package fmtex
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"unsafe"
 
@@ -27,6 +28,7 @@ type AA struct {
 }
 
 type Config struct {
+	sync.RWMutex
 	AA
 
 	_bool      bool

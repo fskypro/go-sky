@@ -13,7 +13,7 @@ import (
 	"io"
 	"strings"
 
-	"fsky.pro/fsenv"
+	"fsky.pro/fsos"
 	"fsky.pro/fsstr/convert"
 )
 
@@ -39,7 +39,7 @@ type S_FmtInfo struct {
 
 func NewFmtInfo() *S_FmtInfo {
 	return &S_FmtInfo{
-		Newline:      fsenv.Endline,
+		Newline:      fsos.Endline,
 		Indent:       "    ",
 		IndentLayers: 0,
 		IndentList:   false,

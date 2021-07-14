@@ -10,7 +10,7 @@ package fserror
 
 import (
 	"fmt"
-	"fsky.pro/fsenv"
+	"fsky.pro/fsos"
 )
 
 // -------------------------------------------------------------------
@@ -74,11 +74,11 @@ func (this *S_Error) Error() string {
 			break
 		}
 		if err, ok := werr.(I_Error); ok {
-			msg = msg + fsenv.Endline + space + err.LatestError()
+			msg = msg + fsos.Endline + space + err.LatestError()
 			werr = err.Unwrap()
 			space = space + "  "
 		} else {
-			msg = msg + fsenv.Endline + space + werr.Error()
+			msg = msg + fsos.Endline + space + werr.Error()
 			break
 		}
 	}
