@@ -8,85 +8,103 @@
 
 package fstime
 
-import "time"
-import "context"
+import (
+	"time"
 
-// F_TimerFunc 定时器回调函数
-type F_TimerFunc func(time.Time, interface{})
+	"golang.org/x/net/context"
+)
 
-// F_TimerEndFunc 定时器结束回调函数
-type F_TimerEndFunc func(interface{})
-
-// Timer 定时器
-// 注意：
-//	1、当调用定时器的 Stop 后，还可以通过 Start 再次启动
-//	2、定时器回调是在另一个协程里，所以对于共享数据，要加锁
-//	3、并不能保证最后一个间隔回调一定会比 EndFunc 更早地调用。而事实上，EndFunc 通常会比最后一个间隔回调更早调用
-type Timer struct {
-	ctx      context.Context
-	ctxFunc  context.CancelFunc
-	interval time.Duration
-	cb       F_TimerFunc
-
-	nowExecs  int            // 当前执行次数
-	ExecTimes int            // 最多执行次数
-	EndTime   time.Time      // 指定结束时间
-	EndFunc   F_TimerEndFunc // timer 结束时回调函数
+// -------------------------------------------------------------------
+// Timer
+// -------------------------------------------------------------------
+type S_Timer struct {
+	timer  *time.Timer
+	ctx    context.Context
+	cancel context.CancelFunc
+	C      chan bool
 }
 
-func NewTimer(interval time.Duration, cb F_TimerFunc) *Timer {
-	return &Timer{
-		interval: interval,
-		cb:       cb,
-
-		nowExecs:  0,
-		ExecTimes: 0,
-		EndTime:   time.Time{},
-		EndFunc:   nil,
+func NewTimer(d time.Duration) *S_Timer {
+	ctx, cancel := context.WithCancel(context.Background())
+	this := &S_Timer{
+		timer:  time.NewTimer(d),
+		ctx:    ctx,
+		cancel: cancel,
+		C:      make(chan bool),
 	}
-}
+	go func() {
+		defer func() { this.timer.Stop() }()
+		select {
+		case <-this.timer.C:
+			this.C <- true
+		case <-this.ctx.Done():
 
-func (this *Timer) Start(start time.Duration, data interface{}) {
-	this.ctx, this.ctxFunc = context.WithCancel(context.Background())
-	this.nowExecs = 0
-
-	ch := time.After(this.interval)
-	var handle = func() {
-	L:
-		for {
-			select {
-			case <-this.ctx.Done():
-				break L
-			case now := <-ch:
-				if this.cb != nil {
-					go this.cb(now, data)
-				}
-				if this.ExecTimes > 0 {
-					this.nowExecs += 1
-					if this.nowExecs >= this.ExecTimes {
-						break L
-					} else {
-						ch = time.After(this.interval)
-					}
-				} else if !this.EndTime.IsZero() && now.After(this.EndTime) {
-					break L
-				} else {
-					ch = time.After(this.interval)
-				}
-			}
+			this.C <- false
 		}
-		if this.EndFunc != nil {
-			go this.EndFunc(data)
-		}
-	}
-	go handle()
-	ch = time.After(start)
+	}()
+	return this
 }
 
-func (this *Timer) Stop() {
-	// 如果还没 Star 就调用 Stop，则 this.ctxFunc 为 nil
-	if this.ctxFunc != nil {
-		this.ctxFunc()
-		this.ctxFunc = nil
+// 取消定时器
+func (this *S_Timer) Cancel() {
+	this.cancel()
+}
+
+// 重新设置延时
+// 注意：如果一个 timer 已经结束，则再对其 Reset 是无效的
+func (this *S_Timer) Reset(d time.Duration) bool {
+	return this.timer.Reset(d)
+}
+
+// -------------------------------------------------------------------
+// TimerFunc
+// -------------------------------------------------------------------
+// timer 回调函数
+// 第一个参数为 true 表示 timer 正常结束，若为 false，则表示 timer 被取消
+type F_TimerFunc func(bool, ...interface{})
+
+type S_TimerFunc struct {
+	timer   *time.Timer
+	ctx     context.Context
+	cancel  context.CancelFunc
+	fun     F_TimerFunc
+	funArgs []interface{}
+}
+
+func NewTimerFunc(d time.Duration, fun F_TimerFunc, funArgs ...interface{}) *S_TimerFunc {
+	ctx, cancel := context.WithCancel(context.Background())
+	this := &S_TimerFunc{
+		timer:   time.NewTimer(d),
+		ctx:     ctx,
+		cancel:  cancel,
+		fun:     fun,
+		funArgs: funArgs,
 	}
+	go func() {
+		defer func() { this.timer.Stop() }()
+		select {
+		case <-this.timer.C:
+			this.onTimerEnd(true)
+		case <-this.ctx.Done():
+			this.onTimerEnd(false)
+		}
+	}()
+	return this
+}
+
+func (this *S_TimerFunc) onTimerEnd(arrived bool) {
+	if this.fun != nil {
+		this.fun(arrived, this.funArgs...)
+	}
+}
+
+// 取消定时器
+func (this *S_TimerFunc) Cancel() {
+	this.cancel()
+}
+
+// 重新设置延时
+// 注意：如果一个 timer 已经结束，则再对其 Reset 是无效的
+func (this *S_TimerFunc) Reset(d time.Duration) bool {
+	return this.timer.Reset(d)
 }

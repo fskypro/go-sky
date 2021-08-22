@@ -378,45 +378,28 @@ func SetDeepFieldValue(obj interface{}, fpath string, value interface{}) error {
 }
 
 // -------------------------------------------------------------------
-// 浅拷贝结构对象
-func CopyStructObject(dst interface{}, src interface{}) error {
-	vdst := reflect.ValueOf(dst)
-	if vdst.IsNil() {
-		return errors.New("dst argmuent must be a unnil pointer of struct.")
+// 浅拷贝结构对象，src 必须为结构体指针
+func CopyStructObject(src interface{}) (dst interface{}, err error) {
+	tsrc := reflect.TypeOf(src)
+	if src == nil || tsrc == nil {
+		err = errors.New("src object is not allow to be a nil value")
+		return
 	}
-
-	// 目标参数必须为指针
-	if vdst.Type().Kind() != reflect.Ptr {
-		return errors.New("dst argument must be a pointer of struct object.")
+	if tsrc.Kind() != reflect.Ptr {
+		err = errors.New("src object must be an object pointer")
+		return
 	}
-	vdst = vdst.Elem()
-
-	// 如果源参数为空指针，则将目标参数设置为 nil
-	if src == nil {
-		if vdst.CanSet() {
-			vdst.Set(reflect.ValueOf(nil))
-		} else {
-			return errors.New("dst argument is not accessable.")
-		}
-		return nil
-	}
-
-	// 源参数为指针的话，则先转为值
-	vsrc := reflect.ValueOf(src)
-	if vsrc.Type().Kind() == reflect.Ptr {
-		vsrc = vsrc.Elem()
-	}
-	tsrc := vsrc.Type()
-
+	tsrc = tsrc.Elem()
 	// 限制类型必须为结构体
 	if tsrc.Kind() != reflect.Struct {
-		return fmt.Errorf("type of src argument must be a pointer of struct or struct.")
+		err = fmt.Errorf("type of src object must be a pointer of struct")
+		return
 	}
 
-	// 判断目标和源是否同类型
-	if tsrc != vdst.Type() {
-		return fmt.Errorf("type of dst argument must be the same as the type of src argument(%v). but not %v", vsrc.Type(), vdst.Type())
-	}
+	vsrc := reflect.ValueOf(src).Elem()
+	vdst := reflect.New(tsrc)
+	dst = vdst.Interface()
+	vdst = vdst.Elem()
 
 	// 将 src 所有成员复制给 dst
 	for i := 0; i < tsrc.NumField(); i++ {
@@ -434,5 +417,5 @@ func CopyStructObject(dst interface{}, src interface{}) error {
 			pfDst.Elem().Set(reflect.ValueOf(v))
 		}
 	}
-	return nil
+	return
 }

@@ -32,6 +32,17 @@ func Days2Seconds(days int) int64 {
 	return int64(days) * OneDaySeconds
 }
 
+// 秒数转换为天数+时间
+func Seconds2DaysTime(snds int) (d, h, m, s int) {
+	d = snds / 86400
+	snds = snds - d*86400
+	h = snds / 3600
+	snds = snds - h*3600
+	m = snds / 60
+	s = snds - m*60
+	return
+}
+
 // ---------------------------------------------------------
 // 起始日期相关
 // ---------------------------------------------------------

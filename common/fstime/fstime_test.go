@@ -1,9 +1,12 @@
 package fstime
 
-import "fmt"
-import "time"
-import "testing"
-import "fsky.pro/fstest"
+import (
+	"fmt"
+	"testing"
+	"time"
+
+	"fsky.pro/fstest"
+)
 
 func TestDawn(t *testing.T) {
 	fstest.PrintTestBegin("Dawn")
@@ -15,11 +18,15 @@ func TestDawn(t *testing.T) {
 
 func TestWeekStart(t *testing.T) {
 	fstest.PrintTestBegin("WeekStart")
+	defer fstest.PrintTestEnd()
+
 	fmt.Println("WeekStart(time.Now()) of WeekStartMonday: ", WeekStart(time.Now()))
 
 	CWeekStart = WeekStartSunday
 	fmt.Println("WeekStart(time.Now()) of WeekStartSunday: ", WeekStart(time.Now()))
 
 	fmt.Println("WeekStart(time.UTC()) of WeekStartSunday: ", WeekStart(time.Now().UTC()))
-	fstest.PrintTestEnd()
+
+	d, h, m, s := Seconds2DaysTime(3600*24 + 100)
+	fmt.Printf("%d天%d小时%d分钟%d秒\n", d, h, m, s)
 }

@@ -41,3 +41,22 @@ func TestDeepFieldValue(t *testing.T) {
 		fmt.Println("deep set struct field value success, new value =", u.Map.list[0][0].count)
 	}
 }
+
+func TestCopyObject(t *testing.T) {
+	fstest.PrintTestBegin("CopyStructObject")
+	defer fstest.PrintTestEnd()
+
+	type Object struct {
+		xxx int
+		yyy string
+		zzz float32
+	}
+
+	src := &Object{10, "abcd", 23.3}
+	dst, err := CopyStructObject(src)
+	if err != nil {
+		fmt.Println("copy object fail:", err.Error())
+		return
+	}
+	fmt.Printf("copy object success, dst = %v\n", dst)
+}

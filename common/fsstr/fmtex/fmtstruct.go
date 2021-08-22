@@ -15,9 +15,41 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"unsafe"
 
 	"fsky.pro/fsos"
 )
+
+// 获取自定义显示字符串
+func _getViewString(v reflect.Value) (ok bool, str string) {
+	m := v.MethodByName("String")
+	if !m.IsValid() {
+		return
+	}
+	tm := m.Type()
+	if tm.NumIn() != 0 || tm.NumOut() != 1 {
+		return
+	}
+	if tm.Out(0).Kind() != reflect.String {
+		return
+	}
+	// v.CanSet() 为 false 时，String 方法将不可被调用
+	if v.CanSet() {
+		outs := m.Call([]reflect.Value{})
+		str = outs[0].Interface().(string)
+		ok = true
+		return
+	}
+	if v.CanAddr() {
+		pv := reflect.NewAt(v.Type(), unsafe.Pointer(v.UnsafeAddr()))
+		m = pv.Elem().MethodByName("String")
+		outs := m.Call([]reflect.Value{})
+		str = outs[0].Interface().(string)
+		ok = true
+		return
+	}
+	return
+}
 
 // -------------------------------------------------------------------
 // temp writer
@@ -95,13 +127,20 @@ func (this *s_Writer) writeEndline() {
 }
 
 // ---------------------------------------------------------
-func (this *s_Writer) writeValue(v reflect.Value, tag *reflect.StructTag) {
+func (this *s_Writer) writeValue(v reflect.Value, isTop bool) {
+	if !isTop {
+		if ok, str := _getViewString(v); ok {
+			this.writeStringf(str)
+			return
+		}
+	}
+
 	if v.Type().Kind() != reflect.Ptr {
 		printer, ok := _printers[v.Type().Kind()]
 		if ok {
-			printer(this, v, tag)
+			printer(this, v)
 		} else {
-			_printOther(this, v, tag)
+			_printOther(this, v)
 		}
 		return
 	}
@@ -115,9 +154,9 @@ func (this *s_Writer) writeValue(v reflect.Value, tag *reflect.StructTag) {
 	elem := v.Elem()
 	pprinter, ok := _pprinters[elem.Type().Kind()]
 	if ok {
-		pprinter(this, elem, tag)
+		pprinter(this, elem)
 	} else {
-		_printPOther(this, elem, tag)
+		_printPOther(this, elem)
 	}
 }
 
@@ -126,8 +165,7 @@ func (this *s_Writer) writeValue(v reflect.Value, tag *reflect.StructTag) {
 // -------------------------------------------------------------------
 
 // 数组/切片
-// 如果 tag 的 fmtex 为 false 的话，则不展开
-func _printArray(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+func _printArray(w *s_Writer, v reflect.Value) {
 	isArray := v.Type().Kind() == reflect.Array
 	ecount := v.Len()
 	fcount := w.getFmtCount()
@@ -138,7 +176,7 @@ func _printArray(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 		return
 	}
 
-	// tag 指示不显示任何元素
+	// fcount 指示不显示任何元素
 	if fcount == 0 {
 		if isArray {
 			w.writeStringf("%v{...}", v.Type())
@@ -183,14 +221,14 @@ func _printArray(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	// 写入第一个元素
 	w.incLayer() // 增加嵌套数
 	w.writeIdents()
-	w.writeValue(e, nil)
+	w.writeValue(e, false)
 
 	// 写入其他元素
 	for i := 1; i < fcount; i++ {
 		w.writeByte(',')
 		w.writeEndline()
 		w.writeIdents()
-		w.writeValue(v.Index(i), nil)
+		w.writeValue(v.Index(i), false)
 	}
 
 	// 如果没显示完，则打印省略号
@@ -212,14 +250,14 @@ func _printArray(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	}
 }
 
-func _printPArray(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+func _printPArray(w *s_Writer, v reflect.Value) {
 	w.writeByte('&')
-	_printArray(w, v, tag)
+	_printArray(w, v)
 }
 
 // -----------------------------------------------
 // 映射
-func _printMap(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+func _printMap(w *s_Writer, v reflect.Value) {
 	ecount := v.Len()
 	fcount := w.getFmtCount()
 	iter := v.MapRange()
@@ -230,7 +268,7 @@ func _printMap(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 		return
 	}
 
-	// tag 指示不显示任何元素
+	// fcount 指示不显示任何元素
 	if fcount == 0 {
 		w.writeStringf("%v{...}(len=%d)", v.Type(), v.Len())
 		return
@@ -267,7 +305,7 @@ func _printMap(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	w.incLayer()    // 增加嵌套数
 	w.writeIdents() // 第一个元素的缩进
 	w.writeStringf("%#v: ", iter.Key())
-	w.writeValue(iter.Value(), nil)
+	w.writeValue(iter.Value(), false)
 	iter.Next()
 
 	// 写入其他元素
@@ -276,7 +314,7 @@ func _printMap(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 		w.writeEndline()
 		w.writeIdents()
 		w.writeStringf("%#v: ", iter.Key())
-		w.writeValue(iter.Value(), nil)
+		w.writeValue(iter.Value(), false)
 		fcount -= 1
 		iter.Next()
 	}
@@ -300,14 +338,14 @@ func _printMap(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 	}
 }
 
-func _printPMap(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+func _printPMap(w *s_Writer, v reflect.Value) {
 	w.writeByte('&')
-	_printMap(w, v, tag)
+	_printMap(w, v)
 }
 
 // -----------------------------------------------
 // 结构体
-func _printStruct(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+func _printStruct(w *s_Writer, v reflect.Value) {
 	if v.NumField() == 0 {
 		w.writeStringf("%#v", v)
 		return
@@ -323,9 +361,8 @@ func _printStruct(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 		w.writeEndline()
 		w.writeIdents()
 		w.writeStringf("%s: ", name)
-		ftag := t.Field(i).Tag
 		w.enterPath(name)
-		w.writeValue(v.Field(i), &ftag)
+		w.writeValue(v.Field(i), false)
 		w.leavePath()
 		w.writeByte(',')
 	}
@@ -337,52 +374,52 @@ func _printStruct(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
 }
 
 // 结构体指针
-func _printPStruct(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+func _printPStruct(w *s_Writer, v reflect.Value) {
 	w.writeByte('&')
-	_printStruct(w, v, tag)
+	_printStruct(w, v)
 }
 
 // ------------------------------------------------
 // 有符号整型
-func _printNumber(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+func _printNumber(w *s_Writer, v reflect.Value) {
 	w.writeStringf("%v(%#v)", v.Type(), v)
 }
 
 // 有符号指针类型
-func _printPNumber(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+func _printPNumber(w *s_Writer, v reflect.Value) {
 	w.writeStringf("&%v(%#v)", v.Type(), v)
 }
 
 // ------------------------------------------------
 // 无符号整型
-func _printUNumber(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+func _printUNumber(w *s_Writer, v reflect.Value) {
 	w.writeStringf("%v(%v=%#v)", v.Type(), v, v)
 }
 
 // 无符号指针类型
-func _printPUNumber(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+func _printPUNumber(w *s_Writer, v reflect.Value) {
 	w.writeStringf("&%v(%v=%#v)", v.Type(), v, v)
 }
 
 // ------------------------------------------------
 // 复数
-func _printComplex(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+func _printComplex(w *s_Writer, v reflect.Value) {
 	w.writeStringf("%v%v", v.Type(), v)
 }
 
 // 复数指针
-func _printPComplex(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+func _printPComplex(w *s_Writer, v reflect.Value) {
 	w.writeStringf("&%v%v", v.Type(), v)
 }
 
 // ------------------------------------------------
 // 其他类型
-func _printOther(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+func _printOther(w *s_Writer, v reflect.Value) {
 	w.writeStringf("%#v", v)
 }
 
 // 其他类型的指针类型
-func _printPOther(w *s_Writer, v reflect.Value, tag *reflect.StructTag) {
+func _printPOther(w *s_Writer, v reflect.Value) {
 	w.writeStringf("&%v(%#v)", v.Type(), v)
 }
 
@@ -396,12 +433,12 @@ func _isBaseType(t reflect.Type) bool {
 	return ok
 }
 
-var _printers map[reflect.Kind]func(*s_Writer, reflect.Value, *reflect.StructTag)  // 类型打印方法
-var _pprinters map[reflect.Kind]func(*s_Writer, reflect.Value, *reflect.StructTag) // 指针类型方法
-var _baseTypes map[reflect.Kind]interface{}                                        // 基础类型，这些类型如果为 array、slice、map 的成员，则分列成员时，不换行
+var _printers map[reflect.Kind]func(*s_Writer, reflect.Value)  // 类型打印方法
+var _pprinters map[reflect.Kind]func(*s_Writer, reflect.Value) // 指针类型方法
+var _baseTypes map[reflect.Kind]interface{}                    // 基础类型，这些类型如果为 array、slice、map 的成员，则分列成员时，不换行
 
 func init() {
-	_printers = map[reflect.Kind]func(*s_Writer, reflect.Value, *reflect.StructTag){
+	_printers = map[reflect.Kind]func(*s_Writer, reflect.Value){
 		reflect.Array:      _printArray,
 		reflect.Slice:      _printArray,
 		reflect.Map:        _printMap,
@@ -421,7 +458,7 @@ func init() {
 		reflect.Complex64:  _printComplex,
 		reflect.Complex128: _printComplex,
 	}
-	_pprinters = map[reflect.Kind]func(*s_Writer, reflect.Value, *reflect.StructTag){
+	_pprinters = map[reflect.Kind]func(*s_Writer, reflect.Value){
 		reflect.Array:      _printPArray,
 		reflect.Slice:      _printPArray,
 		reflect.Map:        _printPMap,
@@ -505,7 +542,7 @@ func StreamStruct(w io.Writer, obj interface{}, opts *S_FmtOpts) {
 
 	writer := _newWriter(w, opts)
 	writer.writeStringf(opts.Prefix)
-	writer.writeValue(vobj, nil)
+	writer.writeValue(vobj, true)
 	writer.flush()
 }
 
