@@ -26,9 +26,9 @@ import (
 // }
 // 或：
 // type S_MysqlTable struct {
-//		col1 int       `db:"col_1"`           // 对应数据库中的列为：col_1
+//		col1 int       `db:"col_1"`              // 对应数据库中的列为：col_1
 //		col2 float32                             // 不定义 mysql tag，则在数据库表在的列名与成员名称一致，即：col2
-//		col3 string    `db:"-"`               // mysql 的 tag 为减号 “-” 的话，则表示该成员不映射为数据库表中的任何列
+//		col3 string    `db:"-"`                  // mysql 的 tag 为减号 “-” 的话，则表示该成员不映射为数据库表中的任何列
 // }
 // 即：tag 为 “mysql” 或 “db” 都可以，如果 “mysql” 和 “db” 两个 tag 同时存在，优先考虑 “mysql”
 // ----------------------------------------------------------------------------
@@ -139,8 +139,11 @@ func (this *S_DB) CreateObjectTable(tbName string, obj interface{}, makeups []st
 //		v3 float32 `mysql:"col3"`
 //	}
 //	aa := new(AA)
-//	_, err := QueryObject(aa, "v2,v3", "table", "where v1=?", aa.v1)	// 只查询 v1 和 v2
-//	_, err := QueryObject(aa, "*", "table", "where v1=?", aa.v1)		// 查询全部列
+//	_, err := QueryObject(aa, "v2,v3", "table", "where v1=?", aa.v1)		// 只查询 v1 和 v2
+//	_, err := QueryObject(aa, "*", "table", "where v1=?", aa.v1)			// 查询全部列
+//	_, err := QueryObject(aa, "*|v1,v3", "table", "where v1=?", aa.v1)		// 查询排除 v1 和 v3 以外的全部列
+// 注意：
+//	如果返回 err == sql.ErrNoRows，则表示记录不存在
 func (this *S_DB) QueryObject(obj interface{}, members string, from, tail string, args ...interface{}) *S_Result {
 	tagMems, err := dbkeyMapValues(obj, members, true)
 	if err != nil {
@@ -149,9 +152,6 @@ func (this *S_DB) QueryObject(obj interface{}, members string, from, tail string
 	sqltx, valuePtrs := FmtSelectPrepare(tagMems, from, tail)
 	row := this.QueryRow(sqltx+";", args...)
 	err = row.Scan(valuePtrs...)
-	if err == nil {
-		return newResult(sqltx, err)
-	}
 	return newResult(sqltx, err)
 }
 
@@ -173,7 +173,8 @@ func (this *S_DB) QueryObject(obj interface{}, members string, from, tail string
 //		v3 float32 `mysql:"col3"`
 //	}
 //	aa := new(AA)
-//	query := QueryObjects(aa, "v2,v3", "table", "where v1=?", aa.v1)	// 只查询 v1 和 v2
+//	query := QueryObjects(aa, "v2,v3", "table", "where v1=?", aa.v1)	// 只查询 v2 和 v3
+//	query := QueryObjects(aa, "*|v2,v3", "table", "where v1=?", aa.v1)	// 查询除 v2 和 v3 以外的全部列
 //	if query.Err() != nil {
 //		obj, err := query.Scan()
 //		if err != nil {
@@ -185,9 +186,7 @@ func (this *S_DB) QueryObject(obj interface{}, members string, from, tail string
 //	query.Close()
 //
 // 注意：
-//	1、通过调用返回值 result 的 Next() 方法可以判断搜索记录是否还存在
-//	2、通过调用返回值 resutl 的 Scan() 方法可以获得带有记录值的 object 对象，但是，该 object 正是该函数第一个参数传入的 obj 值
-//	   因此每次调用 Scan() 方法返回的都是同一个对象指针，所以，不能直接对返回的 object 进行存储使用！
+//	通过调用返回值 result 的 ForEach() 方法可以获取所有查询记录
 func (this *S_DB) QueryObjects(obj interface{}, members string, from, tail string, args ...interface{}) *S_QueryResult {
 	tagMems, err := dbkeyMapValues(obj, members, true)
 	if err != nil {
@@ -209,7 +208,9 @@ func (this *S_DB) QueryObjects(obj interface{}, members string, from, tail strin
 // 插入一个 mysql 化对象，如果对象成员名称与数据库对应列关键之不一样，则需要带 tag，并且 tag 名称必须为：mysql
 // 参数：
 //	obj：必须是一个非 nil struct 指针，否则返回非 nil error
-//	members：指定要 insert 的成员，多个成员用逗号隔开，如果要 query 全部成员可以："" 或 "*"
+//	members：指定要 insert 的成员，多个成员用逗号隔开
+//	  如果要 query 全部成员可以："" 或 "*"
+//	  如果要查询排除指定成员以外的全部成员："*|xx,yy"
 //	objs：每一个 obj 必须是一个非 nil struct 指针
 // 返回：
 //	result.SQLText()：返回预处理 sql 语句
@@ -236,10 +237,12 @@ func (this *S_DB) InsertObjects(tbName string, obj interface{}, members string, 
 	return newExecResult(sqltx, err, rest)
 }
 
-// 插入一个 mysql 化对象，如果唯一键已经存在，则放弃插入操作，如果对象成员名称与数据库对应列关键之不一样，则需要带 tag，并且 tag 名称必须为：mysql
+// 插入一个 mysql 化对象，如果唯一键已经存在，则放弃插入操作
 // 参数：
 //	obj：必须是一个非 nil struct 指针，否则返回非 nil error
-//	members：指定要 insert 的成员，多个成员用逗号隔开，如果要 query 全部成员可以："" 或 "*"
+//	members：指定要 insert 的成员，多个成员用逗号隔开.
+//	  如果要 query 全部成员可以："" 或 "*"
+//	  如果要查询排除指定成员以外的全部成员："*|xx,yy"
 // 返回：
 //	result.SQLText()：返回预处理 sql 语句
 //	result.Err()：如果构建或者执行 sql 语句错误，则返回非 nil 错误
@@ -262,12 +265,16 @@ func (this *S_DB) InsertIgnoreObject(tbName string, obj interface{}, members str
 	return newExecResult(sqltx, err, rest)
 }
 
-// 插入一个 mysql 化对象，如果唯一键已经存在，则改为更新操作,如果对象成员名称与数据库对应列关键之不一样，则需要带 tag，并且 tag 名称必须为：mysql
+// 插入一个 mysql 化对象，如果唯一键已经存在，则改为更新操作
 // 参数：
 //	iobj：必须是一个非 nil struct 指针，否则返回非 nil error
-//	imems：指定要 insert 的成员，多个成员用逗号隔开，如果要 query 全部成员可以："" 或 "*"
+//	imems：指定要 insert 的成员，多个成员用逗号隔开
+//	  如果要 insert 全部成员可以："" 或 "*"
+//	  如果要 insert 排除指定成员以外的全部成员："*|xx,yy"
 //	uobj：必须是一个非 nil struct 指针，否则返回非 nil error
-//	umems：指定要 update 的成员，多个成员用逗号隔开，如果要 query 全部成员可以："" 或 "*"
+//	umems：指定要 update 的成员，多个成员用逗号隔开，
+//	  如果要 update 全部成员可以："" 或 "*"
+//	  如果要 update 排除指定成员以外的全部成员："*|xx,yy"
 // 返回：
 //	result.SQLText()：返回预处理 sql 语句
 //	result.Err()：如果构建或者执行 sql 语句错误，则返回非 nil 错误
@@ -297,7 +304,9 @@ func (this *S_DB) InsertUpdateObject(tbName string, iobj interface{}, imems stri
 // 参数：
 //	tbName: 数据库表名
 //	obj：必须是一个非 nil struct 指针，否则返回非 nil error
-//	members：指定要 insert 的成员，多个成员用逗号隔开，如果要 query 全部成员可以："" 或 "*"
+//	members：指定要 insert 的成员，多个成员用逗号隔开，
+//	  如果要 insert  全部成员可以："" 或 "*"
+//	  如果要 insert 排除指定成员以外的全部成员："*|xx,yy"
 //	where：where 条件子句（不需要添加 where 关键字）
 //	whereArgs: where 子句的参数
 // 返回：

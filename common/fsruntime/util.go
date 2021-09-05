@@ -101,7 +101,6 @@ func FindFuncWithName(name string) (uintptr, error) {
 	for moduleData := &g_moduleData; moduleData != nil; moduleData = moduleData.next {
 		for _, ftab := range moduleData.ftab {
 			f := (*runtime.Func)(unsafe.Pointer(&moduleData.pclntable[ftab.funcoff]))
-			fmt.Println(1111, f.Name())
 			if f.Name() == name {
 				return f.Entry(), nil
 			}

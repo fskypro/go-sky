@@ -124,12 +124,12 @@ func TestQuery(t *testing.T) {
 		return
 	}
 
-	for result.Next() {
-		obj, err := result.Scan()
+	result.ForEach(func(obj interface{}, err error) bool {
 		if err != nil {
 			fmt.Println(err)
 		} else {
 			fmt.Println(obj)
 		}
-	}
+		return true
+	})
 }

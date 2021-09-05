@@ -8,18 +8,22 @@
 
 package fstest
 
-import "fmt"
-import "strings"
-import "fsky.pro/fsos"
+import (
+	"fmt"
+	"strings"
+
+	"fsky.pro/fsos"
+)
 
 const _spcount = 69
 
 // 打印测试起始分割线
-func PrintTestBegin(name string) {
+func PrintTestBegin(name string) func() {
 	splitter := "|" + strings.Repeat("-", _spcount)
 	fmt.Println(splitter)
 	fmt.Println("| test ", name)
 	fmt.Println(splitter)
+	return PrintTestEnd
 }
 
 // 打印测试结束分割线

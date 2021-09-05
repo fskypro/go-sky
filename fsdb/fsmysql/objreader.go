@@ -28,6 +28,7 @@ var _colTypeTags = []string{"mysqltd", "dbtd"}
 // -------------------------------------------------------------------
 // 结构成员解构信息
 type s_ObjMember struct {
+	name   string       // 成员名称
 	dbkey  string       // 在数据库中的关键字
 	vtype  reflect.Type // 类型
 	offset uintptr      // 字段偏移值
@@ -65,22 +66,42 @@ L:
 		if dbkey == "" {
 			dbkey = tfield.Name
 		}
-		members[tfield.Name] = &s_ObjMember{dbkey, tfield.Type, tfield.Offset}
+		members[tfield.Name] = &s_ObjMember{
+			name:   tfield.Name,
+			dbkey:  dbkey,
+			vtype:  tfield.Type,
+			offset: tfield.Offset,
+		}
 	}
 	return members
 }
 
 // 获取 obj 成员的值，vobj = reflect.ValueOf(obj)
-func (this s_ObjInfo) dbkeyMapMembers(vobj reflect.Value, mnames []string) (map[string]interface{}, error) {
+func (this s_ObjInfo) dbkeyMapMembers(vobj reflect.Value, mnames []string, excludeMems []string) (map[string]interface{}, error) {
+	isExclude := func(name string) bool {
+		for _, n := range excludeMems {
+			if n == strings.TrimSpace(name) {
+				return true
+			}
+		}
+		return false
+	}
+
 	vs := make(map[string]interface{})
 	vobj = vobj.Elem()
 	if len(mnames) == 0 {
 		for _, info := range this {
+			if isExclude(info.name) {
+				continue
+			}
 			vs[info.dbkey] = reflect.NewAt(info.vtype, unsafe.Pointer(vobj.UnsafeAddr()+info.offset)).Elem().Interface()
 		}
 		return vs, nil
 	}
 	for _, mname := range mnames {
+		if isExclude(mname) {
+			continue
+		}
 		mname = strings.TrimSpace(mname)
 		info, ok := this[mname]
 		if !ok {
@@ -92,16 +113,31 @@ func (this s_ObjInfo) dbkeyMapMembers(vobj reflect.Value, mnames []string) (map[
 }
 
 // 获取 obj 成员的指针，vobj = reflect.ValueOf(obj)
-func (this s_ObjInfo) dbkeyMapPMembers(vobj reflect.Value, mnames []string) (map[string]interface{}, error) {
+func (this s_ObjInfo) dbkeyMapPMembers(vobj reflect.Value, mnames []string, excludeMems []string) (map[string]interface{}, error) {
+	isExclude := func(name string) bool {
+		for _, n := range excludeMems {
+			if n == strings.TrimSpace(name) {
+				return true
+			}
+		}
+		return false
+	}
+
 	ps := make(map[string]interface{})
 	vobj = vobj.Elem()
 	if len(mnames) == 0 {
 		for _, info := range this {
+			if isExclude(info.name) {
+				continue
+			}
 			ps[info.dbkey] = reflect.NewAt(info.vtype, unsafe.Pointer(vobj.UnsafeAddr()+info.offset)).Interface()
 		}
 		return ps, nil
 	}
 	for _, mname := range mnames {
+		if isExclude(mname) {
+			continue
+		}
 		mname = strings.TrimSpace(mname)
 		info, ok := this[mname]
 		if !ok {
@@ -114,6 +150,7 @@ func (this s_ObjInfo) dbkeyMapPMembers(vobj reflect.Value, mnames []string) (map
 
 // -------------------------------------------------------------------
 // object cache
+// 第一次解释对象的时候，将对象成员与 db 中的列映射值保存下来，以供下次使用，以免每次都要用反射解释对象解构
 // -------------------------------------------------------------------
 type s_ObjCache struct {
 	sync.RWMutex
@@ -208,7 +245,15 @@ func dbkeyMapValues(obj interface{}, members string, ptr bool) (tagMems map[stri
 		return
 	}
 
+	excludes := ""
+	sps := strings.Split(members, "|")
+	if len(sps) > 1 {
+		excludes = strings.TrimSpace(sps[1])
+	}
+
+	members = sps[0]
 	members = strings.TrimSpace(members)
+
 	if members == "*" {
 		members = members[1:]
 	}
@@ -219,15 +264,19 @@ func dbkeyMapValues(obj interface{}, members string, ptr bool) (tagMems map[stri
 		// 指定部分字段，逗号隔开
 		mnames = strings.Split(members, ",")
 	}
+	excludeMems := make([]string, 0)
+	if excludes != "" {
+		excludeMems = strings.Split(excludes, ",")
+	}
 
 	objInfo := _objcache.get(tobj)
 	if objInfo == nil {
 		objInfo = _objcache.add(tobj)
 	}
 	if ptr {
-		return objInfo.dbkeyMapPMembers(vobj, mnames)
+		return objInfo.dbkeyMapPMembers(vobj, mnames, excludeMems)
 	}
-	return objInfo.dbkeyMapMembers(vobj, mnames)
+	return objInfo.dbkeyMapMembers(vobj, mnames, excludeMems)
 }
 
 // 获取结构体对应的数据库字段和类型

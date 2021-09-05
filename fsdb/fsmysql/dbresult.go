@@ -11,7 +11,9 @@ package fsmysql
 
 import (
 	"database/sql"
-	"errors"
+	"fmt"
+
+	"fsky.pro/fsreflect"
 )
 
 // ----------------------------------------------------------------------------
@@ -54,29 +56,30 @@ func newQueryResult(sqltx string, err error, rows *sql.Rows) *S_QueryResult {
 	}
 }
 
-func (this *S_QueryResult) Next() bool {
+func (this *S_QueryResult) ForEach(fun func(interface{}, error) bool) {
 	if this.rows == nil {
-		return false
+		return
 	}
-	return this.rows.Next()
-}
-
-func (this *S_QueryResult) Scan() (interface{}, error) {
-	if this.rows == nil {
-		return nil, this.err
+	defer this.rows.Close()
+	for this.rows.Next() {
+		err := this.rows.Scan(this.valuePtrs...)
+		if err != nil {
+			if !fun(nil, fmt.Errorf("scan row error: %v", err)) {
+				return
+			}
+			continue
+		}
+		obj, err := fsreflect.CopyStructObject(this.obj)
+		if err != nil {
+			if !fun(nil, fmt.Errorf("deserialize to object error: %v", err)) {
+				return
+			}
+			continue
+		}
+		if !fun(obj, nil) {
+			return
+		}
 	}
-	err := this.rows.Scan(this.valuePtrs...)
-	if err != nil {
-		return nil, err
-	}
-	return this.obj, nil
-}
-
-func (this *S_QueryResult) Close() error {
-	if this.rows == nil {
-		return errors.New("no rows to close.")
-	}
-	return this.rows.Close()
 }
 
 // -----------------------------------------------------------------------------
