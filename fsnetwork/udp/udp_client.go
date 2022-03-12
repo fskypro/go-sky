@@ -20,7 +20,7 @@ import (
 type S_UDPClient struct {
 	udpInfo    *S_UDPInfo
 	conn       *net.UDPConn
-	OnReceived F_Receiver
+	OnReceived func(error, []byte)
 }
 
 func NewClient(udpInfo *S_UDPInfo) *S_UDPClient {
@@ -47,7 +47,7 @@ func (this *S_UDPClient) Serve() {
 			break
 		}
 		if this.OnReceived != nil {
-			this.OnReceived(err, raddr, buff[:n])
+			this.OnReceived(err, buff[:n])
 		}
 	}
 }

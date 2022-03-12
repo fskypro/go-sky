@@ -41,12 +41,16 @@ func mapGetValuePtr(vm reflect.Value, key interface{}) (pv reflect.Value, err er
 	tkey := vkey.Type()
 
 	var v reflect.Value
-	if tkey == tm.Key() {
+	if tkey == tm.Key() { // 传入 key 的类型与 map key 的类型一致
 		v = vm.MapIndex(vkey)
-	} else if ck, ok := hardConvert(key, tm.Key()); ok {
+	} else if ck, ok := hardConvert(key, tm.Key()); ok { // 传入 key 的类型与 map key 的类型不同，则强转
 		v = vm.MapIndex(ck)
 	} else {
 		err = fmt.Errorf("type of argument 'key' is %v can't convert to the map key type %v", vkey.Type(), tkey)
+		return
+	}
+	if !v.IsValid() { // map 中不存在 key
+		err = fmt.Errorf(`map %v has no key "%v"`, vm.Type(), key)
 		return
 	}
 

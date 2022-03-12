@@ -20,8 +20,8 @@ import (
 	"unsafe"
 )
 
-var _colTags = []string{"mysql", "db"}
-var _colTypeTags = []string{"mysqltd", "dbtd"}
+var _colTags = []string{"mysql", "db"}         // 列名映射 tag 前缀
+var _colTypeTags = []string{"mysqltd", "dbtd"} // 列名定义 tag 前缀
 
 // -------------------------------------------------------------------
 // object member
@@ -43,10 +43,14 @@ func (this *s_ObjMember) Value(pobj interface{}) interface{} {
 // -------------------------------------------------------------------
 // object members
 // -------------------------------------------------------------------
-// {成员名称: *s_ObjMember}
-type s_ObjInfo map[string]*s_ObjMember
+type s_ObjInfo struct {
+	path    string
+	members map[string]*s_ObjMember //  {成员名称: *s_ObjMember}
+}
 
-func newObjInfo(tobj reflect.Type) s_ObjInfo {
+// 生成 ObjInfo
+// tobj 必须是非匿名结构体实例的 reflect.Type
+func _newObjInfo(tobj reflect.Type) *s_ObjInfo {
 	members := map[string]*s_ObjMember{}
 L:
 	for i := 0; i < tobj.NumField(); i++ {
@@ -73,11 +77,19 @@ L:
 			offset: tfield.Offset,
 		}
 	}
-	return members
+	return &s_ObjInfo{
+		path:    tobj.PkgPath() + ":" + tobj.String(),
+		members: members,
+	}
+}
+
+// 通过成员名称获取指定成员结构信息
+func (this *s_ObjInfo) getMember(mname string) *s_ObjMember {
+	return this.members[mname]
 }
 
 // 获取 obj 成员的值，vobj = reflect.ValueOf(obj)
-func (this s_ObjInfo) dbkeyMapMembers(vobj reflect.Value, mnames []string, excludeMems []string) (map[string]interface{}, error) {
+func (this *s_ObjInfo) dbkeyMapMembers(vobj reflect.Value, mnames []string, excludeMems []string) (map[string]interface{}, error) {
 	isExclude := func(name string) bool {
 		for _, n := range excludeMems {
 			if n == strings.TrimSpace(name) {
@@ -90,7 +102,7 @@ func (this s_ObjInfo) dbkeyMapMembers(vobj reflect.Value, mnames []string, exclu
 	vs := make(map[string]interface{})
 	vobj = vobj.Elem()
 	if len(mnames) == 0 {
-		for _, info := range this {
+		for _, info := range this.members {
 			if isExclude(info.name) {
 				continue
 			}
@@ -103,7 +115,7 @@ func (this s_ObjInfo) dbkeyMapMembers(vobj reflect.Value, mnames []string, exclu
 			continue
 		}
 		mname = strings.TrimSpace(mname)
-		info, ok := this[mname]
+		info, ok := this.members[mname]
 		if !ok {
 			return map[string]interface{}{}, fmt.Errorf("%q is not the member name of %v", mname, vobj.Type())
 		}
@@ -113,7 +125,7 @@ func (this s_ObjInfo) dbkeyMapMembers(vobj reflect.Value, mnames []string, exclu
 }
 
 // 获取 obj 成员的指针，vobj = reflect.ValueOf(obj)
-func (this s_ObjInfo) dbkeyMapPMembers(vobj reflect.Value, mnames []string, excludeMems []string) (map[string]interface{}, error) {
+func (this *s_ObjInfo) dbkeyMapPMembers(vobj reflect.Value, mnames []string, excludeMems []string) (map[string]interface{}, error) {
 	isExclude := func(name string) bool {
 		for _, n := range excludeMems {
 			if n == strings.TrimSpace(name) {
@@ -126,7 +138,7 @@ func (this s_ObjInfo) dbkeyMapPMembers(vobj reflect.Value, mnames []string, excl
 	ps := make(map[string]interface{})
 	vobj = vobj.Elem()
 	if len(mnames) == 0 {
-		for _, info := range this {
+		for _, info := range this.members {
 			if isExclude(info.name) {
 				continue
 			}
@@ -139,7 +151,7 @@ func (this s_ObjInfo) dbkeyMapPMembers(vobj reflect.Value, mnames []string, excl
 			continue
 		}
 		mname = strings.TrimSpace(mname)
-		info, ok := this[mname]
+		info, ok := this.members[mname]
 		if !ok {
 			return map[string]interface{}{}, fmt.Errorf("%q is not the member name of %v", mname, vobj.Type())
 		}
@@ -156,53 +168,69 @@ type s_ObjCache struct {
 	sync.RWMutex
 	colTags     []string
 	colTypeTags []string
-	objs        map[string]s_ObjInfo
+	objs        map[string]*s_ObjInfo
+}
+
+// 对象解构信息缓存
+var objCache = &s_ObjCache{
+	objs: make(map[string]*s_ObjInfo),
 }
 
 // tobj = reflect.ValueOf(obj).Elem().Type()
-func (this *s_ObjCache) get(tobj reflect.Type) s_ObjInfo {
+func (this *s_ObjCache) get(tobj reflect.Type) (info *s_ObjInfo, err error) {
+	// 无类型 nil
+	if tobj == nil {
+		err = errors.New("object must be a not nil type value.")
+		return
+	}
+
+	// 指针
+	if tobj.Kind() == reflect.Ptr {
+		tobj = tobj.Elem()
+	}
+
+	// 必须是结构体
+	if tobj.Kind() != reflect.Struct {
+		err = errors.New("object must be a not nil struct object pointer.")
+		return
+	}
+
+	if tobj.PkgPath() == "" { // 匿名结构体不缓存
+		info = _newObjInfo(tobj)
+		return
+	}
+
 	this.RLock()
 	defer this.RUnlock()
 	key := tobj.PkgPath() + ":" + tobj.String()
-	if ms, ok := this.objs[key]; ok {
-		return ms
+	info = this.objs[key]
+	if info != nil {
+		return
 	}
-	return nil
-}
-
-// 解释并添加一个对象到缓存，tobj = reflect.ValueOf(obj).Elem().Type()
-func (this *s_ObjCache) add(tobj reflect.Type) s_ObjInfo {
-	this.Lock()
-	defer this.Unlock()
-	objInfo := newObjInfo(tobj)
-	this.objs[tobj.PkgPath()+":"+tobj.String()] = objInfo
-	return objInfo
+	info = _newObjInfo(tobj)
+	this.objs[key] = info
+	return
 }
 
 // 清除缓存
 func (this *s_ObjCache) clear() {
 	this.Lock()
 	defer this.Unlock()
-	this.objs = map[string]s_ObjInfo{}
+	this.objs = map[string]*s_ObjInfo{}
 }
 
 func (this *s_ObjCache) resetDBTags(tags []string) {
 	this.Lock()
 	defer this.Unlock()
 	_colTags = tags
-	this.objs = map[string]s_ObjInfo{}
+	this.objs = map[string]*s_ObjInfo{}
 }
 
 func (this *s_ObjCache) resetDBTypeTags(tags []string) {
 	this.Lock()
 	defer this.Unlock()
 	_colTypeTags = tags
-	this.objs = map[string]s_ObjInfo{}
-}
-
-// 对象解构信息缓存
-var _objcache = &s_ObjCache{
-	objs: make(map[string]s_ObjInfo),
+	this.objs = map[string]*s_ObjInfo{}
 }
 
 // -------------------------------------------------------------------
@@ -212,29 +240,9 @@ var _objcache = &s_ObjCache{
 // 如果 ptr 参数为 true，则取成员的指针作为返回 map 的 value，否则取成员的值
 func dbkeyMapValues(obj interface{}, members string, ptr bool) (tagMems map[string]interface{}, err error) {
 	tagMems = make(map[string]interface{})
-	tobj := reflect.TypeOf(obj)
-	// 无类型 nil
-	if tobj == nil {
-		err = errors.New("object must be a not nil type value.")
-		return
-	}
-
-	// 非指针
-	if tobj.Kind() != reflect.Ptr {
-		err = errors.New("object type must be a pointer of struct.")
-		return
-	}
-	tobj = tobj.Elem()
-
-	// 必须是结构体
-	if tobj.Kind() != reflect.Struct {
-		err = errors.New("object must be a not nil struct object pointer.")
-		return
-	}
-
-	// 必须是非匿名结构体
-	if tobj.Name() == "" {
-		err = errors.New("object type must be a unanonymous struct.")
+	var objInfo *s_ObjInfo
+	objInfo, err = objCache.get(reflect.TypeOf(obj))
+	if err != nil {
 		return
 	}
 
@@ -269,10 +277,6 @@ func dbkeyMapValues(obj interface{}, members string, ptr bool) (tagMems map[stri
 		excludeMems = strings.Split(excludes, ",")
 	}
 
-	objInfo := _objcache.get(tobj)
-	if objInfo == nil {
-		objInfo = _objcache.add(tobj)
-	}
 	if ptr {
 		return objInfo.dbkeyMapPMembers(vobj, mnames, excludeMems)
 	}
@@ -329,15 +333,15 @@ func dbkeyTypes(obj interface{}) ([][2]string, error) {
 // -------------------------------------------------------------------
 // 清除缓存
 func ClearObjectCache() {
-	_objcache.clear()
+	objCache.clear()
 }
 
 // 重新设置 db tag
-func ResetDBTags(tags ...string) {
-	_objcache.resetDBTags(tags)
+func ResetColTags(tags ...string) {
+	objCache.resetDBTags(tags)
 }
 
-// 重新设置 db type tag
-func ResetDBTypeTags(tags ...string) {
-	_objcache.resetDBTypeTags(tags)
+// 重新设置 col schema tag
+func ResetSchemaTags(tags ...string) {
+	objCache.resetDBTypeTags(tags)
 }

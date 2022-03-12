@@ -8,12 +8,19 @@ import (
 	"fsky.pro/fstest"
 )
 
+func TestFmt(t *testing.T) {
+	fstest.PrintTestBegin("Fmt")
+	defer fstest.PrintTestEnd()
+}
+
 func TestDawn(t *testing.T) {
 	fstest.PrintTestBegin("Dawn")
+	defer fstest.PrintTestEnd()
+
 	fmt.Println("Dawn(time.Now()): ", Dawn(time.Now()))
+	fmt.Println(time.Now().Unix() - Dawn(time.Now()).Unix())
 
 	fmt.Println("Dawn(time.Now().UTC()): ", Dawn(time.Now().UTC()))
-	fstest.PrintTestEnd()
 }
 
 func TestWeekStart(t *testing.T) {

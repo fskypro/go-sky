@@ -8,7 +8,9 @@
 
 package fstime
 
-import "time"
+import (
+	"time"
+)
 
 // Str2DateTime 将格式为 “2006-01-02 15:04:05” 的时间字符串转换为 UTC 日期时间
 func Str2DateTime(str string) (time.Time, error) {

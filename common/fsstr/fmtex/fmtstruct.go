@@ -517,7 +517,7 @@ type S_FmtOpts struct {
 //	st: 要格式化的结构体
 //	prefix: 整个输出结构体的每一行的前缀
 //	ident: 缩进字符串
-func StreamStruct(w io.Writer, obj interface{}, opts *S_FmtOpts) {
+func FPrintStruct(w io.Writer, obj interface{}, opts *S_FmtOpts) {
 	if opts == nil {
 		opts = &S_FmtOpts{"    ", "    ", nil}
 	}
@@ -553,6 +553,6 @@ func StreamStruct(w io.Writer, obj interface{}, opts *S_FmtOpts) {
 //	ident: 缩进字符串
 func SprintStruct(obj interface{}, opts *S_FmtOpts) string {
 	out := bytes.NewBuffer([]byte{})
-	StreamStruct(out, obj, opts)
+	FPrintStruct(out, obj, opts)
 	return out.String()
 }

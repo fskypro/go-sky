@@ -2,7 +2,6 @@ package udp
 
 import (
 	"fmt"
-	"net"
 	"sync"
 	"testing"
 	"time"
@@ -17,11 +16,12 @@ func server(wg *sync.WaitGroup) {
 		return
 	}
 
-	svr.OnReceived = func(err error, addr *net.UDPAddr, data []byte) {
+	svr.OnReceived = func(err error, cli *S_RemoteClient, data []byte) {
 		if err != nil {
 			fmt.Println("receive client error:", err)
 			return
 		}
+		cli.Reply([]byte(fmt.Sprintf("receive %q ok!", string(data))))
 		fmt.Println("receive from client: ", string(data))
 		if string(data) == "hello 1" {
 			svr.Close()
@@ -42,8 +42,9 @@ func client(wg *sync.WaitGroup) {
 		fmt.Println("client err: ", err)
 		return
 	}
+	go client.Serve()
 
-	client.OnReceived = func(err error, raddr *net.UDPAddr, data []byte) {
+	client.OnReceived = func(err error, data []byte) {
 		if err != nil {
 			fmt.Println("receive from server error: ", err)
 			return

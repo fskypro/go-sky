@@ -19,6 +19,7 @@ import (
 func MakeExitSignalChan() chan os.Signal {
 	c := make(chan os.Signal)
 	signal.Notify(c,
+		syscall.SIGKILL,
 		syscall.SIGHUP,  // 终端控制进程结束(终端连接断开)
 		syscall.SIGINT,  // 用户发送INTR字符(Ctrl+C)触发
 		syscall.SIGTERM, // kill

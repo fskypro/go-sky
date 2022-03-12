@@ -15,6 +15,28 @@ import (
 	"strings"
 )
 
+func quote(key string) string {
+	if key == "" {
+		return "``"
+	}
+	if key[0] != '`' {
+		key = "`" + key
+	}
+	if key[len(key)-1] != '`' {
+		key = key + "`"
+	}
+	return key
+}
+
+func quotes(key string) string {
+	keys := make([]string, 0)
+	segs := strings.Split(key, ".")
+	for _, seg := range segs {
+		keys = append(keys, quote(seg))
+	}
+	return strings.Join(keys, ".")
+}
+
 // FmtCreateTableSQL 格式化一个创建表格的 SQL 语句
 // 参数：
 //	tbName：表格名称
@@ -24,10 +46,10 @@ import (
 // 返回：
 //	返回创建表格的 sql 语句，不带分号结尾
 func FmtCreateTableSQL(tbName string, cols [][2]string, makeups []string, tbAttr string) string {
-	sqltx := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s`(%%s) %s", tbName, tbAttr)
+	sqltx := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s(%%s) %s", quote(tbName), tbAttr)
 	items := make([]string, 0)
 	for _, col := range cols {
-		items = append(items, fmt.Sprintf("`%s` %s", col[0], col[1]))
+		items = append(items, fmt.Sprintf("%s %s", quote(col[0]), col[1]))
 	}
 	if makeups != nil {
 		for _, extra := range makeups {
@@ -53,8 +75,7 @@ func FmtSelectPrepare(colValuePtrs map[string]interface{}, from string, tail str
 	colNames := make([]string, 0)
 	valuePtrs = make([]interface{}, 0)
 	for colName, valuePtr := range colValuePtrs {
-		colName = "`" + strings.Replace(colName, ".", "`.`", 1) + "`"
-		colNames = append(colNames, colName)
+		colNames = append(colNames, quotes(colName))
 		valuePtrs = append(valuePtrs, valuePtr)
 	}
 	if tail != "" {
@@ -78,7 +99,7 @@ func FmtSelectPrepare(colValuePtrs map[string]interface{}, from string, tail str
 //	1、插入的列以参数 colValues 的 key 为准
 //	2、如果某个 colValuess 中不存在某些 key，则使用 colValues 中对应 key 值所属类型的默认值
 func FmtInsertPrepare(tbName string, colValues map[string]interface{}, colValuess ...map[string]interface{}) (sqltx string, values []interface{}) {
-	sqltx = fmt.Sprintf("INSERT INTO `%s`(`%%s`) VALUES%%s", tbName)
+	sqltx = fmt.Sprintf("INSERT INTO %s(`%%s`) VALUES%%s", quote(tbName))
 	colNames := make([]string, 0)
 	values = make([]interface{}, 0)
 	items := make([]string, 0, len(colValuess)+1)
@@ -115,13 +136,13 @@ func FmtInsertPrepare(tbName string, colValues map[string]interface{}, colValues
 // 注意：
 //	返回的 sqltx 并不会在语句最后加分号
 func FmtInsertIgnorePrepare(tbName string, colValues map[string]interface{}) (sqltx string, values []interface{}) {
-	sqltx = fmt.Sprintf("INSERT IGNORE `%s`(%%s) VALUES(%%s)", tbName)
+	sqltx = fmt.Sprintf("INSERT IGNORE %s(%%s) VALUES(%%s)", quote(tbName))
 	colNames := make([]string, 0)
 	values = make([]interface{}, 0)
 	qms := make([]string, 0)
 
 	for colName, value := range colValues {
-		colNames = append(colNames, "`"+colName+"`")
+		colNames = append(colNames, quote(colName))
 		values = append(values, value)
 		qms = append(qms, "?")
 	}
@@ -139,20 +160,20 @@ func FmtInsertIgnorePrepare(tbName string, colValues map[string]interface{}) (sq
 // 注意：
 //	返回的 sqltx 并不会在语句最后加分号
 func FmtInsertUpdatePrepare(tbName string, colIValues map[string]interface{}, colUValues map[string]interface{}) (sqltx string, values []interface{}) {
-	sqltx = fmt.Sprintf("INSERT INTO `%s`(%%s) VALUES(%%s) ON DUPLICATE KEY UPDATE %%s", tbName)
+	sqltx = fmt.Sprintf("INSERT INTO %s(%%s) VALUES(%%s) ON DUPLICATE KEY UPDATE %%s", quote(tbName))
 	colNames := make([]string, 0)
 	values = make([]interface{}, 0)
 	iqms := make([]string, 0)
 	uqms := make([]string, 0)
 
 	for colName, value := range colIValues {
-		colNames = append(colNames, "`"+colName+"`")
+		colNames = append(colNames, quote(colName))
 		values = append(values, value)
 		iqms = append(iqms, "?")
 	}
 	for colName, value := range colUValues {
 		values = append(values, value)
-		uqms = append(uqms, fmt.Sprintf("`%s`=?", colName))
+		uqms = append(uqms, fmt.Sprintf("%s=?", quote(colName)))
 	}
 	sqltx = fmt.Sprintf(sqltx,
 		strings.Join(colNames, ","),
@@ -173,12 +194,12 @@ func FmtInsertUpdatePrepare(tbName string, colIValues map[string]interface{}, co
 // 注意：
 //	返回的 sqltx 并不会在语句最后加分号
 func FmtUpdatePrepare(tbName string, colValues map[string]interface{}, where string, whereArgs ...interface{}) (sqltx string, values []interface{}) {
-	sqltx = fmt.Sprintf("UPDATE `%s` SET %%s WHERE %%s", tbName)
+	sqltx = fmt.Sprintf("UPDATE %s SET %%s WHERE %%s", quote(tbName))
 	sets := make([]string, 0)
 	values = make([]interface{}, 0)
 
 	for colName, value := range colValues {
-		sets = append(sets, fmt.Sprintf("`%s`=?", colName))
+		sets = append(sets, fmt.Sprintf("%s=?", quote(colName)))
 		values = append(values, value)
 	}
 	values = append(values, whereArgs...)
@@ -196,5 +217,5 @@ func FmtUpdatePrepare(tbName string, colValues map[string]interface{}, where str
 //	sqltx：预处理 sql 语句
 //	values：与参数 whereArgs 一致
 func FmtDeletePrepare(tbName string, where string, whereArgs ...interface{}) (sqltx string, values []interface{}) {
-	return fmt.Sprintf("DELETE FROM `%s` WHERE %s", tbName, where), whereArgs
+	return fmt.Sprintf("DELETE FROM %s WHERE %s", quote(tbName), where), whereArgs
 }

@@ -47,6 +47,10 @@ func (this *S_String) WriteTo(w *bufio.Writer) (int, error) {
 	return w.WriteString(this.String())
 }
 
-func (this *S_String) String() string {
+func (this *S_String) QuoteString() string {
 	return fmt.Sprintf("%q", convert.Bytes2String(this.value))
+}
+
+func (this *S_String) String() string {
+	return convert.Bytes2String(this.value)
 }

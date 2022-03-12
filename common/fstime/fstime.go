@@ -8,7 +8,9 @@
 
 package fstime
 
-import "time"
+import (
+	"time"
+)
 
 // -----------------------------------------------------------------------------
 // inner
@@ -51,7 +53,7 @@ func Dawn(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 }
 
-// WeekStar 获取指定时间所在星期的星期起始时间
+// WeekStart 获取指定时间所在星期的星期起始时间
 func WeekStart(t time.Time) time.Time {
 	days := _weekdayCount(t.Weekday())
 	t = Dawn(t)

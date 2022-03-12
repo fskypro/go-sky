@@ -9,6 +9,9 @@
 package fsstr
 
 import (
+	"reflect"
+	"strings"
+
 	"fsky.pro/fsbytes"
 	"fsky.pro/fsstr/convert"
 )
@@ -57,4 +60,31 @@ func TrimRightEmpty(s string) string {
 func TrimEmpty(s string) string {
 	s = TrimLeftEmpty(s)
 	return TrimRightEmpty(s)
+}
+
+// 将 slice 中所有元素用 sep 分割
+// a 必须是一个 slice 或者 array
+// sep 为分隔字符串
+// f 传入 a 的每一个元素， 返回元素的字符串表现形式
+func JoinFunc(a interface{}, sep string, f func(e interface{}) string) string {
+	t := reflect.TypeOf(a)
+	if t == nil {
+		return ""
+	}
+	if t.Kind() != reflect.Slice && t.Kind() != reflect.Array {
+		return ""
+	}
+	v := reflect.ValueOf(a)
+	if v.IsNil() {
+		return ""
+	}
+	var sb strings.Builder
+	if v.Len() > 0 {
+		sb.WriteString(f(v.Index(0).Interface()))
+	}
+	for i := 1; i < v.Len(); i++ {
+		sb.WriteString(sep)
+		sb.WriteString(f(v.Index(i).Interface()))
+	}
+	return sb.String()
 }

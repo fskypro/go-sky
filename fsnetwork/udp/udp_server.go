@@ -14,11 +14,26 @@ import (
 	"net"
 )
 
+// -----------------------------------------------------------------------------
+// RemoteClient
+// -----------------------------------------------------------------------------
+type S_RemoteClient struct {
+	RemoteAddr *net.UDPAddr
+	server     *S_UDPServer
+}
+
+func (this *S_RemoteClient) Reply(data []byte) (int, error) {
+	return this.server.Send(this.RemoteAddr, data)
+}
+
+// -----------------------------------------------------------------------------
+// UDPServer
+// -----------------------------------------------------------------------------
 type S_UDPServer struct {
 	udpInfo    *S_UDPInfo
 	conn       *net.UDPConn
-	OnReceived F_Receiver
-	OnClosed   F_Closer
+	OnReceived func(error, *S_RemoteClient, []byte)
+	OnClosed   func()
 }
 
 // 新建 UDP 服务
@@ -36,9 +51,9 @@ func NewServer(udpInfo *S_UDPInfo) (svr *S_UDPServer, err error) {
 	return
 }
 
-// -----------------------------------------------------------------------------
+// -------------------------------------------------------------------
 // private
-// -----------------------------------------------------------------------------
+// -------------------------------------------------------------------
 func (this *S_UDPServer) onReceived(err error, raddr *net.UDPAddr, data []byte) {
 	if this.OnReceived == nil {
 		return
@@ -48,12 +63,12 @@ func (this *S_UDPServer) onReceived(err error, raddr *net.UDPAddr, data []byte) 
 			panic(err)
 		}
 	}()
-	go this.OnReceived(err, raddr, data)
+	go this.OnReceived(err, &S_RemoteClient{raddr, this}, data)
 }
 
-// -----------------------------------------------------------------------------
+// -------------------------------------------------------------------
 // package public
-// -----------------------------------------------------------------------------
+// -------------------------------------------------------------------
 func (this *S_UDPServer) Serve() {
 	defer this.Close()
 	for {

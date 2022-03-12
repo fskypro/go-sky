@@ -15,11 +15,21 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"syscall"
 )
 
 type S_DaemonFile struct {
 	FileName string // pid file name
 	Pid      int    // current process id
+	LastPid  int    // old process id
+}
+
+// 杀死旧进程
+func (this *S_DaemonFile) KillLast(signal syscall.Signal) error {
+	if this.LastPid == 0 {
+		return nil
+	}
+	return syscall.Kill(this.LastPid, signal)
 }
 
 // 创建进程ID文件
@@ -33,6 +43,11 @@ func CreateDaemonFile(file string) (df *S_DaemonFile, err error) {
 	if e := os.MkdirAll(root, 0440); e != nil {
 		err = fmt.Errorf("create pid file fail, %v", e)
 		return
+	}
+	data, err := ioutil.ReadFile(file)
+	if err == nil {
+		pid, _ := strconv.Atoi(string(data))
+		df.LastPid = pid
 	}
 
 	if err = ioutil.WriteFile(file, []byte(strconv.Itoa(df.Pid)), 0440); err != nil {
