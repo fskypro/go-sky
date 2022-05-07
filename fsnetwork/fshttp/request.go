@@ -14,26 +14,37 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
 	"unsafe"
 )
 
+// 引用私有函数，用于请求文件
+//go:linkname serveFile net/http.serveFile
+func serveFile(http.ResponseWriter, *http.Request, http.FileSystem, string, bool)
+
+// -------------------------------------------------------------------
+// S_Request
+// -------------------------------------------------------------------
 type S_Request struct {
-	Service I_Service
-	W       http.ResponseWriter
-	R       *http.Request
-	buff    strings.Builder
-	cancel  bool
+	Service   I_Service
+	MatchPath string
+	W         http.ResponseWriter
+	R         *http.Request
+	buff      strings.Builder
+	jsonObj   interface{}
+	cancel    bool
 }
 
-func newRequest(service I_Service, w http.ResponseWriter, r *http.Request) *S_Request {
+func newRequest(service I_Service, mpath string, w http.ResponseWriter, r *http.Request) *S_Request {
 	return &S_Request{
-		Service: service,
-		W:       w,
-		R:       r,
-		cancel:  false,
+		Service:   service,
+		MatchPath: mpath,
+		W:         w,
+		R:         r,
+		cancel:    false,
 	}
 }
 
@@ -210,6 +221,10 @@ func (this *S_Request) ReadBody() ([]byte, error) {
 
 // ---------------------------------------------------------
 // 直接写入回复字符串
+func (this *S_Request) WriteRspString(str string) {
+	this.buff.WriteString(str)
+}
+
 func (this *S_Request) WriteRspStringf(str string, args ...interface{}) {
 	this.buff.WriteString(fmt.Sprintf(str, args...))
 }
@@ -226,8 +241,7 @@ func (this *S_Request) WriteRspBytes(bs []byte) {
 
 // 写入对象转换为 json 数据
 func (this *S_Request) WriteRspJsonObject(obj interface{}) {
-	bs, _ := json.Marshal(obj)
-	this.buff.Write(bs)
+	this.jsonObj = obj
 }
 
 // ---------------------------------------------------------
@@ -254,8 +268,35 @@ func (this *S_Request) CancelJsonObject(obj interface{}) {
 
 // ---------------------------------------------------------
 // 回复客户端
-func (this *S_Request) Response() {
+func (this *S_Request) Response() bool {
 	if !this.cancel {
 		this.W.Write([]byte(this.buff.String()))
 	}
+	return !this.cancel
+}
+
+func (this *S_Request) ResponseCrossDomain() bool {
+	if this.cancel {
+		return false
+	}
+	this.W.Header().Set("Access-Control-Allow-Origin", "*")
+	if this.jsonObj != nil {
+		this.W.Header().Add("Access-Control-Allow-Headers", "Content-Type")
+		this.W.Header().Set("Content-Type", "application/json")
+		bs, _ := json.Marshal(this.jsonObj)
+		this.W.Write(bs)
+		return true
+	}
+	this.W.Write([]byte(this.buff.String()))
+	return true
+}
+
+func (this *S_Request) ResponseFile(webroot string, file string) {
+	this.cancel = true
+	serveFile(this.W, this.R, http.Dir(webroot), path.Clean(file), true)
+}
+
+func (this *S_Request) Redirect(url string, code int) {
+	this.cancel = true
+	http.Redirect(this.W, this.R, url, code)
 }

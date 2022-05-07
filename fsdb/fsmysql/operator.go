@@ -55,7 +55,7 @@ func (this *s_Operator) CreateTable(table *fssql.S_Table) *S_OPResult {
 // select
 // -------------------------------------------------------------------
 // 查找一行，并将结果送到传出值
-func (this *s_Operator) SelectOneValue(sqlInfo *fssql.S_SelectInfo, outValues ...interface{}) *S_OPResult {
+func (this *s_Operator) SelectRowValue(sqlInfo *fssql.S_SelectInfo, outValues ...interface{}) *S_OPResult {
 	if sqlInfo.Err() != nil {
 		return newOPResult(sqlInfo, fmt.Errorf("select object fail, %v", sqlInfo.Err()))
 	}
@@ -65,7 +65,7 @@ func (this *s_Operator) SelectOneValue(sqlInfo *fssql.S_SelectInfo, outValues ..
 }
 
 // 查找单个对象
-func (this *s_Operator) SelectOneObject(sqlInfo *fssql.S_SelectInfo, outObj interface{}) *S_OPResult {
+func (this *s_Operator) SelectRowObject(sqlInfo *fssql.S_SelectInfo, outObj interface{}) *S_OPResult {
 	if sqlInfo.Err() != nil {
 		return newOPResult(sqlInfo, fmt.Errorf("select object fail, %v", sqlInfo.Err()))
 	}

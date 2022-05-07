@@ -32,29 +32,58 @@ func NewZeroDateTime() T_DateTime {
 	return T_DateTime("0000-00-00 00:00:00")
 }
 
+// ---------------------------------------------------------
+func (self T_DateTime) String() string {
+	if string(self) == "" {
+		return "0000-00-00 00:00:00"
+	}
+	return string(self)
+}
+
 // 返回单引号括回的字符串，格式为：'2021-12-9 00:00:00'
 func (self T_DateTime) Quote() string {
 	return fmt.Sprintf("'%v'", self)
 }
 
-// loc 表示你认为 this 是什么时区
+// loc 表示你认为 self 是什么时区
 func (self T_DateTime) GoTime(loc *time.Location) (time.Time, error) {
 	return time.ParseInLocation("2006-01-02 15:04:05", string(self), loc)
+}
+
+func (self T_DateTime) MustGoTime(loc *time.Location) time.Time {
+	t, err := time.ParseInLocation("2006-01-02 15:04:05", string(self), loc)
+	if err != nil {
+		panic(err)
+	}
+	return t
 }
 
 func (self T_DateTime) UTCGoTime() (time.Time, error) {
 	return time.Parse("2006-01-02 15:04:05", string(self))
 }
 
+func (self T_DateTime) MustUTCGoTime() time.Time {
+	t, err := time.Parse("2006-01-02 15:04:05", string(self))
+	if err != nil {
+		panic(err)
+	}
+	return t
+}
+
 func (self T_DateTime) LocalGoTime() (time.Time, error) {
 	return time.ParseInLocation("2006-01-02 15:04:05", string(self), time.Local)
 }
 
-func (self T_DateTime) String() string {
-	if string(self) == "" {
-		return "0000-00-00 00:00:00"
+func (self T_DateTime) MustLocalGoTime() time.Time {
+	t, err := time.ParseInLocation("2006-01-02 15:04:05", string(self), time.Local)
+	if err != nil {
+		panic(err)
 	}
-	return string(self)
+	return t
+}
+
+func (self T_DateTime) IsZeroTime() bool {
+	return string(self) == "0000-00-00 00:00:00"
 }
 
 // -------------------------------------------------------------------

@@ -37,3 +37,9 @@ func TestWeekStart(t *testing.T) {
 	d, h, m, s := Seconds2DaysTime(3600*24 + 100)
 	fmt.Printf("%d天%d小时%d分钟%d秒\n", d, h, m, s)
 }
+
+func TestDaysBetween(t *testing.T) {
+	t1 := time.Now()
+	t2 := t1.AddDate(0, -1, 0)
+	fmt.Println(DaysBetween(t1, t2))
+}
