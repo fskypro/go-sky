@@ -1,8 +1,11 @@
-package fsio
+package fsos
 
-import "fmt"
-import "testing"
-import "fsky.pro/fstest"
+import (
+	"fmt"
+	"testing"
+
+	"fsky.pro/fstest"
+)
 
 func TestIsPathExists(t *testing.T) {
 	fstest.PrintTestBegin("IsPathExists")
@@ -35,5 +38,17 @@ func TestGetFullPathToBin(t *testing.T) {
 	fstest.PrintTestBegin("GetFullPathToBin")
 	fmt.Println(GetFullPathToBin("/abc/def/ghijk.bin"))
 	fmt.Println(GetFullPathToBin("./abc/def/ghijk.bin"))
+	fstest.PrintTestEnd()
+}
+
+func TestCopyFile(t *testing.T) {
+	fstest.PrintTestBegin("CopyFile")
+	src, dst := "./util.go", "util2.txt"
+	err := CopyFile(src, dst)
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Printf("copyfile success: %q -> %q\n", src, dst)
+	}
 	fstest.PrintTestEnd()
 }

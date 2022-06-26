@@ -11,8 +11,6 @@ package fstest
 import (
 	"fmt"
 	"strings"
-
-	"fsky.pro/fsos"
 )
 
 const _spcount = 69
@@ -29,5 +27,5 @@ func PrintTestBegin(name string) func() {
 // 打印测试结束分割线
 func PrintTestEnd() {
 	splitter := "|" + strings.Repeat("-", _spcount)
-	fmt.Println(splitter + fsos.Endline)
+	fmt.Println(splitter + "\n")
 }

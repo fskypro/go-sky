@@ -48,6 +48,14 @@ func Seconds2DaysTime(snds int) (d, h, m, s int) {
 // -------------------------------------------------------------------
 // 起始日期相关
 // -------------------------------------------------------------------
+// 获取指定年月的最后一天是本月的第几天
+func LastDayOfMon(year int, mon time.Month) int {
+	t := time.Date(year, mon, 1, 0, 0, 0, 0, time.Local)
+	t = t.AddDate(0, 1, 0).Add(-time.Hour)
+	return t.Day()
+}
+
+// ---------------------------------------------------------
 // Dawn 获取指定时间的当天凌晨时间
 func Dawn(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
@@ -58,6 +66,11 @@ func WeekStart(t time.Time) time.Time {
 	days := _weekdayCount(t.Weekday())
 	t = Dawn(t)
 	return t.AddDate(0, 0, -days)
+}
+
+// 获取指定时间所在月份 1 号的凌晨时间
+func MonthStart(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
 }
 
 // ---------------------------------------------------------

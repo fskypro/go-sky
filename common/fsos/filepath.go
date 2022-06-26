@@ -1,21 +1,94 @@
 /**
 @copyright: fantasysky 2016
-@brief: 通用工具
+@brief: 实现路径相关功能
 @author: fanky
 @version: 1.0
-@date: 2019-03-27
+@date: 2019-01-06
 **/
 
-package fsio
+package fsos
 
-import "fmt"
-import "io"
-import "errors"
-import "os"
-import "io/ioutil"
-import "path/filepath"
-import "fsky.pro/fsos"
+import (
+	"errors"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"syscall"
+)
 
+// IsPathExists 判断路径是否存在(包括文件和文件夹)
+// 注意：
+//	如果参数 path 为空字符串，则返回 false
+func IsPathExists(path string) bool {
+	_, err := os.Stat(path)
+	if err != nil {
+		return os.IsExist(err)
+	}
+	return true
+}
+
+// IsDir 判断指定路径是否是已经存在的文件夹
+// 注意：
+//	如果 path 为空字符串，则返回 false，而不会认为是当前路径
+func IsDirExists(path string) bool {
+	s, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return s.IsDir()
+}
+
+// IsFile 判断指定的路径是否是已经存在的文件
+func IsFileExists(path string) bool {
+	s, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !s.IsDir()
+}
+
+// IsFileAccess 文件是否可被存取
+func IsFileAccess(file string) bool {
+	return syscall.Access(file, syscall.O_RDWR) == nil
+}
+
+// CurrentDir 获取可执行程序当前路径
+func CurrentDir() (string, error) {
+	return filepath.Abs(filepath.Dir(os.Args[0]))
+}
+
+// -------------------------------------------------------------------
+// GetBinPath 获取可执行程序所在绝对路径
+func GetBinPath() (string, error) {
+	rbin, err := exec.LookPath(os.Args[0])
+	if err != nil {
+		return "", err
+	}
+	abin, err := filepath.Abs(rbin)
+	if err != nil {
+		return "", err
+	}
+	dir, _ := filepath.Split(abin)
+	return dir, nil
+}
+
+// GetFullPathToBin 根据可执行程序的相对路径，获取绝对路径
+// 如果传入的路径以路径分隔符（linux 为“/”，windows 为“\”）开头，则，则直接返回 path
+func GetFullPathToBin(path string) (string, error) {
+	if path[0] == filepath.Separator {
+		return path, nil
+	}
+	binPath, err := GetBinPath()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(binPath, path), nil
+}
+
+// -------------------------------------------------------------------
 // CopyFile 复制文件
 func CopyFile(src, dst string) error {
 	srcFile, err := os.Open(src)
@@ -79,7 +152,7 @@ func CopyDir(src, dst string, allowDstHasFile bool, out *os.File) error {
 		}
 		dstFile := filepath.Join(dst, srcFile[srcPathLen:])
 		if out != nil {
-			out.Write([]byte(fmt.Sprintf("%s->%s%s", srcFile, dstFile, fsos.Endline)))
+			out.Write([]byte(fmt.Sprintf("%s->%s%s", srcFile, dstFile, Endline)))
 		}
 		return CopyFile(srcFile, dstFile)
 	})

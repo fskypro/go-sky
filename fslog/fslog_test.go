@@ -19,15 +19,16 @@ func TestDebug(t *testing.T) {
 	Unshield("Debug")
 	Debug("test debug 444444!")
 
-	SetUnshields("info", "error")
+	Unshield("info", "error")
 	Debug("test debug 555555!")
 
-	SetUnshields("info", "error", "debug", "hack", "trace")
+	Unshield("info", "error", "debug", "hack", "trace")
 	Debug("test debug 666666!")
 
 	// fslogger
-	fl, _ := NewFileLogger("./logs", "test", false)
-	fl.Debug("debug", "aaaaaaa")
+	fl := NewDayfileLogger("./logs", "test")
+	SetLogger(fl)
+	Debug("debug", "aaaaaaa")
 	fstest.PrintTestEnd()
 }
 
@@ -45,8 +46,9 @@ func TestInfo(t *testing.T) {
 	Info("test info 444444!")
 
 	// fslogger
-	fl, _ := NewFileLogger("./logs", "test", false)
-	fl.Info("info", "aaaaaaa")
+	fl := NewDayfileLogger("./logs", "test")
+	SetLogger(fl)
+	Info("info", "aaaaaaa")
 	fl.SetNewLogCmd("./linklog.sh", "arg")
 	fstest.PrintTestEnd()
 }
@@ -65,8 +67,9 @@ func TestError(t *testing.T) {
 	Error("test error 444444!")
 
 	// fslogger
-	fl, _ := NewFileLogger("./logs", "test", false)
-	fl.Error("error", "aaaaaaa")
+	fl := NewDayfileLogger("./logs", "test")
+	SetLogger(fl)
+	Error("error", "aaaaaaa")
 
 	fstest.PrintTestEnd()
 }
@@ -85,8 +88,9 @@ func TestHack(t *testing.T) {
 	Hack("test hack 444444!")
 
 	// fslogger
-	fl, _ := NewFileLogger("./logs", "test", false)
-	fl.Hack("hack", "aaaaaaa")
+	fl := NewDayfileLogger("./logs", "test")
+	SetLogger(fl)
+	Hack("hack", "aaaaaaa")
 
 	fstest.PrintTestEnd()
 }
@@ -104,7 +108,7 @@ func TestTrace(t *testing.T) {
 	Trace("test trace 444444!")
 
 	// fslogger
-	fl, _ := NewFileLogger("./logs", "test", false)
+	fl := NewDayfileLogger("./logs", "test")
 	// 替换全局 fslogger
 	SetLogger(fl)
 	Trace("trace", "aaaaaaa") // 直接用 fslog.Trace 即可

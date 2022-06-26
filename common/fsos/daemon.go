@@ -25,6 +25,7 @@ type S_DaemonFile struct {
 }
 
 // 杀死旧进程
+// 如果进程不存在，则返回：err == syscall.ESRCH
 func (this *S_DaemonFile) KillLast(signal syscall.Signal) error {
 	if this.LastPid == 0 {
 		return nil

@@ -13,6 +13,12 @@ func TestFmt(t *testing.T) {
 	defer fstest.PrintTestEnd()
 }
 
+func TestLastDayOfMon(t *testing.T) {
+	fstest.PrintTestBegin("LastDayOfMon")
+	defer fstest.PrintTestEnd()
+	fmt.Println(LastDayOfMon(2022, time.February))
+}
+
 func TestDawn(t *testing.T) {
 	fstest.PrintTestBegin("Dawn")
 	defer fstest.PrintTestEnd()

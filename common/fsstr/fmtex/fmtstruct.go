@@ -128,6 +128,10 @@ func (this *s_Writer) writeEndline() {
 
 // ---------------------------------------------------------
 func (this *s_Writer) writeValue(v reflect.Value, isTop bool) {
+	if v.IsValid() && v.IsZero() {
+		v = reflect.Zero(v.Type())
+	}
+
 	if !isTop {
 		if ok, str := _getViewString(v); ok {
 			this.writeStringf(str)
