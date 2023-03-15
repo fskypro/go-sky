@@ -12,6 +12,8 @@ package fssql
 import (
 	"fmt"
 	"strings"
+
+	. "fsky.pro/fsky"
 )
 
 // -----------------------------------------------------------------------------
@@ -77,13 +79,15 @@ import (
 // -----------------------------------------------------------------------------
 type s_Select struct {
 	s_SQL
-	selMNames  []string      // 要查询的成员名称表达式
-	selBesides []string      // 被排除 select 的成员
-	selExp     string        // 查询语句
-	selExpArgs []interface{} // 查询表达式参数列表
+	selMNames  []string // 要查询的成员名称表达式
+	selBesides []string // 被排除 select 的成员
+	selExp     string   // 查询语句
+	selExpArgs []any    // 查询表达式参数列表
 
 	selTable *S_Table    // 传出对象所属的 table
 	members  []*S_Member // 要查询的对象成员
+
+	whered bool // 是否写了条件关机键
 }
 
 func Select(mnames ...string) *s_SelectFrom {
@@ -132,7 +136,7 @@ func SelectExp(exp string, args ...interface{}) *s_SelectFrom {
 // -----------------------------------------------------------------------------
 type s_SelectFrom s_Select
 
-func (this *s_SelectFrom) From(table *S_Table) *s_SelectWhere {
+func (this *s_SelectFrom) From(table *S_Table) *S_SelectWhere {
 	this.selTable = table
 	if this.selExp != "" {
 		exp := this.explainExp(table, this.selExp, this.selExpArgs...)
@@ -141,7 +145,7 @@ func (this *s_SelectFrom) From(table *S_Table) *s_SelectWhere {
 		} else {
 			this.sqlText = fmt.Sprintf("SELECT %s FROM %s", exp, table.quote())
 		}
-		return (*s_SelectWhere)(this)
+		return (*S_SelectWhere)(this)
 	}
 
 	dbkeys := []string{}
@@ -150,10 +154,10 @@ func (this *s_SelectFrom) From(table *S_Table) *s_SelectWhere {
 			m := table.Member(name)
 			if m == nil {
 				this.errorf("table %s has no member named %q", table, name)
-				return (*s_SelectWhere)(this)
+				return (*S_SelectWhere)(this)
 			}
 			this.members = append(this.members, m)
-			dbkeys = append(dbkeys, m.quote())
+			dbkeys = append(dbkeys, IfElse(table.IsLink(), m.quoteWithTable(), m.quote()))
 		}
 	} else if this.selBesides != nil {
 	L:
@@ -164,22 +168,71 @@ func (this *s_SelectFrom) From(table *S_Table) *s_SelectWhere {
 				}
 			}
 			this.members = append(this.members, m)
-			dbkeys = append(dbkeys, m.quote())
+			dbkeys = append(dbkeys, IfElse(table.IsLink(), m.quoteWithTable(), m.quote()))
 		}
 	} else {
 		for _, m := range table.members {
 			this.members = append(this.members, m)
-			dbkeys = append(dbkeys, m.quote())
+			dbkeys = append(dbkeys, IfElse(table.IsLink(), m.quoteWithTable(), m.quote()))
 		}
 	}
 	this.sqlText = fmt.Sprintf("SELECT %s FROM %s", strings.Join(dbkeys, ","), table.quote())
-	return (*s_SelectWhere)(this)
+	return (*S_SelectWhere)(this)
 }
 
 // -----------------------------------------------------------------------------
 // Where
 // -----------------------------------------------------------------------------
-type s_SelectWhere s_Select
+type S_SelectWhere s_Select
+
+func (this *S_SelectWhere) where(exp string, args ...interface{}) (string, bool) {
+	if this.notOK() {
+		return "", false
+	}
+	exp = this.explainExp(this.selTable, exp, args...)
+	if this.notOK() {
+		this.errorf(`error "where" expression %q, %v`, exp, this.err)
+		return "", false
+	}
+	return exp, true
+}
+
+func (this *S_SelectWhere) concat(link string, exp string) *S_SelectWhere {
+	if !this.whered {
+		this.sqlText += " WHERE "
+		this.whered = true
+		this.sqlText += exp
+		return this
+	}
+	if strings.HasSuffix(this.sqlText, "(") {
+		this.sqlText += exp
+	} else {
+		this.sqlText += fmt.Sprintf(" %s %s", link, exp)
+	}
+	return this
+}
+
+// -------------------------------------------------------------------
+// 前括号
+func (this *S_SelectWhere) Quote() *S_SelectWhere {
+	return this.concat("", "(")
+}
+
+// 与前括号
+func (this *S_SelectWhere) AndQuote() *S_SelectWhere {
+	return this.concat("AND", "(")
+}
+
+// 或前括号
+func (this *S_SelectWhere) OrQuote() *S_SelectWhere {
+	return this.concat("OR", "(")
+}
+
+// 后括号
+func (this *S_SelectWhere) RQuote() *S_SelectWhere {
+	this.sqlText += ")"
+	return this
+}
 
 // 传入条件子句
 // 如果参数为 *S_Member 则 exp 的转义符为 #[参数索引]，如
@@ -189,30 +242,42 @@ type s_SelectWhere s_Select
 //   传入参数支持 slice 和数组，如：
 //     select * from tb where ID in (1,2,3)，则 on 的调用方式是：
 //	      Where("$[1] in ?[2]", tb1.M("ID"), []int{1,2,3})
-func (this *s_SelectWhere) Where(exp string, args ...interface{}) *s_SelectView {
-	if this.notOK() {
-		return (*s_SelectView)(this)
-	}
-	exp = this.explainExp(this.selTable, exp, args...)
-	if this.notOK() {
-		this.errorf(`error "where" expression %q, %v`, exp, this.err)
-	}
-	this.sqlText += " WHERE " + exp
-	return (*s_SelectView)(this)
+func (this *S_SelectWhere) Where(exp string, args ...interface{}) *S_SelectWhere {
+	return this.AndWhere(exp, args...)
 }
 
-func (this *s_SelectWhere) View(exp string, args ...interface{}) *s_SelectEnd {
-	return (*s_SelectView)(this).View(exp, args...)
+func (this *S_SelectWhere) AndWhere(exp string, args ...interface{}) *S_SelectWhere {
+	exp, ok := this.where(exp, args...)
+	if !ok {
+		return this
+	}
+	return this.concat("AND", exp)
 }
 
-func (this *s_SelectWhere) End() *S_SelectInfo {
+func (this *S_SelectWhere) OrWhere(exp string, args ...interface{}) *S_SelectWhere {
+	exp, ok := this.where(exp, args...)
+	if !ok {
+		return this
+	}
+	return this.concat("OR", exp)
+}
+
+func (this *S_SelectWhere) EmptyView() *S_SelectView {
+	return (*S_SelectView)(this)
+}
+
+func (this *S_SelectWhere) View(exp string, args ...interface{}) *S_SelectView {
+	return (*S_SelectView)(this).View(exp, args...)
+}
+
+func (this *S_SelectWhere) End() *S_SelectInfo {
 	return (*s_SelectEnd)(this).End()
 }
 
 // -----------------------------------------------------------------------------
 // View
 // -----------------------------------------------------------------------------
-type s_SelectView s_Select
+type S_SelectView s_Select
 
 // 输出控制子句
 // 如果参数为 *S_Member 则 exp 的转义符为 #[参数索引]，如：
@@ -221,19 +286,19 @@ type s_SelectView s_Select
 // 又如：
 //   select * from tb limit 100, 则 View 的调用方式：
 //     View("limit ?[1]", 100)
-func (this *s_SelectView) View(exp string, args ...interface{}) *s_SelectEnd {
+func (this *S_SelectView) View(exp string, args ...interface{}) *S_SelectView {
 	if this.notOK() {
-		return (*s_SelectEnd)(this)
+		return this
 	}
 	exp = this.explainExp(this.selTable, exp, args...)
 	if this.notOK() {
 		this.errorf(`error view expression %q, %v`, exp, this.err)
 	}
 	this.sqlText += " " + exp
-	return (*s_SelectEnd)(this)
+	return this
 }
 
-func (this *s_SelectView) End() *S_SelectInfo {
+func (this *S_SelectView) End() *S_SelectInfo {
 	return (*s_SelectEnd)(this).End()
 }
 

@@ -103,19 +103,19 @@ L:
 // -------------------------------------------------------------------
 func InsertIgnore(table *S_Table, mnames ...string) *s_InsertValues {
 	this := Insert(table, mnames...)
-	this.sqlText = "INSERT IGNORE " + table.quote()
+	this.sqlText = strings.Replace(this.sqlText, "INSERT INTO", "INSERT IGNORE ", 1)
 	return this
 }
 
 func InsertIgnoreAll(table *S_Table) *s_InsertValues {
 	this := InsertAll(table)
-	this.sqlText = "INSERT IGNORE " + table.quote()
+	this.sqlText = strings.Replace(this.sqlText, "INSERT INTO", "INSERT IGNORE ", 1)
 	return this
 }
 
 func InsertIgnoreBesides(table *S_Table, mnames ...string) *s_InsertValues {
 	this := InsertBesides(table, mnames...)
-	this.sqlText = "INSERT IGNORE " + table.quote()
+	this.sqlText = strings.Replace(this.sqlText, "INSERT INTO", "INSERT IGNORE ", 1)
 	return this
 }
 
@@ -124,7 +124,7 @@ func InsertIgnoreBesides(table *S_Table, mnames ...string) *s_InsertValues {
 // -------------------------------------------------------------------
 type s_InsertValues s_Insert
 
-func (this *s_InsertValues) Values(values ...[]interface{}) *s_InsertEnd {
+func (this *s_InsertValues) Values(values ...[]any) *s_InsertEnd {
 	if this.notOK() {
 		return (*s_InsertEnd)(this)
 	}
@@ -144,12 +144,12 @@ func (this *s_InsertValues) Values(values ...[]interface{}) *s_InsertEnd {
 	return (*s_InsertEnd)(this)
 }
 
-func (this *s_InsertValues) Objects(objs ...interface{}) *s_InsertEnd {
+func (this *s_InsertValues) Objects(objs ...any) *s_InsertEnd {
 	if this.notOK() {
 		return (*s_InsertEnd)(this)
 	}
 
-	buildItem := func(o interface{}) (bool, error) {
+	buildItem := func(o any) (bool, error) {
 		vobj := reflect.ValueOf(o)
 		tobj := reflect.TypeOf(o)
 		if !vobj.IsValid() {

@@ -14,7 +14,7 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"fsky.pro/fsos"
+	"fsky.pro/fsdef"
 )
 
 // 打印调用栈
@@ -25,14 +25,14 @@ func CallStack(start int, prefix string) string {
 		start = 0
 	}
 	start += 2
-	lines := bytes.Split(debug.Stack(), []byte(fsos.Endline))
+	lines := bytes.Split(debug.Stack(), []byte(fsdef.Endline))
 	if len(lines) == 0 {
 		return ""
 	}
 	train := strings.Builder{}
 	train.WriteString(prefix)
 	train.Write(lines[0])
-	train.WriteString(fsos.Endline)
+	train.WriteString(fsdef.Endline)
 	index := 1 + start*2
 	if index >= len(lines) {
 		return train.String()
@@ -45,7 +45,7 @@ func CallStack(start int, prefix string) string {
 	for _, line := range lines[:count-1] {
 		train.WriteString(prefix)
 		train.Write(line)
-		train.WriteString(fsos.Endline)
+		train.WriteString(fsdef.Endline)
 	}
 	train.WriteString(prefix)
 	train.Write(lines[count-1])

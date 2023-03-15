@@ -11,198 +11,202 @@
 // 示例请看 jsonex_test.go
 package jsonex
 
-import "io"
-import "os"
-import "encoding/json"
+import (
+	"bufio"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"strconv"
+	"strings"
+)
 
 // -------------------------------------------------------------------
 // json file reader
 // -------------------------------------------------------------------
 type s_Reader struct {
-	r    io.Reader
-	data []byte
+	r    *bufio.Reader
+	buff bytes.Buffer
+
+	lastComma  bool // 是否暂存有逗号
+	lastSlash  bool // 是否暂存有 /
+	lastZero   bool // 是否暂存 '0'
+	firstValue bool // 是否是值开始
 }
 
 func newReader(r io.Reader) *s_Reader {
 	return &s_Reader{
-		r:    r,
-		data: make([]byte, 0),
+		r:    bufio.NewReader(r),
+		buff: *bytes.NewBuffer([]byte{}),
 	}
 }
 
-// 读取一个字符
-func (this *s_Reader) readByte() (byte, error) {
-	var bs = make([]byte, 1)
-	n, err := this.r.Read(bs)
-	if err == io.EOF || n < 1 {
-		return 0, nil
-	} else if err != nil {
-		return 0, err
-	}
-	return bs[0], nil
-}
-
+// ---------------------------------------------------------
 // 跳过单行注释
-func (this *s_Reader) skipSingleComment() error {
-	for {
-		char, err := this.readByte()
-		if err != nil {
-			return err
-		}
-
-		if char == '\n' || char == '\r' || char == 0 {
-			return nil
-		}
-	}
-	return nil
+func (this *s_Reader) skipComment() {
+	this.r.ReadLine()
 }
 
 // 跳过多行注释
-func (this *s_Reader) skipMultiComment() error {
-	star := false
-	for {
-		char, err := this.readByte()
-		if err != nil {
-			return err
-		}
-		if char == 0 {
-			return nil
-		}
-
-		// 注释结束
-		if star && char == '/' {
-			return nil
-		}
-
-		if char == '*' {
-			star = true
-		}
+func (this *s_Reader) skipMulComment() {
+	_, err := this.r.ReadBytes('*')
+	if err != nil {
+		return
 	}
-	return nil
+	char, err := this.r.ReadByte()
+	if err != nil {
+		return
+	}
+	if char == '/' {
+		return
+	}
+	this.skipMulComment()
 }
 
-func (this *s_Reader) read() error {
-	quote := false // 进入字符串内部
-
-	lastBSlash := false // 上一个字符是否是反斜杠
-	lastSlash := false  // 上一个字符是否是斜杠
-	lastComma := false  // 上一个有效字符是否是逗号
-
-	// 清除斜杠标记
-	var clearSlash = func() {
-		if lastSlash {
-			this.data = append(this.data, '/')
-			lastSlash = false
-		}
+// 提取字符串内部
+func (this *s_Reader) pickString() {
+	bs, err := this.r.ReadBytes('"')
+	if err != nil {
+		return
 	}
-
-	// 清除逗号标记
-	var clearComma = func() {
-		if lastComma {
-			this.data = append(this.data, ',')
-			lastComma = false
-		}
+	this.buff.Write(bs)
+	if bytes.HasSuffix(bs, []byte{'\\', '"'}) {
+		this.pickString()
 	}
+}
 
+// 转换十六进制
+func (this *s_Reader) transformHexValue(x byte) {
+	chars := []byte{}
 	for {
-		char, err := this.readByte()
+		char, err := this.r.ReadByte()
 		if err != nil {
+			break
+		}
+		if strings.Contains(" ,\r\n\t]}", string(char)) {
+			this.r.UnreadByte()
+			break
+		} else {
+			chars = append(chars, char)
+		}
+	}
+	value, err := strconv.ParseUint(string(chars), 16, 64)
+	if err != nil {
+		this.buff.Write([]byte{'0', x})
+		this.buff.Write(chars)
+	} else {
+		this.buff.WriteString(fmt.Sprintf("%v", value))
+	}
+}
+
+// ---------------------------------------------------------
+func (this *s_Reader) flushLastChar() {
+	if this.lastComma {
+		this.buff.WriteByte(',')
+	}
+	if this.lastZero {
+		this.buff.WriteByte('0')
+	}
+	this.lastComma = false
+	this.lastZero = false
+}
+
+func (this *s_Reader) filterParse() error {
+	for {
+		char, err := this.r.ReadByte()
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
 			return err
 		}
-		if char == 0 {
-			return nil
-		}
 
-		// 字符串内部
-		if quote {
-			if char == '"' {
-				if !lastBSlash { // 离开字符串内部
-					quote = false
-				}
-			} else if char == '\\' {
-				if lastBSlash { // 连续两个反斜杠，表示输出一个反斜杠
-					lastBSlash = false
-				} else {
-					lastBSlash = true
-				}
+		switch char {
+		case '/':
+			if this.lastSlash {
+				this.skipComment()
+			}
+			this.lastSlash = !this.lastSlash
+			continue
+		case '*':
+			if this.lastSlash {
+				this.skipMulComment()
+			}
+			this.lastSlash = !this.lastSlash
+			continue
+		case '"':
+			this.flushLastChar()
+			this.firstValue = false
+
+			this.buff.WriteByte('"')
+			this.pickString()
+			continue
+		case ':':
+			this.buff.WriteByte(char)
+			this.firstValue = true
+			continue
+		case ',':
+			this.flushLastChar()
+			this.lastComma = true
+			this.firstValue = true
+			continue
+		case '[':
+			this.flushLastChar()
+			this.firstValue = true
+			this.buff.WriteByte('[')
+			continue
+		case '}', ']':
+			if this.lastComma {
+				this.lastComma = false // 忽略最后一个逗号
+			}
+			this.firstValue = false
+			this.flushLastChar()
+			this.buff.WriteByte(char)
+			continue
+		case ' ', '\t', '\r', '\n':
+			if this.lastZero {
+				this.buff.WriteByte('0')
+				this.lastZero = false
+				this.buff.WriteByte(char)
+			}
+			continue
+		case '0': // 十六进制
+			if this.lastComma {
+				this.buff.WriteByte(',')
+				this.lastComma = false
+			}
+			if this.lastZero {
+				this.buff.WriteString("00")
+				this.lastZero = false
 			} else {
-				lastBSlash = false
+				this.lastZero = true
 			}
-
-			lastSlash = false
-			this.data = append(this.data, char)
+			this.firstValue = false
 			continue
-		}
-
-		// 进入字符串内部
-		if char == '"' {
-			quote = true
-
-			clearSlash()
-			clearComma()
-			this.data = append(this.data, char)
-			continue
-		}
-
-		// 记录下斜杠
-		if char == '/' {
-			if lastSlash { // 连续两个斜杠
-				err = this.skipSingleComment() // 跳过单行注释
-				if err != nil {
-					return err
-				}
-				lastSlash = false
+		case 'x', 'X':
+			if this.lastComma {
+				this.buff.WriteByte(',')
+				this.lastComma = false
+			}
+			if this.lastZero {
+				this.transformHexValue(char)
+				this.lastZero = false
 			} else {
-				lastSlash = true
+				this.buff.WriteByte(char)
 			}
-
+			this.firstValue = false
 			continue
 		}
-
-		// 多行注释
-		if char == '*' && lastSlash {
-			err = this.skipMultiComment()
-			if err != nil {
-				return err
-			}
-			lastSlash = false
-			continue
-		}
-
-		// 忽略掉所有不在字符串内部的空白字符
-		if char == ' ' || char == '\t' || char == '\r' || char == '\n' {
-			clearSlash()
-			continue
-		}
-
-		// 去掉最后一个元素的逗号
-		if char == '}' || char == ']' {
-			lastComma = false
-			clearSlash()
-			this.data = append(this.data, char)
-			continue
-		}
-		if lastComma {
-			lastComma = false
-			this.data = append(this.data, ',', char)
-			continue
-		}
-		if char == ',' { // 逗号暂时忽略（等下一个字符如果不是 ]、} 再取，如果是 ]、} 则忽略掉）
-			lastComma = true
-			clearSlash()
-			continue
-		}
-
-		clearSlash()
-		clearComma()
-		this.data = append(this.data, char)
+		this.flushLastChar()
+		this.firstValue = false
+		this.buff.WriteByte(char)
 	}
 }
 
 // -------------------------------------------------------------------
 // package public
 // -------------------------------------------------------------------
-func Load(path string, inst interface{}) error {
+func Load(path string, inst any) error {
 	fi, err := os.Open(path)
 	if err != nil {
 		return err
@@ -210,10 +214,19 @@ func Load(path string, inst interface{}) error {
 	defer fi.Close()
 
 	reader := newReader(fi)
-	err = reader.read()
+	err = reader.filterParse()
 	if err != nil {
 		return err
 	}
 
-	return json.Unmarshal(reader.data, inst)
+	return json.Unmarshal(reader.buff.Bytes(), inst)
+}
+
+func test(jstr string) (string, error) {
+	r := newReader(strings.NewReader(jstr))
+	err := r.filterParse()
+	if err != nil {
+		return "", err
+	}
+	return r.buff.String(), nil
 }

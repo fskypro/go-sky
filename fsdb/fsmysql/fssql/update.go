@@ -21,6 +21,8 @@ type s_Update struct {
 	s_SQL
 	table   *S_Table    // 要更新的表
 	members []*S_Member // 要更新的对象成员名
+
+	whered bool
 }
 
 // -------------------------------------------------------------------
@@ -104,7 +106,7 @@ func UpdateTables(tb1 *S_Table, tb2 *S_Table, tbs ...*S_Table) *s_UpdateSetExp {
 		table:   tb1,
 		members: make([]*S_Member, 0),
 	}
-	this.sqlText = "UPDATE " + fsstr.JoinFunc(tables, ",", func(e interface{}) string { return e.(*S_Table).quote() })
+	this.sqlText = "UPDATE " + fsstr.JoinFunc(tables, ",", func(t *S_Table) string { return t.quote() })
 	return (*s_UpdateSetExp)(this)
 }
 
@@ -114,13 +116,13 @@ func UpdateTables(tb1 *S_Table, tb2 *S_Table, tbs ...*S_Table) *s_UpdateSetExp {
 type s_UpdateSet s_Update
 
 // 以值更新表记录
-func (this *s_UpdateSet) Set(values ...interface{}) *s_UpdateWhere {
+func (this *s_UpdateSet) Set(values ...interface{}) *S_UpdateWhere {
 	if this.notOK() {
-		return (*s_UpdateWhere)(this)
+		return (*S_UpdateWhere)(this)
 	}
 	if len(values) != len(this.members) {
 		this.errorf("the number of update values must be %d", len(this.members))
-		return (*s_UpdateWhere)(this)
+		return (*S_UpdateWhere)(this)
 	}
 	this.addInValues(values...)
 	items := []string{}
@@ -128,13 +130,13 @@ func (this *s_UpdateSet) Set(values ...interface{}) *s_UpdateWhere {
 		items = append(items, fmt.Sprintf("%s=?", m.quote()))
 	}
 	this.sqlText += " SET " + strings.Join(items, ",")
-	return (*s_UpdateWhere)(this)
+	return (*S_UpdateWhere)(this)
 }
 
 // 用表对应对象更新记录
-func (this *s_UpdateSet) SetObject(obj interface{}) *s_UpdateWhere {
+func (this *s_UpdateSet) SetObject(obj interface{}) *S_UpdateWhere {
 	if this.notOK() {
-		return (*s_UpdateWhere)(this)
+		return (*S_UpdateWhere)(this)
 	}
 	vobj := reflect.ValueOf(obj)
 	tobj := reflect.TypeOf(obj)
@@ -144,7 +146,7 @@ func (this *s_UpdateSet) SetObject(obj interface{}) *s_UpdateWhere {
 	}
 	if tobj != this.table.tobj {
 		this.errorf("input object type is not the same as the table %s binds object type", this.table)
-		return (*s_UpdateWhere)(this)
+		return (*S_UpdateWhere)(this)
 	}
 
 	items := []string{}
@@ -153,10 +155,10 @@ func (this *s_UpdateSet) SetObject(obj interface{}) *s_UpdateWhere {
 		items = append(items, fmt.Sprintf("%s=?", m.quote()))
 	}
 	this.sqlText += " SET " + strings.Join(items, ",")
-	return (*s_UpdateWhere)(this)
+	return (*S_UpdateWhere)(this)
 }
 
-func (this *s_UpdateSet) SetExp(exp string, args ...interface{}) *s_UpdateWhere {
+func (this *s_UpdateSet) SetExp(exp string, args ...interface{}) *S_UpdateWhere {
 	return (*s_UpdateSetExp)(this).SetExp(exp, args...)
 }
 
@@ -166,39 +168,94 @@ type s_UpdateSetExp s_Update
 // 更新关联表，如：
 // update t1, t2 set t2.a = t1.a where t2.id = ti.id;
 // SetExp("$[1]=$[2]", t1.M("A"), t2.M("A"))
-func (this *s_UpdateSetExp) SetExp(exp string, args ...interface{}) *s_UpdateWhere {
+func (this *s_UpdateSetExp) SetExp(exp string, args ...interface{}) *S_UpdateWhere {
 	if this.notOK() {
-		return (*s_UpdateWhere)(this)
+		return (*S_UpdateWhere)(this)
 	}
 	exp = this.explainExp(this.table, exp, args...)
 	if this.notOK() {
 		this.errorf("error update exp, %v", this.err.Error())
-		return (*s_UpdateWhere)(this)
+		return (*S_UpdateWhere)(this)
 	}
 	this.sqlText += " SET " + exp
-	return (*s_UpdateWhere)(this)
+	return (*S_UpdateWhere)(this)
 }
 
 // -------------------------------------------------------------------
 // Where
 // -------------------------------------------------------------------
-type s_UpdateWhere s_Update
+type S_UpdateWhere s_Update
 
-// 更新条件
-func (this *s_UpdateWhere) Where(exp string, args ...interface{}) *s_UpdateEnd {
+func (this *S_UpdateWhere) where(exp string, args ...interface{}) (string, bool) {
 	if this.notOK() {
-		return (*s_UpdateEnd)(this)
+		return "", false
 	}
 	exp = this.explainExp(this.table, exp, args...)
 	if this.notOK() {
 		this.errorf("error update where condition, %v", this.err.Error())
-		return (*s_UpdateEnd)(this)
+		return "", false
 	}
-	this.sqlText += " WHERE " + exp
-	return (*s_UpdateEnd)(this)
+	return exp, true
 }
 
-func (p *s_UpdateWhere) End() *S_ExecInfo {
+func (this *S_UpdateWhere) concat(link string, exp string) *S_UpdateWhere {
+	if !this.whered {
+		this.sqlText += " WHERE "
+		this.whered = true
+		this.sqlText += exp
+		return this
+	}
+	if strings.HasSuffix(this.sqlText, "(") {
+		this.sqlText += exp
+	} else {
+		this.sqlText += fmt.Sprintf(" %s %s", link, exp)
+	}
+	return this
+}
+
+// -------------------------------------------------------------------
+// 前括号
+func (this *S_UpdateWhere) Quote() *S_UpdateWhere {
+	return this.concat("", "(")
+}
+
+// 与前括号
+func (this *S_UpdateWhere) AndQuote() *S_UpdateWhere {
+	return this.concat("AND", "(")
+}
+
+// 或前括号
+func (this *S_UpdateWhere) OrQuote() *S_UpdateWhere {
+	return this.concat("OR", "(")
+}
+
+// 后括号
+func (this *S_UpdateWhere) RQuote() *S_UpdateWhere {
+	this.sqlText += ")"
+	return this
+}
+
+func (this *S_UpdateWhere) Where(exp string, args ...interface{}) *S_UpdateWhere {
+	return this.AndWhere(exp, args...)
+}
+
+func (this *S_UpdateWhere) AndWhere(exp string, args ...interface{}) *S_UpdateWhere {
+	exp, ok := this.where(exp, args...)
+	if !ok {
+		return this
+	}
+	return this.concat("AND", exp)
+}
+
+func (this *S_UpdateWhere) OrWhere(exp string, args ...interface{}) *S_UpdateWhere {
+	exp, ok := this.where(exp, args...)
+	if !ok {
+		return this
+	}
+	return this.concat("OR", exp)
+}
+
+func (p *S_UpdateWhere) End() *S_ExecInfo {
 	return (*s_UpdateEnd)(p).End()
 }
 

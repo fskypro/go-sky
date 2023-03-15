@@ -22,6 +22,7 @@ import (
 )
 
 // 引用私有函数，用于请求文件
+//
 //go:linkname serveFile net/http.serveFile
 func serveFile(http.ResponseWriter, *http.Request, http.FileSystem, string, bool)
 
@@ -66,7 +67,10 @@ L:
 		tfield := vfield.Type()
 		tag := sfield.Tag.Get("urlkey")
 		if tag == "" {
-			tag = sfield.Name
+			tag = sfield.Tag.Get("json")
+			if tag == "" {
+				tag = sfield.Name
+			}
 		}
 		var value interface{}
 		svalue := get(tag)
@@ -157,6 +161,8 @@ L:
 			} else {
 				value = v
 			}
+		case reflect.Slice:
+
 		default:
 			return fmt.Errorf("unsupport value type %v", tfield)
 		}
@@ -201,6 +207,10 @@ func (this *S_Request) UnmarshalPostBody(obj interface{}) error {
 	body, err := ioutil.ReadAll(this.R.Body)
 	if err != nil {
 		return err
+	}
+	ctype := this.R.Header.Get("Content-Type")
+	if ctype == "application/json" {
+		return json.Unmarshal(body, obj)
 	}
 
 	keyValues := map[string]string{}
@@ -293,10 +303,26 @@ func (this *S_Request) ResponseCrossDomain() bool {
 
 func (this *S_Request) ResponseFile(webroot string, file string) {
 	this.cancel = true
+	mimeType := GetMimeType(path.Ext(file))
+	if mimeType != "" {
+		this.W.Header().Set("Content-Type", mimeType)
+	}
 	serveFile(this.W, this.R, http.Dir(webroot), path.Clean(file), true)
 }
 
 func (this *S_Request) Redirect(url string, code int) {
 	this.cancel = true
 	http.Redirect(this.W, this.R, url, code)
+}
+
+// 找到资源
+func (this *S_Request) RedirectFound(url string) {
+	this.cancel = true
+	http.Redirect(this.W, this.R, url, http.StatusSeeOther)
+}
+
+// 找不到资源
+func (this *S_Request) ResponseNotFound() {
+	// this.W.WriteHeader(404)
+	http.NotFound(this.W, this.R)
 }

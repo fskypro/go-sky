@@ -14,13 +14,22 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
+	"path"
 	"path/filepath"
 	"syscall"
+
+	"fsky.pro/fsdef"
 )
+
+// 获取文件路径的去掉扩展名部分
+func FileNoExt(file string) string {
+	ext := path.Ext(file)
+	return file[:len(file)-len(ext)]
+}
 
 // IsPathExists 判断路径是否存在(包括文件和文件夹)
 // 注意：
+//
 //	如果参数 path 为空字符串，则返回 false
 func IsPathExists(path string) bool {
 	_, err := os.Stat(path)
@@ -32,6 +41,7 @@ func IsPathExists(path string) bool {
 
 // IsDir 判断指定路径是否是已经存在的文件夹
 // 注意：
+//
 //	如果 path 为空字符串，则返回 false，而不会认为是当前路径
 func IsDirExists(path string) bool {
 	s, err := os.Stat(path)
@@ -55,37 +65,10 @@ func IsFileAccess(file string) bool {
 	return syscall.Access(file, syscall.O_RDWR) == nil
 }
 
+// -------------------------------------------------------------------
 // CurrentDir 获取可执行程序当前路径
 func CurrentDir() (string, error) {
 	return filepath.Abs(filepath.Dir(os.Args[0]))
-}
-
-// -------------------------------------------------------------------
-// GetBinPath 获取可执行程序所在绝对路径
-func GetBinPath() (string, error) {
-	rbin, err := exec.LookPath(os.Args[0])
-	if err != nil {
-		return "", err
-	}
-	abin, err := filepath.Abs(rbin)
-	if err != nil {
-		return "", err
-	}
-	dir, _ := filepath.Split(abin)
-	return dir, nil
-}
-
-// GetFullPathToBin 根据可执行程序的相对路径，获取绝对路径
-// 如果传入的路径以路径分隔符（linux 为“/”，windows 为“\”）开头，则，则直接返回 path
-func GetFullPathToBin(path string) (string, error) {
-	if path[0] == filepath.Separator {
-		return path, nil
-	}
-	binPath, err := GetBinPath()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(binPath, path), nil
 }
 
 // -------------------------------------------------------------------
@@ -121,6 +104,7 @@ func CopyFile(src, dst string) error {
 
 // CopyDir 复制文件夹
 // 如果目标文件夹已经存在，并且不为空，则复制失败
+//
 //	参数 allowDstHasFile 为 false，表示如果目标文件夹有文件，则复制失败
 //	参数 allowDstFasFile 为 true，则允许目标文件夹已经有其他文件，并保留原有文件（但是有重名文件，则复制失败）
 func CopyDir(src, dst string, allowDstHasFile bool, out *os.File) error {
@@ -152,7 +136,7 @@ func CopyDir(src, dst string, allowDstHasFile bool, out *os.File) error {
 		}
 		dstFile := filepath.Join(dst, srcFile[srcPathLen:])
 		if out != nil {
-			out.Write([]byte(fmt.Sprintf("%s->%s%s", srcFile, dstFile, Endline)))
+			out.Write([]byte(fmt.Sprintf("%s->%s%s", srcFile, dstFile, fsdef.Endline)))
 		}
 		return CopyFile(srcFile, dstFile)
 	})

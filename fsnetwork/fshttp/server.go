@@ -10,7 +10,7 @@
 package fshttp
 
 import (
-	"errors"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -19,18 +19,17 @@ import (
 )
 
 type S_Server struct {
+	*http.Server
+
 	host string
 	port int
-
-	tlsKey   string
-	tlsPem   string
-	listener net.Listener
 }
 
 func NewServer(host string, port int) *S_Server {
 	return &S_Server{
-		host: host,
-		port: port,
+		Server: &http.Server{Addr: fmt.Sprintf("%s:%d", host, port)},
+		host:   host,
+		port:   port,
 	}
 }
 
@@ -44,8 +43,9 @@ func NewServerAddr(addr string) (*S_Server, error) {
 		return nil, fmt.Errorf("error http address %q", addr)
 	}
 	return &S_Server{
-		host: hp[0],
-		port: port,
+		Server: &http.Server{Addr: addr},
+		host:   hp[0],
+		port:   port,
 	}, nil
 }
 
@@ -61,33 +61,60 @@ func (this *S_Server) Addr() string {
 	return fmt.Sprintf("%s:%d", this.host, this.port)
 }
 
-func (this *S_Server) SetTLS(pem, key string) {
-	this.tlsPem = pem
-	this.tlsKey = key
-}
-
-func (this *S_Server) Listen() error {
-	ln, err := net.Listen("tcp", this.Addr())
-	this.listener = ln
-	return err
-}
-
-func (this *S_Server) Serve(service I_Service) error {
-	if this.listener == nil {
-		return errors.New("must listen at first.")
+// -------------------------------------------------------------------
+// 添加证书文件，domain 为域名，可以不指定(传入空字符串)
+func (this *S_Server) AddTLSFiles(domain string, pem, key string) error {
+	cert, err := tls.LoadX509KeyPair(pem, key)
+	if err != nil {
+		return err
 	}
-	return http.Serve(this.listener, service)
+	if this.TLSConfig == nil {
+		this.TLSConfig = new(tls.Config)
+	}
+	if this.TLSConfig.Certificates == nil {
+		this.TLSConfig.Certificates = []tls.Certificate{}
+	}
+	this.TLSConfig.Certificates = append(this.TLSConfig.Certificates, cert)
+	if domain != "" {
+		if this.TLSConfig.NameToCertificate == nil {
+			this.TLSConfig.NameToCertificate = map[string]*tls.Certificate{}
+		}
+		this.TLSConfig.NameToCertificate[domain] = &cert
+	}
+	return nil
 }
 
-func (this *S_Server) ServeTLS(service I_Service) error {
-	if this.listener == nil {
-		return errors.New("must listen at first.")
-	}
-	return http.ServeTLS(this.listener, service, this.tlsPem, this.tlsKey)
+// -------------------------------------------------------------------
+func (this *S_Server) ServeTLS(ln net.Listener) error {
+	return this.Server.ServeTLS(ln, "", "")
 }
 
-func (this *S_Server) Close() {
-	if this.listener != nil {
-		this.listener.Close()
+func (this *S_Server) ListenAndServe(service I_Service) error {
+	this.Handler = service
+	return this.Server.ListenAndServe()
+}
+
+func (this *S_Server) ListenAndServeTLS(service I_Service) error {
+	addr := this.Addr()
+	if addr == "" {
+		addr = ":https"
 	}
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	this.Handler = service
+
+	defer ln.Close()
+	return this.ServeTLS(ln)
+}
+
+func (this *S_Server) ServeAuto(service I_Service) error {
+	if this.TLSConfig != nil &&
+		(len(this.TLSConfig.Certificates) > 0 ||
+			this.TLSConfig.GetCertificate != nil) {
+		return this.ListenAndServeTLS(service)
+	}
+	return this.ListenAndServe(service)
 }

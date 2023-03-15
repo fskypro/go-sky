@@ -33,15 +33,11 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 func Test(t *testing.T) {
 	svr := NewServer("", 8088)
-	svr.SetTLS("./certs/server.crt", "./certs/server.key")
+	svr.AddTLSFiles("fsky.pro", "./certs/server.crt", "./certs/server.key")
 	svc := newService()
 	svc.AddHandler("/", handle)
 
-	err := svr.Listen()
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = svr.ServeTLS(svc)
+	err := svr.ListenAndServeTLS(svc)
 	if err != nil {
 		fmt.Println(err)
 	}

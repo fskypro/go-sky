@@ -24,6 +24,30 @@ type I_SQLInfo interface {
 	FmtSQLText(string) string
 }
 
+type s_SQLInfo struct {
+	sql string
+}
+
+func newSQLInfo(sql string) *s_SQLInfo {
+	return &s_SQLInfo{sql}
+}
+
+func newSQLInfof(sql string, args ...any) *s_SQLInfo {
+	return &s_SQLInfo{fmt.Sprintf(sql, args...)}
+}
+
+func (this *s_SQLInfo) SQLText() string {
+	return this.sql
+}
+
+func (this *s_SQLInfo) FmtSQLText(string) string {
+	return this.sql
+}
+
+func (this *s_SQLInfo) Err() error {
+	return nil
+}
+
 // -------------------------------------------------------------------
 // Result
 // -------------------------------------------------------------------
@@ -51,17 +75,24 @@ func (this *S_OPResult) FmtSQLText(indent string) string {
 // -------------------------------------------------------------------
 // SelectResult
 // -------------------------------------------------------------------
-type F_IterValues func(error, ...interface{}) bool
-type F_IterObjects func(error, interface{}) bool
+type F_IterValues func(error, ...any) bool
+type F_IterObjects func(error, any) bool
 
 type S_OPSelectResult struct {
-	S_OPResult
+	*S_OPResult
 	rows *sql.Rows
 }
 
-func newOPSelectResult(sqlInfo *fssql.S_SelectInfo, rows *sql.Rows, err error) *S_OPSelectResult {
+func newOPSelectResult(sqlInfo *fssql.S_SelectInfo, err error) *S_OPSelectResult {
 	return &S_OPSelectResult{
-		S_OPResult: *newOPResult(sqlInfo, err),
+		S_OPResult: newOPResult(sqlInfo, err),
+		rows:       nil,
+	}
+}
+
+func newOPSelectResult2(sqlInfo *fssql.S_SelectInfo, rows *sql.Rows) *S_OPSelectResult {
+	return &S_OPSelectResult{
+		S_OPResult: newOPResult(sqlInfo, nil),
 		rows:       rows,
 	}
 }
@@ -71,6 +102,14 @@ func (this *S_OPSelectResult) ForValues(fun F_IterValues, values ...interface{})
 		return this.err
 	}
 	defer this.rows.Close()
+	return this.ForValuesTx(fun, values...)
+}
+
+// 该方法给事务调用
+func (this *S_OPSelectResult) ForValuesTx(fun F_IterValues, values ...any) error {
+	if this.err != nil {
+		return this.err
+	}
 	for this.rows.Next() {
 		err := this.rows.Scan(values...)
 		if err != nil {
@@ -88,13 +127,21 @@ func (this *S_OPSelectResult) ForObjects(fun F_IterObjects) error {
 	if this.err != nil {
 		return this.err
 	}
+	defer this.rows.Close()
+	return this.ForObjectsTx(fun)
+}
+
+// 该方法给事务调用
+func (this *S_OPSelectResult) ForObjectsTx(fun F_IterObjects) error {
+	if this.err != nil {
+		return this.err
+	}
 	sqlInfo := this.sqlInfo.(*fssql.S_SelectInfo)
 	obj, mptrs, err := sqlInfo.CreateOutObject()
 	if err != nil {
 		return err
 	}
 
-	defer this.rows.Close()
 	for this.rows.Next() {
 		err := this.rows.Scan(mptrs...)
 		if err != nil {
@@ -139,4 +186,73 @@ func (this *S_OPExecResult) RowsAffected() (int64, error) {
 		return 0, this.Err()
 	}
 	return this.rest.RowsAffected()
+}
+
+// -----------------------------------------------------------------------------
+// 行值扫描操作
+// -----------------------------------------------------------------------------
+type S_OPFetchResult struct {
+	*S_OPResult
+	rows *sql.Rows
+}
+
+func newOPFetchResult(sqlInfo *fssql.S_FetchInfo, err error) *S_OPFetchResult {
+	return &S_OPFetchResult{
+		S_OPResult: newOPResult(sqlInfo, err),
+	}
+}
+
+func newOPFetchResult2(sqlInfo *fssql.S_FetchInfo, rows *sql.Rows) *S_OPFetchResult {
+	return &S_OPFetchResult{
+		S_OPResult: newOPResult(sqlInfo, nil),
+		rows:       rows,
+	}
+}
+
+// 如果 fun 返回 false，则停止扫描
+// 该方法给事务调用
+func (this *S_OPFetchResult) ForTx(fun F_IterValues, values ...any) error {
+	if this.err != nil {
+		return this.err
+	}
+	for this.rows.Next() {
+		err := this.rows.Scan(values...)
+		if err != nil {
+			if !fun(fmt.Errorf("scan row error: %v", err)) {
+				return nil
+			}
+		} else if !fun(nil, values...) {
+			return nil
+		}
+	}
+	return nil
+}
+
+func (this *S_OPFetchResult) For(fun F_IterValues, values ...any) error {
+	if this.err != nil {
+		return this.err
+	}
+	defer this.rows.Close()
+	return this.For(fun, values...)
+}
+
+// -----------------------------------------------------------------------------
+// 一次性返回所有值操作
+// -----------------------------------------------------------------------------
+type S_OPValueResult struct {
+	*S_OPResult
+	Value any
+}
+
+func newOPValueResult(sqlInfo *fssql.S_FetchInfo, err error) *S_OPValueResult {
+	return &S_OPValueResult{
+		S_OPResult: newOPResult(sqlInfo, err),
+	}
+}
+
+func newOPValueResult2(sqlInfo *fssql.S_FetchInfo, value any) *S_OPValueResult {
+	return &S_OPValueResult{
+		S_OPResult: newOPResult(sqlInfo, nil),
+		Value:      value,
+	}
 }

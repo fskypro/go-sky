@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"runtime/debug"
 	"strings"
+	"sync"
 )
 
 type I_Handler interface {
@@ -66,6 +67,7 @@ type I_Service interface {
 // -------------------------------------------------------------------
 type S_Service struct {
 	I_Service
+	locker     sync.RWMutex
 	handlers   map[string]*s_Handler
 	rehandlers map[string]*s_ReHandler
 	OnError    func(string, *http.Request)
@@ -116,6 +118,8 @@ func (this *S_Service) onPanic(stack string, r *http.Request) {
 //	func(http.ResponseWriter, *http.Request)
 // 如果 path 以 [re] 开头，则表示该路径为正则表达式
 func (this *S_Service) AddHandler(path string, f func(http.ResponseWriter, *http.Request)) error {
+	this.locker.Lock()
+	defer this.locker.Unlock()
 	if !strings.HasPrefix(path, "[re]") {
 		if _, ok := this.handlers[path]; ok {
 			return fmt.Errorf("http path %q has been exists.", path)
@@ -141,6 +145,8 @@ func (this *S_Service) AddHandler(path string, f func(http.ResponseWriter, *http
 //	func(*S_Request)
 // 如果 path 以 [re] 开头，则表示该路径为正则表达式
 func (this *S_Service) AddHandler2(path string, f func(*S_Request)) error {
+	this.locker.Lock()
+	defer this.locker.Unlock()
 	if !strings.HasPrefix(path, "[re]") {
 		if _, ok := this.handlers[path]; ok {
 			return fmt.Errorf("http path %q has been exists.", path)
@@ -165,6 +171,8 @@ func (this *S_Service) AddHandler2(path string, f func(*S_Request)) error {
 // 添加 url 路径请求处理对象，处理对象必须实现 I_Handler 接口
 // 如果 path 以 [re] 开头，则表示该路径为正则表达式
 func (this *S_Service) AddHandler3(path string, h I_Handler) error {
+	this.locker.Lock()
+	defer this.locker.Unlock()
 	if !strings.HasPrefix(path, "[re]") {
 		if _, ok := this.handlers[path]; ok {
 			return fmt.Errorf("http path %q has been exists.", path)
@@ -188,6 +196,8 @@ func (this *S_Service) AddHandler3(path string, h I_Handler) error {
 
 // ---------------------------------------------------------
 func (this *S_Service) RemoveHandler(path string) bool {
+	this.locker.Lock()
+	defer this.locker.Unlock()
 	_, ok1 := this.handlers[path]
 	_, ok2 := this.rehandlers[path]
 	delete(this.handlers, path)
@@ -216,6 +226,9 @@ func (this *S_Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	host, port, _ := net.SplitHostPort(r.RemoteAddr)
 	r.Header.Add("RemoteHost", host)
 	r.Header.Add("RemotePort", port)
+
+	this.locker.RLock()
+	defer this.locker.RUnlock()
 
 	// 精确匹配
 	handler, ok := this.handlers[r.URL.Path]

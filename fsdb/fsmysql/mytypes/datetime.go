@@ -32,6 +32,10 @@ func NewZeroDateTime() T_DateTime {
 	return T_DateTime("0000-00-00 00:00:00")
 }
 
+func NewUnixStartDateTime() T_DateTime {
+	return T_DateTime(time.Unix(0, 0).Format("2006-01-02 15:04:05"))
+}
+
 // ---------------------------------------------------------
 func (self T_DateTime) String() string {
 	if string(self) == "" {

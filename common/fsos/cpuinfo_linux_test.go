@@ -7,21 +7,6 @@ import (
 	"fsky.pro/fstest"
 )
 
-func TestGetCpuInfo(t *testing.T) {
-	fstest.PrintTestBegin("GetCpuInfo")
-	defer fstest.PrintTestEnd()
-
-	info, err := GetCpuInfo()
-	if err != nil {
-		fmt.Println("error: ", err)
-		return
-	}
-
-	for _, c := range info.CpuCores {
-		fmt.Printf("%#v\n", c)
-	}
-}
-
 func TestGetCpuStat(t *testing.T) {
 	fstest.PrintTestBegin("GetCpuStat")
 	defer fstest.PrintTestEnd()

@@ -8,8 +8,11 @@
 
 package fserror
 
-import "fmt"
-import "fsky.pro/fsos"
+import (
+	"fmt"
+
+	"fsky.pro/fsdef"
+)
 
 type S_Errors struct {
 	errs []error
@@ -61,9 +64,9 @@ func (this *S_Errors) FmtErrors() string {
 
 	for _, err := range this.errs[1:] {
 		if e, ok := err.(I_Error); ok {
-			msg = msg + fsos.Endline + "+ " + e.Error()
+			msg = msg + fsdef.Endline + "+ " + e.Error()
 		} else {
-			msg = msg + fsos.Endline + "+ " + err.Error()
+			msg = msg + fsdef.Endline + "+ " + err.Error()
 		}
 	}
 	return msg

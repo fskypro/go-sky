@@ -9,7 +9,7 @@
 package fsstr
 
 import (
-	"reflect"
+	"fmt"
 	"strings"
 
 	"fsky.pro/fsbytes"
@@ -66,25 +66,38 @@ func TrimEmpty(s string) string {
 // a 必须是一个 slice 或者 array
 // sep 为分隔字符串
 // f 传入 a 的每一个元素， 返回元素的字符串表现形式
-func JoinFunc(a interface{}, sep string, f func(e interface{}) string) string {
-	t := reflect.TypeOf(a)
-	if t == nil {
-		return ""
-	}
-	if t.Kind() != reflect.Slice && t.Kind() != reflect.Array {
-		return ""
-	}
-	v := reflect.ValueOf(a)
-	if v.IsNil() {
-		return ""
-	}
+func JoinFunc[T any](s []T, sep string, f func(e T) string) string {
 	var sb strings.Builder
-	if v.Len() > 0 {
-		sb.WriteString(f(v.Index(0).Interface()))
+	if len(s) > 0 {
+		sb.WriteString(f(s[0]))
 	}
-	for i := 1; i < v.Len(); i++ {
+	for i := 1; i < len(s); i++ {
 		sb.WriteString(sep)
-		sb.WriteString(f(v.Index(i).Interface()))
+		sb.WriteString(f(s[i]))
 	}
 	return sb.String()
+}
+
+// 将 s 中的元素以 v% 的形式与 sep 逐个拼接
+func JoinAny[T any](s []T, sep string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	str := fmt.Sprintf("%v", s[0])
+	for i := 1; i < len(s); i++ {
+		str += fmt.Sprintf(",%v", s[i])
+	}
+	return str
+}
+
+// 将以固定字符分割元素的字符串，分割成指定的 slice
+func SplitFunc[T any](str string, sep string, f func(string) T) []T {
+	if str == "" {
+		return []T{}
+	}
+	elems := []T{}
+	for _, s := range strings.Split(str, sep) {
+		elems = append(elems, f(s))
+	}
+	return elems
 }

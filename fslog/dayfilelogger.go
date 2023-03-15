@@ -18,8 +18,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
+
+	"fsky.pro/fstime"
 )
 
 // -----------------------------------------------------------------------------
@@ -35,18 +38,16 @@ func newLogCmd(cmd string, args ...string) *s_NewLogCmd {
 }
 
 func (this *s_NewLogCmd) exec(logger *S_DayfileLogger, log string) {
-	if this.cmd == "" {
-		return
-	}
+	if this.cmd == "" { return }
 	args := []string{log}
 	args = append(args, this.args...)
 	cmd := exec.Command(this.cmd, args...)
 	out, err := cmd.CombinedOutput()
 	out = bytes.ReplaceAll(bytes.TrimSpace(out), []byte("\n"), []byte("\n\t"))
 	if err != nil {
-		logger.Errorf(1, "execute new log file command(%s) fail, error: %v.", this.cmd, err)
+		go logger.Errorf("execute new log file command(%s) fail, error: %v.", this.cmd, err)
 	} else {
-		logger.Infof(1, "execute new log file command(%s) success! output:\n\t%s", this.cmd, out)
+		go logger.Infof("execute new log file command(%s) success! output:\n\t%s", this.cmd, out)
 	}
 }
 
@@ -55,10 +56,12 @@ func (this *s_NewLogCmd) exec(logger *S_DayfileLogger, log string) {
 // -----------------------------------------------------------------------------
 type S_DayfileLogger struct {
 	*S_Logger
-	dir     string
-	prefix  string
-	logPath string
-	file    *os.File
+	locker      sync.Mutex
+	dir         string
+	prefix      string
+	logPath     string
+	file        *os.File
+	nextDayTime time.Time
 
 	newLogCmd *s_NewLogCmd
 	newLogCB  func(string, error)
@@ -72,11 +75,13 @@ func NewDayfileLogger(root string, filePrefix string) *S_DayfileLogger {
 		filePrefix = "log"
 	}
 	logger := &S_DayfileLogger{
-		dir:       root,
-		prefix:    filePrefix,
-		newLogCmd: newLogCmd(""),
+		dir:         root,
+		prefix:      filePrefix,
+		nextDayTime: fstime.Dawn(time.Now()).AddDate(0, 0, 1),
+		newLogCmd:   newLogCmd(""),
 	}
 	logger.S_Logger = newLogger(logger.write)
+	logger.logPath, logger.file, _ = logger.newLogFile(time.Now())
 	return logger
 }
 
@@ -93,7 +98,7 @@ func (this *S_DayfileLogger) newLogFile(t time.Time) (string, *os.File, error) {
 	logPath := this.getLogFilePath(t)
 	exists := syscall.Access(logPath, syscall.O_RDWR) == nil
 	if !exists {
-		file, err := os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE, 0660)
+		file, err := os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE, 0666)
 		if this.newLogCB != nil {
 			this.newLogCB(logPath, err)
 		}
@@ -119,21 +124,27 @@ func (this *S_DayfileLogger) newLogFile(t time.Time) (string, *os.File, error) {
 }
 
 func (this *S_DayfileLogger) write(t time.Time, msg []byte) {
-	if this.file != nil {
+	now := this.nowTime()
+	if this.file != nil && now.Before(this.nextDayTime) {
 		if _, err := this.file.Write(msg); err == nil {
 			return
 		}
+	}
+	if this.file != nil {
 		this.file.Close()
 	}
 	logPath, file, err := this.newLogFile(t)
 	if err != nil {
 		os.Stdout.Write(msg)
+		os.Stderr.WriteString(now.Format("[ERROR]|2006/01/02 15:04:05.999999 "))
 		os.Stderr.WriteString(err.Error())
+		os.Stderr.WriteString("\n")
 	} else {
 		file.Write(msg)
 		this.logPath = logPath
 		this.file = file
 	}
+	this.nextDayTime = fstime.Dawn(time.Now().AddDate(0, 0, 1).Add(time.Hour))
 }
 
 // -------------------------------------------------------------------
@@ -154,7 +165,7 @@ func (this *S_DayfileLogger) SetNewLogCallback(cb func(string, error)) {
 	this.newLogCB = cb
 }
 
-func (this *S_DayfileLogger) Dispose() {
+func (this *S_DayfileLogger) Close() {
 	this.Lock()
 	defer this.Unlock()
 	if this.file != nil {
@@ -162,4 +173,85 @@ func (this *S_DayfileLogger) Dispose() {
 		this.file = nil
 		this.logPath = ""
 	}
+}
+
+// ---------------------------------------------------------
+func (this *S_DayfileLogger) Debug(arg any, args ...any) {
+	this.S_Logger.Debug_(1, arg, args...)
+}
+
+func (this *S_DayfileLogger) Debugf(msg string, args ...any) {
+	this.S_Logger.Debugf_(1, msg, args...)
+}
+
+func (this *S_DayfileLogger) Info(arg any, args ...any) {
+	this.S_Logger.Info_(1, arg, args...)
+}
+
+func (this *S_DayfileLogger) Infof(msg string, args ...any) {
+	this.S_Logger.Infof_(1, msg, args...)
+}
+
+func (this *S_DayfileLogger) Notic(arg any, args ...any) {
+	this.S_Logger.Notic_(1, arg, args...)
+}
+
+func (this *S_DayfileLogger) Noticf(msg string, args ...any) {
+	this.S_Logger.Noticf_(1, msg, args...)
+}
+
+func (this *S_DayfileLogger) Warn(arg any, args ...any) {
+	this.S_Logger.Warn_(1, arg, args...)
+}
+
+func (this *S_DayfileLogger) Warnf(msg string, args ...any) {
+	this.S_Logger.Warnf_(1, msg, args...)
+}
+
+func (this *S_DayfileLogger) Error(arg any, args ...any) {
+	this.S_Logger.Error_(1, arg, args...)
+}
+
+func (this *S_DayfileLogger) Errorf(msg string, args ...any) {
+	this.S_Logger.Errorf_(1, msg, args...)
+}
+
+func (this *S_DayfileLogger) Hack(arg any, args ...any) {
+	this.S_Logger.Hack_(1, arg, args...)
+}
+
+func (this *S_DayfileLogger) Hackf(msg string, args ...any) {
+	this.S_Logger.Hackf_(1, msg, args...)
+}
+
+func (this *S_DayfileLogger) Critical(arg any, args ...any) {
+	this.S_Logger.Critical_(1, arg, args...)
+}
+
+func (this *S_DayfileLogger) Criticalf(msg string, args ...any) {
+	this.S_Logger.Criticalf_(1, msg, args...)
+}
+
+func (this *S_DayfileLogger) Trace(arg any, args ...any) {
+	this.S_Logger.Trace_(1, arg, args...)
+}
+
+func (this *S_DayfileLogger) Tracef(msg string, args ...any) {
+	this.S_Logger.Tracef_(1, msg, args...)
+}
+
+func (this *S_DayfileLogger) Panic(arg any, args ...any) {
+	this.S_Logger.Panic_(1, arg, args...)
+}
+
+func (this *S_DayfileLogger) Panicf(msg string, args ...any) {
+	this.S_Logger.Panicf_(1, msg, args...)
+}
+
+func (this *S_DayfileLogger) Fatal(arg any, args ...any) {
+	this.S_Logger.Fatal_(1, arg, args...)
+}
+
+func (this *S_DayfileLogger) Fatalf(msg string, args ...any) {
+	this.S_Logger.Fatalf_(1, msg, args...)
 }

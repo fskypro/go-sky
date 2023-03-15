@@ -7,6 +7,13 @@ import (
 	"fsky.pro/fstest"
 )
 
+func TestFileNoExt(t *testing.T) {
+	fstest.PrintTestBegin("FileNoExt")
+	defer fstest.PrintTestEnd()
+	fmt.Println(FileNoExt("aaa/bbb/ccc.txt"))
+	fmt.Println(FileNoExt("aaa/bbb/ccc"))
+}
+
 func TestIsPathExists(t *testing.T) {
 	fstest.PrintTestBegin("IsPathExists")
 
@@ -31,13 +38,6 @@ func TestIsFileExists(t *testing.T) {
 	fmt.Println(IsFileExists("/data/webroot"))
 	fmt.Println(IsFileExists("/root/.bashrc"))
 
-	fstest.PrintTestEnd()
-}
-
-func TestGetFullPathToBin(t *testing.T) {
-	fstest.PrintTestBegin("GetFullPathToBin")
-	fmt.Println(GetFullPathToBin("/abc/def/ghijk.bin"))
-	fmt.Println(GetFullPathToBin("./abc/def/ghijk.bin"))
 	fstest.PrintTestEnd()
 }
 

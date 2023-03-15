@@ -16,7 +16,7 @@ import (
 
 	"fsky.pro/fserror"
 	"fsky.pro/fslog"
-	"fsky.pro/fsutil"
+	"fsky.pro/fsky"
 
 	. "fsky.pro/fsrpc"
 )
@@ -147,7 +147,7 @@ func _takeMethods(rcvrType reflect.Type) (methods map[string]*s_MethodInfo) {
 
 		// 第二个参数必须是一个可访问或内建类型参数
 		argType := mtype.In(1)
-		if !fsutil.IsExposedOrBuiltinType(argType) {
+		if !fsky.IsExposedOrBuiltinType(argType) {
 			fslog.Errorf("fsrpc: argument type of method %q is not exposed: %q\n", mname, argType)
 			continue
 		}
@@ -201,7 +201,7 @@ func newService(rcvr interface{}, sname string) (svr *s_Service, err error) {
 	svrName := reflect.Indirect(svr.rcvr).Type().Name()
 
 	// 处理器类型必须是 public
-	if !fsutil.IsExposed(svrName) {
+	if !fsky.IsExposed(svrName) {
 		err = fmt.Errorf("service %q must be public!", svrName)
 		return
 	}

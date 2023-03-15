@@ -11,7 +11,7 @@ package fsreflect
 import "reflect"
 
 // FieldTagMap 获取结构中指定 tag 类型的：File 到 tag 的映射
-func FieldTagsMap(inst interface{}, tagType string) map[string]string {
+func FieldTagsMap(inst interface{}, tagName string) map[string]string {
 	var rt reflect.Type
 	rinst := reflect.TypeOf(inst)
 	if rinst.Kind() == reflect.Ptr {
@@ -23,7 +23,7 @@ func FieldTagsMap(inst interface{}, tagType string) map[string]string {
 	tags := make(map[string]string)
 	for i := 0; i < rt.NumField(); i += 1 {
 		f := rt.Field(i)
-		tag := f.Tag.Get(tagType)
+		tag := f.Tag.Get(tagName)
 		if tag != "" {
 			tags[f.Name] = tag
 		}
@@ -32,7 +32,7 @@ func FieldTagsMap(inst interface{}, tagType string) map[string]string {
 }
 
 // TagFieldMap 获取结构中指定 tag 类型的：tag 到 field 的映射
-func TagFieldsMap(inst interface{}, tagType string) map[string]string {
+func TagFieldsMap(inst interface{}, tagName string) map[string]string {
 	var rt reflect.Type
 	rinst := reflect.TypeOf(inst)
 	if rinst.Kind() == reflect.Ptr {
@@ -44,7 +44,7 @@ func TagFieldsMap(inst interface{}, tagType string) map[string]string {
 	tags := make(map[string]string)
 	for i := 0; i < rt.NumField(); i += 1 {
 		f := rt.Field(i)
-		tag := f.Tag.Get(tagType)
+		tag := f.Tag.Get(tagName)
 		if tag != "" {
 			tags[tag] = f.Name
 		}

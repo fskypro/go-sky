@@ -10,9 +10,9 @@ package fsmysql
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 
+	"fsky.pro/fsmysql/fssql"
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -47,55 +47,34 @@ func (this *S_DB) Begin() (*S_Tx, error) {
 	return newTx(tx), nil
 }
 
-// ----------------------------------------------------------------------------
-// functions
-// ----------------------------------------------------------------------------
-func open(dbInfo *S_DBInfo) (*sql.DB, error) {
-	if err := dbInfo.check(); err != nil {
-		return nil, err
+// 执行 fssql.ExecSQLInfo 所构建的 SQL 语句
+func (this *S_DB) ExecSQLInfo(sqlInfo *fssql.S_ExecInfo) *S_OPExecResult {
+	if sqlInfo.Err() != nil {
+		return newOPExecResult(sqlInfo, nil, fmt.Errorf("exec sql fail, %v", sqlInfo.Err()))
 	}
-
-	lntext := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s",
-		dbInfo.User, dbInfo.Password, dbInfo.host(), dbInfo.port(), dbInfo.DBName, dbInfo.charset())
-	// 初始化连接池
-	link, err := sql.Open("mysql", lntext)
+	stmt, err := this.wrapper.Prepare(sqlInfo.SQLText())
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("create mysql link pool fail: %s", err.Error()))
+		return newOPExecResult(sqlInfo, nil, err)
 	}
-	return link, nil
+	defer stmt.Close()
+	rest, err := stmt.Exec(sqlInfo.InValues...)
+	return newOPExecResult(sqlInfo, rest, err)
 }
 
-// 打开数据库连接
-func Open(dbInfo *S_DBInfo) (*S_DB, error) {
-	db, err := open(dbInfo)
+// 查找包含指定字符串的字段
+func (this *S_DB) FetchColumns(table *fssql.S_Table, like string) *S_OPValueResult {
+	sqlInfo := table.FetchColumnsSQL(like)
+	rows, err := this.wrapper.Query(sqlInfo.SQLText())
 	if err != nil {
-		return nil, err
+		return newOPValueResult(sqlInfo, err)
 	}
-	link := &S_DB{
-		s_Operator: newOperator(db),
-		DBInfo:     dbInfo,
-		DB:         db,
+	defer rows.Close()
+	var col string
+	cols := []string{}
+	for rows.Next() {
+		if err := rows.Scan(&col); err != nil {
+			cols = append(cols, col)
+		}
 	}
-	return link, nil
-}
-
-// 打开数据库连接池，如果数据库不存在，则创建
-func OpenAndCreate(dbInfo *S_DBInfo) (*S_DB, error) {
-	db, err := open(dbInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	sqltx := fmt.Sprintf("CREATE DATABASE IF NO EXISTS `%s` DEFAULT CHARACTER SET %s DEFAULT COLLATE %s;", dbInfo.DBName, dbInfo.charset(), dbInfo.collate())
-	_, err = db.Exec(sqltx)
-	if err != nil {
-		db.Close()
-		return nil, fmt.Errorf("create database %q fail: %v", dbInfo.DBName, err)
-	}
-	link := &S_DB{
-		s_Operator: newOperator(db),
-		DBInfo:     dbInfo,
-		DB:         db,
-	}
-	return link, nil
+	return newOPValueResult2(sqlInfo, cols)
 }

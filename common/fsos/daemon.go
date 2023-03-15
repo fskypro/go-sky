@@ -34,27 +34,33 @@ func (this *S_DaemonFile) KillLast(signal syscall.Signal) error {
 }
 
 // 创建进程ID文件
-// existsFail 为 true 时，如果有同进程存在，则放弃创建，并返回错误
-func CreateDaemonFile(file string) (df *S_DaemonFile, err error) {
+// 如果进程ID文件已经存在：
+//   cover == true ：则覆盖掉原来的进程文件
+//   cover == false：则不覆盖直接返回
+func CreateDaemonFile(file string, cover bool) (df *S_DaemonFile, err error) {
 	df = &S_DaemonFile{
 		FileName: file,
 		Pid:      os.Getpid(),
 	}
+
+	// 创建文件路径
 	root := path.Dir(file)
 	if e := os.MkdirAll(root, 0440); e != nil {
-		err = fmt.Errorf("create pid file fail, %v", e)
+		err = fmt.Errorf("create pid file path fail, %v", e)
 		return
 	}
+
+	// 读取旧文件
 	data, err := ioutil.ReadFile(file)
 	if err == nil {
-		pid, _ := strconv.Atoi(string(data))
-		df.LastPid = pid
+		df.LastPid, _ = strconv.Atoi(string(data))
+		if !cover {
+			return
+		}
 	}
 
 	if err = ioutil.WriteFile(file, []byte(strconv.Itoa(df.Pid)), 0440); err != nil {
-		df = nil
 		err = fmt.Errorf("create pid file fail, %v", err)
-		return
 	}
 	return
 }

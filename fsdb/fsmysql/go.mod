@@ -1,6 +1,6 @@
 module fsmysql
 
-go 1.16
+go 1.19
 
 //replace fsky.pro => github.com/fskypro/gosky/common latest
 replace fsky.pro => ../../common

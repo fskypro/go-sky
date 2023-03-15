@@ -9,32 +9,102 @@
 
 package fssql
 
+import (
+	"fmt"
+	"strings"
+)
+
 type s_Delete struct {
 	s_SQL
-	table *S_Table // 要更新的表
+	table  *S_Table // 要更新的表
+	whered bool
 }
 
 // 更新指定成员值
-func Delete(table *S_Table) *s_DeleteWhere {
+func Delete(table *S_Table) *S_DeleteWhere {
 	this := &s_Delete{
 		table: table,
 	}
 	this.sqlText = "DELETE FROM " + table.quote()
-	return (*s_DeleteWhere)(this)
+	return (*S_DeleteWhere)(this)
 }
 
-// ---------------------------------------------------------
-type s_DeleteWhere s_Delete
+// -------------------------------------------------------------------
+// DeleteWehere
+// -------------------------------------------------------------------
+type S_DeleteWhere s_Delete
 
-// 更新条件
-func (this *s_DeleteWhere) Where(exp string, args ...interface{}) *s_DeleteEnd {
+func (this *S_DeleteWhere) where(exp string, args ...interface{}) (string, bool) {
+	if this.notOK() {
+		return "", false
+	}
 	exp = this.explainExp(this.table, exp, args...)
 	if this.notOK() {
 		this.errorf("error delete where condition, %v", this.err.Error())
-		return (*s_DeleteEnd)(this)
+		return "", false
 	}
-	this.sqlText += " WHERE " + exp
-	return (*s_DeleteEnd)(this)
+	return exp, true
+}
+
+func (this *S_DeleteWhere) concat(link string, exp string) *S_DeleteWhere {
+	if !this.whered {
+		this.sqlText += " WHERE "
+		this.whered = true
+		this.sqlText += exp
+		return this
+	}
+	if strings.HasSuffix(this.sqlText, "(") {
+		this.sqlText += exp
+	} else {
+		this.sqlText += fmt.Sprintf(" %s %s", link, exp)
+	}
+	return this
+}
+
+// ---------------------------------------------------------
+// 前括号
+func (this *S_DeleteWhere) Quote() *S_DeleteWhere {
+	return this.concat("", "(")
+}
+
+// 与前括号
+func (this *S_DeleteWhere) AndQuote() *S_DeleteWhere {
+	return this.concat("AND", "(")
+}
+
+// 或前括号
+func (this *S_DeleteWhere) OrQuote() *S_DeleteWhere {
+	return this.concat("OR", "(")
+}
+
+// 后括号
+func (this *S_DeleteWhere) RQuote() *S_DeleteWhere {
+	this.sqlText += ")"
+	return this
+}
+
+func (this *S_DeleteWhere) Where(exp string, args ...interface{}) *S_DeleteWhere {
+	return this.AndWhere(exp, args...)
+}
+
+func (this *S_DeleteWhere) AndWhere(exp string, args ...interface{}) *S_DeleteWhere {
+	exp, ok := this.where(exp, args...)
+	if !ok {
+		return this
+	}
+	return this.concat("AND", exp)
+}
+
+func (this *S_DeleteWhere) OrWhere(exp string, args ...interface{}) *S_DeleteWhere {
+	exp, ok := this.where(exp, args...)
+	if !ok {
+		return this
+	}
+	return this.concat("OR", exp)
+}
+
+func (this *S_DeleteWhere) End() *S_ExecInfo {
+	return newExecInfo(this.createSQLInfo())
 }
 
 // ---------------------------------------------------------

@@ -10,8 +10,23 @@ package fserror
 
 import (
 	"fmt"
-	"fsky.pro/fsos"
+
+	"fsky.pro/fsdef"
 )
+
+// 判断传入的 error 类型参数是否为模板中指定的错误类型
+// 注意：“继承” 类型的错误，譬如：
+//
+//	type Error struct{}
+//	type SubError struct{ Error }
+//	IsError[Error](SubError{})     // false
+func IsError[E error](e error) (same bool) {
+	defer func() { recover() }()
+	var ee E = e.(E)
+	func(E) {}(ee)
+	same = true
+	return
+}
 
 // -------------------------------------------------------------------
 // I_Error
@@ -27,7 +42,8 @@ type I_Error interface {
 // S_Error
 // -------------------------------------------------------------------
 // WarpOutput 表示用 Error 方法获取的错误内容，是否换行和缩进
-//    默认为 true，如果设置为 false，则用“|”分隔
+//
+//	默认为 true，如果设置为 false，则用“|”分隔
 type S_Error struct {
 	msg  string
 	werr error
@@ -74,11 +90,11 @@ func (this *S_Error) Error() string {
 			break
 		}
 		if err, ok := werr.(I_Error); ok {
-			msg = msg + fsos.Endline + space + err.LatestError()
+			msg = msg + fsdef.Endline + space + err.LatestError()
 			werr = err.Unwrap()
 			space = space + "  "
 		} else {
-			msg = msg + fsos.Endline + space + werr.Error()
+			msg = msg + fsdef.Endline + space + werr.Error()
 			break
 		}
 	}

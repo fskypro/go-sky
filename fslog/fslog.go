@@ -10,35 +10,42 @@
 package fslog
 
 type I_Logger interface {
-	Debug(int, any, ...any)
-	Debugf(int, string, ...any)
+	ToggleSite(bool) // 是否输出打印文件
 
-	Info(int, any, ...any)
-	Infof(int, string, ...any)
+	Debug_(int, any, ...any)
+	Debugf_(int, string, ...any)
 
-	Warn(int, any, ...any)
-	Warnf(int, string, ...any)
+	Info_(int, any, ...any)
+	Infof_(int, string, ...any)
 
-	Error(int, any, ...any)
-	Errorf(int, string, ...any)
+	Notic_(int, any, ...any)
+	Noticf_(int, string, ...any)
 
-	Hack(int, any, ...any)
-	Hackf(int, string, ...any)
+	Warn_(int, any, ...any)
+	Warnf_(int, string, ...any)
 
-	Critical(int, any, ...any)
-	Criticalf(int, string, ...any)
+	Error_(int, any, ...any)
+	Errorf_(int, string, ...any)
 
-	Trace(int, any, ...any)
-	Tracef(int, string, ...any)
+	Hack_(int, any, ...any)
+	Hackf_(int, string, ...any)
 
-	Panic(int, any, ...any)
-	Panicf(int, string, ...any)
+	Critical_(int, any, ...any)
+	Criticalf_(int, string, ...any)
 
-	Fatal(int, any, ...any)
-	Fatalf(int, string, ...any)
+	Trace_(int, any, ...any)
+	Tracef_(int, string, ...any)
 
-	Shield(string, ...string)
-	Unshield(string, ...string)
+	Panic_(int, any, ...any)
+	Panicf_(int, string, ...any)
+
+	Fatal_(int, any, ...any)
+	Fatalf_(int, string, ...any)
+
+	Shield(...string)
+	ShieldAll()
+	Unshield(...string)
+	UnshieldAll()
 }
 
 // -----------------------------------------------------------------------------
@@ -54,83 +61,103 @@ func SetLogger(l I_Logger) {
 	logger = l
 }
 
+func UsedLogger() I_Logger {
+	return logger
+}
+
 func Debug(arg any, args ...any) {
-	logger.Debug(1, arg, args...)
+	logger.Debug_(1, arg, args...)
 }
 
 func Debugf(msg string, args ...any) {
-	logger.Debugf(1, msg, args...)
+	logger.Debugf_(1, msg, args...)
 }
 
 func Info(arg any, args ...any) {
-	logger.Info(1, arg, args...)
+	logger.Info_(1, arg, args...)
 }
 
 func Infof(msg string, args ...any) {
-	logger.Infof(1, msg, args...)
+	logger.Infof_(1, msg, args...)
+}
+
+func Notic(arg any, args ...any) {
+	logger.Notic_(1, arg, args...)
+}
+
+func Noticf(msg string, args ...any) {
+	logger.Noticf_(1, msg, args...)
 }
 
 func Warn(arg any, args ...any) {
-	logger.Warn(1, arg, args...)
+	logger.Warn_(1, arg, args...)
 }
 
 func Warnf(msg string, args ...any) {
-	logger.Warnf(1, msg, args...)
+	logger.Warnf_(1, msg, args...)
 }
 
 func Error(arg any, args ...any) {
-	logger.Error(1, arg, args...)
+	logger.Error_(1, arg, args...)
 }
 
 func Errorf(msg string, args ...any) {
-	logger.Errorf(1, msg, args...)
+	logger.Errorf_(1, msg, args...)
 }
 
 func Hack(arg any, args ...any) {
-	logger.Hack(1, arg, args...)
+	logger.Hack_(1, arg, args...)
 }
 
 func Hackf(msg string, args ...any) {
-	logger.Hackf(1, msg, args...)
+	logger.Hackf_(1, msg, args...)
 }
 
 func Critical(arg any, args ...any) {
-	logger.Critical(1, arg, args...)
+	logger.Critical_(1, arg, args...)
 }
 
 func Criticalf(msg string, args ...any) {
-	logger.Criticalf(1, msg, args...)
+	logger.Criticalf_(1, msg, args...)
 }
 
 func Trace(arg any, args ...any) {
-	logger.Trace(1, arg, args...)
+	logger.Trace_(1, arg, args...)
 }
 
 func Tracef(msg string, args ...any) {
-	logger.Tracef(1, msg, args...)
+	logger.Tracef_(1, msg, args...)
 }
 
 func Panic(arg any, args ...any) {
-	logger.Panic(1, arg, args...)
+	logger.Panic_(1, arg, args...)
 }
 
 func Panicf(msg string, args ...any) {
-	logger.Panicf(1, msg, args...)
+	logger.Panicf_(1, msg, args...)
 }
 
 func Fatal(arg any, args ...any) {
-	logger.Fatal(1, arg, args...)
+	logger.Fatal_(1, arg, args...)
 }
 
 func Fatalf(msg string, args ...any) {
-	logger.Fatalf(1, msg, args...)
+	logger.Fatalf_(1, msg, args...)
 }
 
 // ---------------------------------------------------------
-func Shield(lv string, lvs ...string) {
-	logger.Shield(lv, lvs...)
+func Shield(lvs ...string) {
+	logger.Shield(lvs...)
 }
 
-func Unshield(lv string, lvs ...string) {
-	logger.Unshield(lv, lvs...)
+func ShieldAll() {
+	logger.ShieldAll()
+}
+
+func Unshield(lvs ...string) {
+	logger.Unshield(lvs...)
+}
+
+func UnshieldAll() {
+	logger.UnshieldAll()
 }
