@@ -36,7 +36,7 @@ func (this *S_DaemonFile) KillLast(signal syscall.Signal) error {
 // 创建进程ID文件
 // 如果进程ID文件已经存在：
 //   cover == true ：则覆盖掉原来的进程文件
-//   cover == false：则不覆盖直接返回
+//   cover == false：则不覆盖直接返回(err = nil; df = new-daemon-file-info)
 func CreateDaemonFile(file string, cover bool) (df *S_DaemonFile, err error) {
 	df = &S_DaemonFile{
 		FileName: file,

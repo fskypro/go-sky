@@ -222,6 +222,16 @@ func Load(path string, inst any) error {
 	return json.Unmarshal(reader.buff.Bytes(), inst)
 }
 
+func Unmarshal(data []byte, inst any) error {
+	reader := newReader(bytes.NewReader(data))
+	err := reader.filterParse()
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(reader.buff.Bytes(), inst)
+}
+
 func test(jstr string) (string, error) {
 	r := newReader(strings.NewReader(jstr))
 	err := r.filterParse()

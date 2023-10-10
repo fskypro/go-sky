@@ -21,7 +21,7 @@ import (
 
 type S_Logger struct {
 	sync.Mutex
-	writer   func(time.Time, []byte)
+	writer   func(time.Time, string, []byte)
 	levels   map[string]bool
 	levelFmt string
 	goidSize int
@@ -30,7 +30,7 @@ type S_Logger struct {
 	UseUTCTime bool
 }
 
-func newLogger(writer func(time.Time, []byte)) *S_Logger {
+func NewLogger(writer func(time.Time, string, []byte)) *S_Logger {
 	logger := &S_Logger{
 		writer: writer,
 		levels: map[string]bool{
@@ -67,11 +67,11 @@ func (this *S_Logger) nowTime() time.Time {
 	return time.Now()
 }
 
-func (this *S_Logger) send(t time.Time, msg []byte) {
+func (this *S_Logger) send(t time.Time, lv string, msg []byte) {
 	this.Lock()
 	defer this.Unlock()
 	if this.writer != nil {
-		this.writer(t, msg)
+		this.writer(t, lv, msg)
 	}
 }
 
@@ -140,59 +140,8 @@ func (this *S_Logger) isShield(lv string) bool {
 }
 
 // -------------------------------------------------------------------
-// public
+// protected
 // -------------------------------------------------------------------
-func (this *S_Logger) ToggleSite(showSite bool) {
-	this.showSite = showSite
-}
-
-func (this *S_Logger) SetOutputWriter(writer func(time.Time, []byte)) {
-	this.Lock()
-	defer this.Unlock()
-	this.writer = writer
-}
-
-// ---------------------------------------------------------
-func (this *S_Logger) Output(depth int, level string, arg any, args ...any) {
-	if this.isShield(level) {
-		return
-	}
-	bb := new(bytes.Buffer)
-	this.writeGoID(bb)
-	this.writePrefix(bb, level)
-	now := this.writeDateTime(bb)
-	if this.showSite {
-		bb.WriteByte(' ')
-		this.writeCallTopStack(bb, depth+1)
-	}
-	bb.WriteString(": ")
-	this.writef(bb, "%v", arg)
-	for _, a := range args {
-		this.writef(bb, " %v", a)
-	}
-	bb.WriteByte('\n')
-	this.send(now, bb.Bytes())
-}
-
-func (this *S_Logger) Outputf(depth int, level string, msg string, args ...any) {
-	if this.isShield(level) {
-		return
-	}
-	bb := new(bytes.Buffer)
-	this.writeGoID(bb)
-	this.writePrefix(bb, level)
-	now := this.writeDateTime(bb)
-	if this.showSite {
-		bb.WriteByte(' ')
-		this.writeCallTopStack(bb, depth+1)
-	}
-	bb.WriteString(": ")
-	this.writef(bb, msg, args...)
-	bb.WriteByte('\n')
-	this.send(now, bb.Bytes())
-}
-
-// ---------------------------------------------------------
 func (this *S_Logger) Debug_(depth int, arg any, args ...any) {
 	this.Output(depth+1, "DEBUG", arg, args...)
 }
@@ -276,7 +225,7 @@ func (this *S_Logger) Panic_(depth int, arg any, args ...any) {
 	if !this.isShield("PANIC") {
 		this.writeCallStack(bb, depth+1)
 		bb.WriteByte('\n')
-		this.send(now, bb.Bytes())
+		this.send(now, "PANIC", bb.Bytes())
 	}
 	panic(msg)
 }
@@ -295,7 +244,7 @@ func (this *S_Logger) Panicf_(depth int, msg string, args ...any) {
 	if !this.isShield("PANIC") {
 		this.writeCallStack(bb, depth+1)
 		bb.WriteByte('\n')
-		this.send(now, bb.Bytes())
+		this.send(now, "PANIC", bb.Bytes())
 	}
 	panic(msg)
 }
@@ -317,7 +266,7 @@ func (this *S_Logger) Trace_(depth int, arg any, args ...any) {
 	}
 	this.writeCallStack(bb, depth+1)
 	bb.WriteByte('\n')
-	this.send(now, bb.Bytes())
+	this.send(now, "TRACE", bb.Bytes())
 }
 
 func (this *S_Logger) Tracef_(depth int, msg string, args ...any) {
@@ -334,7 +283,60 @@ func (this *S_Logger) Tracef_(depth int, msg string, args ...any) {
 	this.writef(bb, msg, args...)
 	this.writeCallStack(bb, depth+1)
 	bb.WriteByte('\n')
-	this.send(now, bb.Bytes())
+	this.send(now, "TRACE", bb.Bytes())
+}
+
+// -------------------------------------------------------------------
+// public
+// -------------------------------------------------------------------
+func (this *S_Logger) ToggleSite(showSite bool) {
+	this.showSite = showSite
+}
+
+func (this *S_Logger) SetOutputWriter(writer func(time.Time, string, []byte)) {
+	this.Lock()
+	defer this.Unlock()
+	this.writer = writer
+}
+
+// ---------------------------------------------------------
+func (this *S_Logger) Output(depth int, level string, arg any, args ...any) {
+	if this.isShield(level) {
+		return
+	}
+	bb := new(bytes.Buffer)
+	this.writeGoID(bb)
+	this.writePrefix(bb, level)
+	now := this.writeDateTime(bb)
+	if this.showSite {
+		bb.WriteByte(' ')
+		this.writeCallTopStack(bb, depth+1)
+	}
+	bb.WriteString(": ")
+	this.writef(bb, "%v", arg)
+	for _, a := range args {
+		this.writef(bb, " %v", a)
+	}
+	bb.WriteByte('\n')
+	this.send(now, level, bb.Bytes())
+}
+
+func (this *S_Logger) Outputf(depth int, level string, msg string, args ...any) {
+	if this.isShield(level) {
+		return
+	}
+	bb := new(bytes.Buffer)
+	this.writeGoID(bb)
+	this.writePrefix(bb, level)
+	now := this.writeDateTime(bb)
+	if this.showSite {
+		bb.WriteByte(' ')
+		this.writeCallTopStack(bb, depth+1)
+	}
+	bb.WriteString(": ")
+	this.writef(bb, msg, args...)
+	bb.WriteByte('\n')
+	this.send(now, level, bb.Bytes())
 }
 
 // ---------------------------------------------------------
@@ -380,4 +382,19 @@ func (this *S_Logger) UnshieldAll() {
 	for lv := range this.levels {
 		this.levels[lv] = true
 	}
+}
+
+// ---------------------------------------------------------
+func (this *S_Logger) Whatever(lv string, arg any, args ...any) {
+	this.Output(1, lv, arg, args...)
+}
+
+func (this *S_Logger) Whateverf(lv string, msg string, args ...any) {
+	this.Output(1, lv, msg, args)
+}
+
+// 直接输出字符串，不带任何前缀记录
+func (this *S_Logger) Direct(lv string, msg []byte) {
+	if this.isShield(lv) { return }
+	this.send(time.Now(), lv, msg)
 }

@@ -12,36 +12,27 @@
 package fslog
 
 import (
-	"context"
 	"os"
 	"time"
 )
 
 type S_StdoutLogger struct {
 	*S_Logger
-	cancel func()
 }
 
 // NewDayfileLogger，新建 DayfileLogger
 // root 为 log 的根目录
 // filePrefix 为 log 文件名前缀
 func NewStdoutLogger() *S_StdoutLogger {
-	ctx, cancel := context.WithCancel(context.Background())
-	logger := NewStdoutLoggerContex(ctx)
-	logger.cancel = cancel
-	return logger
-}
-
-func NewStdoutLoggerContex(ctx context.Context) *S_StdoutLogger {
 	logger := &S_StdoutLogger{}
-	logger.S_Logger = newLogger(logger.write)
+	logger.S_Logger = NewLogger(logger.write)
 	return logger
 }
 
 // -------------------------------------------------------------------
 // private
 // -------------------------------------------------------------------
-func (this *S_StdoutLogger) write(t time.Time, msg []byte) {
+func (this *S_StdoutLogger) write(t time.Time, lv string, msg []byte) {
 	os.Stdout.Write(msg)
 }
 

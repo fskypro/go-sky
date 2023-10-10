@@ -18,7 +18,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -56,7 +55,6 @@ func (this *s_NewLogCmd) exec(logger *S_DayfileLogger, log string) {
 // -----------------------------------------------------------------------------
 type S_DayfileLogger struct {
 	*S_Logger
-	locker      sync.Mutex
 	dir         string
 	prefix      string
 	logPath     string
@@ -80,7 +78,7 @@ func NewDayfileLogger(root string, filePrefix string) *S_DayfileLogger {
 		nextDayTime: fstime.Dawn(time.Now()).AddDate(0, 0, 1),
 		newLogCmd:   newLogCmd(""),
 	}
-	logger.S_Logger = newLogger(logger.write)
+	logger.S_Logger = NewLogger(logger.write)
 	logger.logPath, logger.file, _ = logger.newLogFile(time.Now())
 	return logger
 }
@@ -123,7 +121,8 @@ func (this *S_DayfileLogger) newLogFile(t time.Time) (string, *os.File, error) {
 	return logPath, file, nil
 }
 
-func (this *S_DayfileLogger) write(t time.Time, msg []byte) {
+// 父类中的 send 函数中已经 lock，因此这里不需要再上锁了
+func (this *S_DayfileLogger) write(t time.Time, lv string, msg []byte) {
 	now := this.nowTime()
 	if this.file != nil && now.Before(this.nextDayTime) {
 		if _, err := this.file.Write(msg); err == nil {

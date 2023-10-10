@@ -62,6 +62,8 @@ func (this *S_DBInfo) LinkText() string {
 		segs = append(segs, fmt.Sprintf("connect_timeout=%d", this.Timeout))
 	}
 	segs = append(segs, "user="+this.User)
-	segs = append(segs, "password="+this.Password)
+	if this.Password != "" {
+		segs = append(segs, "password="+this.Password)
+	}
 	return strings.Join(segs, " ")
 }

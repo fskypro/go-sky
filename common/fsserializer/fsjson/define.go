@@ -10,6 +10,10 @@ package fsjson
 
 type JType int
 
+func (self JType) String() string {
+	return typeNames[self]
+}
+
 // 数据类型
 const (
 	TNull    = 0 // null

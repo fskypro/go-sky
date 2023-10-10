@@ -15,14 +15,13 @@ import (
 	"reflect"
 	"strings"
 	"unsafe"
+
+	"fsky.pro/fsreflect"
 )
 
 var _colBuildTags = []string{"pgsqltd", "dbtd"} // 列名定义 tag 前缀
 var _colTags = []string{"pgsql", "db"}          // 列名映射 tag 前缀
-
-// 提取对象中映射到 DB 的成员
-func _iterMembers(tobj reflect.Type, fun func(*S_Member)) {
-}
+var _colOutTags = []string{"pgsqlout", "dbout"} // 列名传出映射 tag 前缀
 
 // ---------------------------------------------------------------------------------------
 // scheme
@@ -43,6 +42,7 @@ type S_Member struct {
 	name      string       // 成员名称
 	buildInfo string       // 构建列描述
 	dbkey     string       // 在数据库中对应的列关键字
+	dbout     string       // 列传出时的表达式
 	vtype     reflect.Type // 类型
 	offset    uintptr      // 字段偏移值
 }
@@ -56,10 +56,14 @@ func (this *S_Member) quote() string {
 	return this.dbkey
 }
 
-func (this *S_Member) quoteWithTable() string {
-	if this.table.IsLink() {
-		return this.quote()
+func (this *S_Member) outexp() string {
+	if this.dbout != "" {
+		return this.dbout
 	}
+	return this.quote()
+}
+
+func (this *S_Member) quoteWithTable() string {
 	return this.table.quote() + "." + this.quote()
 }
 
@@ -90,22 +94,16 @@ func (this *S_Member) DBKey() string {
 // ---------------------------------------------------------------------------------------
 // sql 语法中的表
 // ---------------------------------------------------------------------------------------
+// 缓存 table，以免每次都要重新解释数据库记录对象成员
+var _tbcache = map[reflect.Type]*S_Table{}
+
 type S_Table struct {
 	name         string               // 表在 DB 中的名称
 	dbkey        string               // 对应的数据库键
 	tobj         reflect.Type         // 表对应的 go 对象反射类型
 	dbFields     T_DBFields           // 数据库字段映射
-	members      map[string]*S_Member // 表字段对应的 go 结构成员
+	members      map[string]*S_Member // 数据库记录对象成员名称对应的 go 结构成员
 	orderMembers []*S_Member          // 有序成员列表
-
-	// 映射表成员
-	schemes   []string
-	buildInfo string
-
-	// 连接表成员
-	link         string     // 连接表达式
-	linkInValues []any      // 连接表达式中包含的传入参数
-	linkTables   []*S_Table // 连接表
 }
 
 var tableType = reflect.TypeOf(new(S_Table)).Elem()
@@ -117,12 +115,6 @@ func NewTable(name string, obj any) (*S_Table, error) {
 		dbkey:        `"` + name + `"`,
 		members:      map[string]*S_Member{},
 		orderMembers: []*S_Member{},
-
-		schemes:   []string{},
-		buildInfo: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
-
-		linkInValues: []any{},
-		linkTables:   []*S_Table{},
 	}
 	err := table.bindObjType(obj)
 	if err != nil {
@@ -139,51 +131,8 @@ func NewTableWithScheme(name string, obj any, dbFields T_DBFields) (*S_Table, er
 		dbFields:     dbFields,
 		members:      map[string]*S_Member{},
 		orderMembers: []*S_Member{},
-
-		schemes:   []string{},
-		buildInfo: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
-
-		linkInValues: []any{},
-		linkTables:   []*S_Table{},
 	}
 	err := table.bindObjType(obj)
-	if err != nil {
-		return nil, fmt.Errorf("create table fail, %v", err)
-	}
-	return table, nil
-}
-
-// 创建连接表
-// link 是多表连接表达式，如：
-//
-//	newLinkTable("#[1] join #[2] ON $[3]=$[4]", tb1, tb2, tb1.M("ID"), tb2.M("ID"))
-func NewLinkTable(obj interface{}, link string, args ...any) (*S_Table, error) {
-	link, inValues, err := explainExp(nil, link, args...)
-	if err != nil {
-		return nil, fmt.Errorf("create LinkTable fail, %v", err)
-	}
-	// 找出所有连接表
-	linkTables := []*S_Table{}
-	for _, v := range args {
-		switch v.(type) {
-		case *S_Table:
-			linkTables = append(linkTables, v.(*S_Table))
-		}
-	}
-
-	tbName := fmt.Sprintf("LinkTable[%s]", link)
-	table := &S_Table{
-		name:         tbName,
-		dbkey:        link,
-		members:      map[string]*S_Member{},
-		orderMembers: []*S_Member{},
-
-		schemes: []string{},
-
-		linkInValues: inValues,
-		linkTables:   linkTables,
-	}
-	err = table.bindObjType(obj)
 	if err != nil {
 		return nil, fmt.Errorf("create table fail, %v", err)
 	}
@@ -193,16 +142,6 @@ func NewLinkTable(obj interface{}, link string, args ...any) (*S_Table, error) {
 // -----------------------------------------------------------------------------
 // private
 // -----------------------------------------------------------------------------
-// 根据 go 对象类型，找出对应的连接表
-func (this *S_Table) getLinkTable(tobj reflect.Type) *S_Table {
-	for _, tb := range this.linkTables {
-		if tb.tobj == tobj {
-			return tb
-		}
-	}
-	return this
-}
-
 func (this *S_Table) getMemberDBKey(f reflect.StructField) string {
 	dbkey := ""
 	if this.dbFields != nil {
@@ -230,6 +169,16 @@ L:
 	return `"` + dbkey + `"`
 }
 
+func (this *S_Table) getMemberDBOut(f reflect.StructField) string {
+	for _, tag := range _colOutTags {
+		dbout := f.Tag.Get(tag)
+		if dbout != "" {
+			return dbout
+		}
+	}
+	return ""
+}
+
 func (this *S_Table) getDBBuildInfo(f reflect.StructField) string {
 	if this.dbFields != nil {
 		if dbf, ok := this.dbFields[f.Name]; ok {
@@ -249,13 +198,6 @@ func (this *S_Table) takeMembers(table *S_Table, t reflect.Type) {
 	for i := 0; i < t.NumField(); i++ {
 		tfield := t.Field(i)
 		if tfield.Anonymous { // 匿名结构
-			atype := tfield.Type
-			if atype.Kind() == reflect.Ptr {
-				atype = atype.Elem()
-			}
-			if atype.Kind() == reflect.Struct {
-				this.takeMembers(table.getLinkTable(atype), atype)
-			}
 			continue
 		}
 
@@ -271,6 +213,7 @@ func (this *S_Table) takeMembers(table *S_Table, t reflect.Type) {
 			name:      tfield.Name,
 			buildInfo: buildInfo,
 			dbkey:     dbkey,
+			dbout:     this.getMemberDBOut(tfield),
 			vtype:     tfield.Type,
 			offset:    tfield.Offset,
 		}
@@ -280,18 +223,23 @@ func (this *S_Table) takeMembers(table *S_Table, t reflect.Type) {
 	}
 }
 
-func (this *S_Table) bindObjType(obj interface{}) error {
-	if obj == nil {
-		return errors.New("the db table's maps go object mustn't be a nil value")
+func (this *S_Table) bindObjType(obj any) error {
+	tobj, err := fsreflect.BaseRefType(obj)
+	if err != nil {
+		return errors.New("database table map object mustn't be a nil value")
 	}
-	tobj := reflect.TypeOf(obj)
-	if tobj.Kind() == reflect.Ptr {
-		tobj = tobj.Elem()
+	if tobj.Kind() != reflect.Struct {
+		return errors.New("database table map object must be a struct")
 	}
+
 	this.tobj = tobj
 	this.members = make(map[string]*S_Member)
 	this.orderMembers = make([]*S_Member, 0)
 	this.takeMembers(this, tobj)
+	if len(this.members) == 0 {
+		return fmt.Errorf(`object "%v" has no map db members, may be is not a db map object`, tobj)
+	}
+	_tbcache[this.tobj] = this
 	return nil
 }
 
@@ -302,10 +250,6 @@ func (this *S_Table) quote() string {
 // -----------------------------------------------------------------------------
 // public
 // -----------------------------------------------------------------------------
-func (this *S_Table) IsLink() bool {
-	return len(this.linkTables) > 0
-}
-
 func (this *S_Table) Name() string {
 	return this.name
 }
@@ -320,6 +264,7 @@ func (this *S_Table) ObjectPath() string {
 }
 
 // -------------------------------------------------------------------
+// 通过数据库记录映射对象的成员名称，获取对应的 Member 对象
 func (this *S_Table) Member(mname string) *S_Member {
 	if m, ok := this.members[mname]; ok {
 		return m
@@ -345,12 +290,19 @@ func (this *S_Table) CreateObject() interface{} {
 }
 
 // -----------------------------------------------------------------------------
-// create table settings
+// module functions
 // -----------------------------------------------------------------------------
-func (this *S_Table) AddSchemes(sc ...string) {
-	this.schemes = append(this.schemes, sc...)
-}
-
-func (this *S_Table) SetBuildInfo(info string) {
-	this.buildInfo = info
+func getObjTable(obj any) (*S_Table, error) {
+	if obj == nil {
+		return nil, errors.New("the db table's maps go object mustn't be a nil value")
+	}
+	tobj := reflect.TypeOf(obj)
+	if tobj.Kind() == reflect.Ptr {
+		tobj = tobj.Elem()
+	}
+	tb := _tbcache[tobj]
+	if tb == nil {
+		return NewTable("", obj)
+	}
+	return tb, nil
 }

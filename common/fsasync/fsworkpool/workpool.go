@@ -7,11 +7,12 @@
 @date: 2023-02-09
 **/
 
-package fsasyncwork
+package fsworkpool
 
 import (
 	"context"
 	"errors"
+	"sync"
 )
 
 // -------------------------------------------------------------------
@@ -37,12 +38,13 @@ type S_WorkerPool struct {
 	jobSize     int           // 任务队列长度
 	workerCount int           // 工人数量
 
+	wg     sync.WaitGroup
 	ctx    context.Context
 	cancel func()
 }
 
 // 新建任务池
-// waits 为等待队列长度
+// jobs 为等待队列长度
 func NewWorkerPool(jobs int, workers int) *S_WorkerPool {
 	ctx, cancel := context.WithCancel(context.Background())
 	pool := &S_WorkerPool{
@@ -60,14 +62,20 @@ func NewWorkerPool(jobs int, workers int) *S_WorkerPool {
 }
 
 func (this *S_WorkerPool) work(ctx context.Context, id int) {
-	select {
-	case <-this.ctx.Done():
-		return
-	case <-ctx.Done():
-		return
-	case job, ok := <-this.chJob:
-		if !ok { return }
-		job.Do(id)
+	this.wg.Add(1)
+	defer this.wg.Done()
+L:
+	for {
+		select {
+		case <-this.ctx.Done():
+			return
+		case <-ctx.Done():
+			return
+		case job, ok := <-this.chJob:
+			if !ok { return }
+			job.Do(id)
+			break L
+		}
 	}
 
 	func() {
@@ -84,21 +92,23 @@ func (this *S_WorkerPool) do(ctx context.Context) {
 		ctx = c
 		defer cancel()
 	}
-	defer close(this.chJob)
-	defer close(this.chWorker)
+L:
 	for {
 		select {
 		case <-this.ctx.Done():
-			return
+			break L
 		case <-ctx.Done():
-			return
+			break L
 		case worker, ok := <-this.chWorker:
 			// 如果有空闲工人，则取一个工人
-			if !ok { return }
+			if !ok { break L }
 			// 让工人进入工作
 			go this.work(ctx, worker.id)
 		}
 	}
+	close(this.chJob)
+	close(this.chWorker)
+	this.wg.Wait()
 }
 
 // -------------------------------------------------------------------
@@ -108,7 +118,7 @@ func (this *S_WorkerPool) do(ctx context.Context) {
 func (this *S_WorkerPool) Add(job I_Job) (err error) {
 	defer func() {
 		if e := recover(); e != nil {
-			err = errors.New("async workpoll has closed")
+			err = errors.New("add job fail, async workpool has closed")
 		}
 	}()
 	this.chJob <- job
@@ -148,11 +158,11 @@ func (this *S_WorkerPool) FreeWorks() int {
 
 // ---------------------------------------------------------
 // 开始进入工作
-func (this *S_WorkerPool) Do() {
+func (this *S_WorkerPool) Run() {
 	this.do(nil)
 }
 
-func (this *S_WorkerPool) DoContex(ctx context.Context) {
+func (this *S_WorkerPool) RunContex(ctx context.Context) {
 	this.do(ctx)
 }
 

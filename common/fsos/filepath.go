@@ -72,6 +72,34 @@ func CurrentDir() (string, error) {
 }
 
 // -------------------------------------------------------------------
+// 遍历指定文件夹下所有子孙文件
+// fun 的第一个参数是当前遍历到的文件相对于 root 的路径；第二个参数表示是否是文件夹
+// 如果 fun 返回 false 则退出遍历
+func WorkDir(root string, fun func(string, bool) bool) error {
+	cache := [][2]string{[2]string{root, ""}}
+	for len(cache) > 0 {
+		root_sub := cache[0]
+		cache = cache[1:]
+		finfos, err := ioutil.ReadDir(root_sub[0])
+		if err != nil { return fmt.Errorf("read dir %q fail", root_sub[0]) }
+		for _, finfo := range finfos {
+			if finfo.IsDir() {
+				root := path.Join(root_sub[0], finfo.Name())
+				sub := path.Join(root_sub[1], finfo.Name())
+				if !fun(sub, true) { return nil }
+				cache = append(cache, [2]string{root, sub})
+			} else {
+				sub := path.Join(root_sub[1], finfo.Name())
+				if !fun(sub, false) {
+					return nil
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// -------------------------------------------------------------------
 // CopyFile 复制文件
 func CopyFile(src, dst string) error {
 	srcFile, err := os.Open(src)

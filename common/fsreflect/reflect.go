@@ -12,8 +12,6 @@ package fsreflect
 import (
 	"fmt"
 	"reflect"
-
-	"fsky.pro/fsstrconv"
 )
 
 // -------------------------------------------------------------------
@@ -33,8 +31,8 @@ func hardConvert(v interface{}, t reflect.Type) (reflect.Value, bool) {
 	} else if t.Kind() == reflect.String {
 		return reflect.ValueOf(fmt.Sprintf("%v", v)), true
 	} else if tv.Kind() == reflect.String {
-		if cv, err := fsstrconv.Str2TypeOf(v.(string), reflect.New(t).Elem().Interface()); err == nil {
-			return reflect.ValueOf(cv), true
+		if cv, ok := strTo(v.(string), t); ok {
+			return cv, true
 		}
 		return reflect.Zero(t), false
 	} else if tv.ConvertibleTo(t) {

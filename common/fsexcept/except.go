@@ -29,6 +29,6 @@ func (self S_Except) Do() {
 	self.Try(self)
 }
 
-func (self S_Except) Throw(obj any) {
+func Throw(obj any) {
 	panic(obj)
 }

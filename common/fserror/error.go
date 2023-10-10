@@ -21,6 +21,7 @@ import (
 //	type SubError struct{ Error }
 //	IsError[Error](SubError{})     // false
 func IsError[E error](e error) (same bool) {
+	if e == nil { return false }
 	defer func() { recover() }()
 	var ee E = e.(E)
 	func(E) {}(ee)

@@ -46,6 +46,10 @@ type I_Logger interface {
 	ShieldAll()
 	Unshield(...string)
 	UnshieldAll()
+
+	Whatever(string, any, ...any)
+	Whateverf(string, string, ...any)
+	Direct(string, []byte)
 }
 
 // -----------------------------------------------------------------------------

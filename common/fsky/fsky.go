@@ -52,6 +52,12 @@ func Ret3[T any](args ...any) T {
 }
 
 // -------------------------------------------------------------------
+// 浅拷贝一个对象
+func Copy[T any, PT interface{*T}](p PT) PT {
+	newv := *p
+	return &newv
+}
+
 // 深拷贝对象
 func DeepCopy(dst, src interface{}) error {
 	var buf bytes.Buffer
@@ -63,4 +69,11 @@ func DeepCopy(dst, src interface{}) error {
 		return fmt.Errorf("decode memory buffer error: %v", err)
 	}
 	return nil
+}
+
+// -------------------------------------------------------------------
+// 安全关闭指定通道 
+func SafeCloseChan[T any](ch chan T) {                                                                                                                                                                    
+    defer func () { recover() }()
+    close(ch)
 }

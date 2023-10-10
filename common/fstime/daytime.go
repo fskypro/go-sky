@@ -31,7 +31,7 @@ func NewDayTime[T fstype.T_IUNumber](h, m, s T) (T_DayTime, error) {
 	if s < 0 || s > 59 {
 		return 0, errors.New("seconds in day time must be 0~59")
 	}
-	v := uint(h<<16) + uint(m<<8) + uint(s)
+	v := uint(uint(h)<<16) + uint(uint(m)<<8) + uint(s)
 	return T_DayTime(v), nil
 }
 

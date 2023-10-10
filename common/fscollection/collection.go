@@ -53,6 +53,17 @@ func SliceIndexOf[T comparable](items []T, value T) int {
 }
 
 // ---------------------------------------------------------
+// 获取符合条件的元素
+func SliceGetsFunc[T any](items []T, f func(T)bool) []T {
+	newItems := []T{}
+	for _, item := range items {
+		if f(item) {
+			newItems = append(newItems, item)
+		}
+	}
+	return newItems
+}
+
 // 删除指定的子元素
 func SliceRemove[T comparable](items []T, e T) []T {
 	newItems := []T{}
@@ -181,4 +192,14 @@ func MapValuesToSlice[K comparable, V any](m map[K]V) []V {
 		values = append(values, v)
 	}
 	return values
+}
+
+// 复制一个 map
+func MapCopy[K comparable, V any](m map[K]V) map[K]V {
+	if m == nil { return nil }
+	newMap := map[K]V{}
+	for k, v := range m{
+		newMap[k] =v
+	}
+	return m
 }

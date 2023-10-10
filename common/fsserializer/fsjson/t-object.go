@@ -11,7 +11,6 @@ package fsjson
 import (
 	"bufio"
 	"fmt"
-	"strings"
 )
 
 // -------------------------------------------------------------------
@@ -88,8 +87,21 @@ func (this *S_Object) Clear() {
 
 // 获取指定 key 的值
 func (this *S_Object) Get(key string) I_Value {
-	value, _ := this.elems[key]
-	return value
+	return this.elems[key]
+}
+
+// 获取指定路径下的值
+func (this *S_Object) GetViaPath(keys ...string) I_Value {
+	var obj I_Value = this
+	var key string
+	for len(keys) > 0 {
+		if obj.Type() != TObject {
+			return nil
+		}
+		key, keys = keys[0], keys[1:]
+		obj = obj.AsObject().Get(key)
+	}
+	return obj
 }
 
 // 获取元素个数
@@ -112,32 +124,6 @@ func (this *S_Object) For(fun F_KeyValue) bool {
 		}
 	}
 	return true
-}
-
-// -------------------------------------------------------
-// 深层获取子孙元素
-func (this *S_Object) DeepGet(keys ...string) I_Value {
-	var obj = this
-	for len(keys) > 0 {
-		key := keys[0]
-		keys = keys[1:]
-		v, ok := obj.elems[key]
-		if !ok {
-			return nil
-		}
-		if len(keys) == 0 {
-			return v
-		}
-		if v.Type() != TObject {
-			return nil
-		}
-		obj = v.(*S_Object)
-	}
-	return nil
-}
-
-func (this *S_Object) GetViaPath(path string) I_Value {
-	return this.DeepGet(strings.Split(path, "/")...)
 }
 
 // ------------------------------------------------------------------
@@ -190,3 +176,5 @@ func (this *S_Object) FmtString() string {
 	}
 	return fmt.Sprintf("{%s}", str)
 }
+
+

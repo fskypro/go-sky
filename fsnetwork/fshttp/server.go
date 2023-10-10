@@ -85,15 +85,26 @@ func (this *S_Server) AddTLSFiles(domain string, pem, key string) error {
 }
 
 // -------------------------------------------------------------------
+// 程序会一直处于监听状态，直到主动关闭后，返回 nil
 func (this *S_Server) ServeTLS(ln net.Listener) error {
-	return this.Server.ServeTLS(ln, "", "")
+	err := this.Server.ServeTLS(ln, "", "")
+	if err == http.ErrServerClosed {
+		return nil
+	}
+	return err
 }
 
+// 程序会一直处于监听状态，直到主动关闭后，返回 nil
 func (this *S_Server) ListenAndServe(service I_Service) error {
 	this.Handler = service
-	return this.Server.ListenAndServe()
+	err := this.Server.ListenAndServe()
+	if err == http.ErrServerClosed {
+		return nil
+	}
+	return err
 }
 
+// 程序会一直处于监听状态，直到主动关闭后，返回 nil
 func (this *S_Server) ListenAndServeTLS(service I_Service) error {
 	addr := this.Addr()
 	if addr == "" {
@@ -110,6 +121,7 @@ func (this *S_Server) ListenAndServeTLS(service I_Service) error {
 	return this.ServeTLS(ln)
 }
 
+// 程序会一直处于监听状态，直到主动关闭后，返回 nil
 func (this *S_Server) ServeAuto(service I_Service) error {
 	if this.TLSConfig != nil &&
 		(len(this.TLSConfig.Certificates) > 0 ||

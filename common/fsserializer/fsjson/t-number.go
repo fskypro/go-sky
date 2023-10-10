@@ -11,6 +11,8 @@ package fsjson
 import (
 	"bufio"
 	"fmt"
+
+	"fsky.pro/fstype"
 )
 
 // -------------------------------------------------------------------
@@ -104,6 +106,10 @@ func (this *S_Int64) FmtString() string {
 	return fmt.Sprintf("%d", this.value)
 }
 
+func JInt64To[T fstype.T_Number](jv *S_Int64) T {
+	return T(jv.value)
+}
+
 // -------------------------------------------------------------------
 // S_UInt64
 // -------------------------------------------------------------------
@@ -195,6 +201,10 @@ func (this *S_UInt64) FmtString() string {
 	return fmt.Sprintf("%d", this.value)
 }
 
+func JUInt64To[T fstype.T_Number](jv *S_UInt64) T {
+	return T(jv.value)
+}
+
 // -------------------------------------------------------------------
 // S_Float64
 // -------------------------------------------------------------------
@@ -284,4 +294,8 @@ func (this *S_Float64) String() string {
 
 func (this *S_Float64) FmtString() string {
 	return fmt.Sprintf("%f", this.value)
+}
+
+func JFloat64To[T fstype.T_Number](jv *S_Float64) T {
+	return T(jv.value)
 }

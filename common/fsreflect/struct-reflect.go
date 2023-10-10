@@ -378,6 +378,99 @@ func SetDeepFieldValue(obj interface{}, fpath string, value interface{}) error {
 }
 
 // -------------------------------------------------------------------
+// 遍历结构体成员，包括父结构体的成员
+// 如果参数 f 返回 false，则停止遍历
+// 函数参数 f 的参数：
+//	S_TrivalStructInfo.StructType：
+//		遍历过程中，当前结构体的类型
+//  S_TrivalStructInfo::StructValue：
+//		历过程中，当前结构体对象
+//  S_TrivalStructInfo::Field：
+//		遍历过程中，当前成员域
+//  S_TrivalStructInfo::FieldValue：
+//		遍历过程中，当前成员的值，FieldValue.IsValid()、FieldValue.Type()、FieldValue.IsNil()，都是不确定的
+// 提示：
+//  参数 v 可以传入任何结构体的 nil 值，但是如果传入 nil，则遍历过程中，f 的参数 a1.IsValid() 和 a3.IsValid() 都是 false
+// 示例：
+//  type A struct {
+//		member1 string
+//  }
+//  type B struct {
+//		member2 int
+//	}
+//	type C struct {
+//		A
+//		*B
+//		member3 uint64
+//  }
+//
+//  var c *C = nil
+//  TrivalFields(c, func(*S_TrivalStructInfo)bool{
+//      return true
+//  })
+// -------------------------------------------------------------------
+type S_TrivalStructInfo struct {
+	StructType  reflect.Type
+	StructValue reflect.Value
+	Field       reflect.StructField
+	FieldValue  reflect.Value
+}
+
+func TrivalStructMembers(v any, f func(*S_TrivalStructInfo) bool) {
+	rt := reflect.TypeOf(v)
+	if rt == nil { return }
+	rv := reflect.ValueOf(v)
+	for rt.Kind() == reflect.Ptr {
+		rt = rt.Elem()
+		if rv.IsValid() || !rv.IsNil() {
+			rv = rv.Elem()
+		} else {
+			rv = reflect.Value{}
+		}
+	}
+
+	var trivalStruct func(reflect.Type, reflect.Value) bool
+	trivalStruct = func(rt reflect.Type, rv reflect.Value) bool {
+		if rt == nil                   { return true }
+		if rt.Kind() != reflect.Struct { return true }
+		for i := 0; i < rt.NumField(); i++ {
+			field := rt.Field(i)
+			vfield := reflect.ValueOf(nil)
+			if rv.IsValid() {
+				vfield = rv.Field(i)
+			}
+			if !field.Anonymous {
+				info := new(S_TrivalStructInfo)
+				info.StructType = rt
+				info.StructValue = rv
+				info.Field = field
+				info.FieldValue = vfield
+				if f(info) { continue }
+				return false
+			}
+			// 匿名结构体
+			tfield := field.Type
+			for tfield.Kind() == reflect.Ptr {
+				tfield = tfield.Elem()
+				if !vfield.IsValid() || vfield.IsNil() {
+					vfield = reflect.ValueOf(nil)
+				} else {
+					vfield = vfield.Elem()
+				}
+			}
+			// 继承结构体，继续往上层遍历
+			if tfield.Kind() == reflect.Struct {
+				if !trivalStruct(tfield, vfield) {
+					return false
+				}
+			}
+		}
+		return true
+	}
+	trivalStruct(rt, rv)
+}
+
+// -------------------------------------------------------------------
 // 浅拷贝结构对象，src 必须为结构体指针
 func CopyStructObject(src interface{}) (dst interface{}, err error) {
 	tsrc := reflect.TypeOf(src)

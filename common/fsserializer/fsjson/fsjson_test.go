@@ -67,7 +67,7 @@ func TestFromString(t *testing.T) {
 	}
 
 	// 获取子孙元素
-	fmt.Println("v['k']['kk1']['kkk1'['kkkk1']] =", r.DeepGet("k", "kk1", "kkk1", "kkkk1"))
+	fmt.Println("v['k']['kk1']['kkk1'['kkkk1']] =", r.GetViaPath("k", "kk1", "kkk1", "kkkk1"))
 
 	// 打印
 	r.For(func(k string, v I_Value) bool {

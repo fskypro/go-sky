@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	"fsky.pro/fsstr/convert"
+	"fsky.pro/fstype"
 )
 
 type S_String struct {
@@ -28,7 +29,10 @@ func NewString(value string) *S_String {
 }
 
 func newString(bstr []byte) *S_String {
-	return &S_String{value: bstr}
+	return &S_String{
+		s_Base: createBase(TString),
+		value:  bstr,
+	}
 }
 
 func (this *S_String) V() string {
@@ -53,4 +57,9 @@ func (this *S_String) String() string {
 
 func (this *S_String) FmtString() string {
 	return fmt.Sprintf("%q", convert.Bytes2String(this.value))
+}
+
+func JStringTo[T fstype.T_AllString](jstr *S_String) T {
+	str := string(jstr.value)
+	return T(str)
 }

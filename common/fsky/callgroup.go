@@ -172,3 +172,41 @@ func (self CallGroup3[A1, A2, A3]) Call(arg1 A1, arg2 A2, arg3 A3) {
 		}
 	}
 }
+
+// -------------------------------------------------------------------
+// 四个参数调用组
+// -------------------------------------------------------------------
+type CallGroup4[A1, A2, A3, A4 any] map[E_CGLevel][]func(A1, A2, A3, A4)
+
+func NewCallGroup4[A1, A2, A3, A4 any]() CallGroup4[A1, A2, A3, A4] {
+	return CallGroup4[A1, A2, A3, A4](map[E_CGLevel][]func(A1, A2, A3, A4){})
+}
+
+// 添加初始化接收函数
+func (self CallGroup4[A1, A2, A3, A4]) Add(lv E_CGLevel, call func(A1, A2, A3, A4)) {
+	calls := self[lv]
+	if calls == nil {
+		calls = []func(A1, A2, A3, A4){}
+	}
+	calls = append(calls, call)
+	self[lv] = calls
+}
+
+// 不考虑调用顺序
+func (self CallGroup4[A1, A2, A3, A4]) AddUnorder(call func(A1, A2, A3, A4)) {
+	self.Add(CG_L4, call)
+}
+
+// 调用初始化接收函数
+// CG_L1 比 CG_L5 优先调用
+func (self CallGroup4[A1, A2, A3, A4]) Call(arg1 A1, arg2 A2, arg3 A3, arg4 A4) {
+	for l := CG_L1; l <= CG_L5; l++ {
+		calls := self[l]
+		if calls == nil {
+			continue
+		}
+		for _, call := range calls {
+			call(arg1, arg2, arg3, arg4)
+		}
+	}
+}

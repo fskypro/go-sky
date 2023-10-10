@@ -10,6 +10,7 @@ package fsstr
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"fsky.pro/fsbytes"
@@ -19,6 +20,14 @@ import (
 // 从第 n 个字符开始查找指定字符串，如果存在，则返回第一个匹配的子字符串的位置，不存在，则返回 -1
 func IndexN(str string, n int, sub string) int {
 	return fsbytes.IndexN(convert.String2Bytes(str), n, convert.String2Bytes(sub))
+}
+
+// -------------------------------------------------------------------   
+// 字符串形态判断   
+// -------------------------------------------------------------------   
+// 判断字符串中的字符，是不是全部都是数字   
+func IsNum(str string) bool {   
+  return regexp.MustCompile("\\d+").MatchString(str)   
 }
 
 // -------------------------------------------------------------------

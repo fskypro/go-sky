@@ -41,6 +41,15 @@ func TestIsFileExists(t *testing.T) {
 	fstest.PrintTestEnd()
 }
 
+func TestWorkDir(t *testing.T) {
+	fstest.PrintTestBegin("WorkDir")
+	defer fstest.PrintTestEnd()
+	WorkDir("../", func(file string, isDir bool) bool {
+		fmt.Println(file, isDir)
+		return true
+	})
+}
+
 func TestCopyFile(t *testing.T) {
 	fstest.PrintTestBegin("CopyFile")
 	src, dst := "./util.go", "util2.txt"

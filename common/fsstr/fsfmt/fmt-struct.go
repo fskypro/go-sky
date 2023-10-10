@@ -263,9 +263,9 @@ func _printArray(w *s_Writer, v reflect.Value, tag string) {
 	// fcount 指示不显示任何元素
 	if fcount == 0 {
 		if isArray {
-			w.writeStringf("%v{...}", v.Type())
+			w.writeStringf("%v[...]", v.Type())
 		} else {
-			w.writeStringf("%v{...}(len=%d)", v.Type(), v.Len())
+			w.writeStringf("%v[...](len=%d)", v.Type(), v.Len())
 		}
 		return
 	}
@@ -289,11 +289,11 @@ func _printArray(w *s_Writer, v reflect.Value, tag string) {
 			return
 		}
 		// 只显示部分
-		w.writeStringf("%v{", v.Type())
+		w.writeStringf("%v[", v.Type())
 		for i := 0; i < fcount; i++ {
 			w.writeStringf("%#v, ", v.Index(i))
 		}
-		w.writeStringf("...}")
+		w.writeStringf("...]")
 		if !isArray {
 			w.writeStringf("(len=%d)", ecount)
 		}
@@ -301,7 +301,7 @@ func _printArray(w *s_Writer, v reflect.Value, tag string) {
 	}
 
 	// 写入类型
-	w.writeStringf("%v{", v.Type()) // 写入类型
+	w.writeStringf("%v[", v.Type()) // 写入类型
 	w.writeEndline()                // 换行
 
 	// 写入第一个元素
@@ -328,7 +328,7 @@ func _printArray(w *s_Writer, v reflect.Value, tag string) {
 	w.writeEndline()     // 换行
 	w.decLayer()         // 减少嵌套
 	w.writeIdents(false) // 缩进
-	w.writeByte('}')     //数组结束
+	w.writeByte(']')     //数组结束
 
 	// 如果是 slice 显示元素总数
 	if !isArray && !fmtAll {
