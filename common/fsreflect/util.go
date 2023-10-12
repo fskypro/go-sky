@@ -10,7 +10,6 @@
 package fsreflect
 
 import (
-	"errors"
 	"reflect"
 	"unicode"
 	"unicode/utf8"
@@ -32,44 +31,33 @@ func IsExposedOrBuiltinType(t reflect.Type) bool {
 }
 
 // -------------------------------------------------------------------
-// 获取 obj 参数的原始类型值的 reflect.Value 封装
-func BaseRefValue(obj any) (reflect.Value, error) {
-	tobj := reflect.TypeOf(obj)
-	if tobj == nil {
-		return reflect.ValueOf(nil), errors.New("obj mustn't be a no type nil value")
-	}
-	vobj := reflect.ValueOf(obj)
-	if tobj.Kind() == reflect.Ptr {
-		if vobj.IsNil() {
-			return vobj, errors.New("obj must be a not nil value")
-		}
-		return vobj.Elem(), nil
-	}
-	return vobj, nil
-}
-
 // 获取 obj 参数的原始类型的 reflect.Type 封装
-func BaseRefType(obj any) (reflect.Type, error) {
-	tobj := reflect.TypeOf(obj)
-	if tobj == nil {
-		return nil, errors.New("obj mustn't be a no type nil value")
+// 如果传入的 t 为 nil，则返回值也是 nil
+func BaseRefType(t reflect.Type) reflect.Type {
+	if t == nil { return t }
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
 	}
-	if tobj.Kind() == reflect.Ptr {
-		return tobj.Elem(), nil
-	}
-	return tobj, nil
+	return t
 }
 
 // 获取参数引用的最末端 reflect.Value
-func EndRefValue(v any) reflect.Value {
-	rv := reflect.ValueOf(v)
-	if !rv.IsValid() { return rv }
-
-L:
-	if rv.IsNil() { return rv }
-	if rv.Type().Kind() == reflect.Ptr {
-		rv = rv.Elem()
-		goto L
+// 传出参数有可能：
+//   参数1 == -1：则返回值2 IsValid() == false
+//   参数1 == 0 ：则返回值2 IsNil() == true
+//   参数1 == 1 ：则返回值2 为非 Ptr Value
+func BaseRefValue(v reflect.Value) (int, reflect.Value) {
+	for v.IsValid() {
+		if v.Type().Kind() != reflect.Ptr {
+			break
+		}
+		if v.IsNil() {
+			return 0, v
+		}
+		v = v.Elem()
 	}
-	return rv
+	if v.IsValid() {
+		return 1, v
+	}
+	return -1, v
 }

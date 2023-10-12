@@ -410,10 +410,11 @@ func SetDeepFieldValue(obj interface{}, fpath string, value interface{}) error {
 //  })
 // -------------------------------------------------------------------
 type S_TrivalStructInfo struct {
-	StructType  reflect.Type
-	StructValue reflect.Value
-	Field       reflect.StructField
-	FieldValue  reflect.Value
+	PathFields  []reflect.StructField // 继承链路
+	StructType  reflect.Type          // 成员所属结构体类型
+	StructValue reflect.Value         // 成员所属结构体值
+	Field       reflect.StructField   // 成员
+	FieldValue  reflect.Value         // 成员值
 }
 
 func TrivalStructMembers(v any, f func(*S_TrivalStructInfo) bool) {
@@ -429,8 +430,8 @@ func TrivalStructMembers(v any, f func(*S_TrivalStructInfo) bool) {
 		}
 	}
 
-	var trivalStruct func(reflect.Type, reflect.Value) bool
-	trivalStruct = func(rt reflect.Type, rv reflect.Value) bool {
+	var trivalStruct func([]reflect.StructField, reflect.Type, reflect.Value) bool
+	trivalStruct = func(fields []reflect.StructField, rt reflect.Type, rv reflect.Value) bool {
 		if rt == nil                   { return true }
 		if rt.Kind() != reflect.Struct { return true }
 		for i := 0; i < rt.NumField(); i++ {
@@ -441,6 +442,7 @@ func TrivalStructMembers(v any, f func(*S_TrivalStructInfo) bool) {
 			}
 			if !field.Anonymous {
 				info := new(S_TrivalStructInfo)
+				info.PathFields = fields
 				info.StructType = rt
 				info.StructValue = rv
 				info.Field = field
@@ -460,14 +462,15 @@ func TrivalStructMembers(v any, f func(*S_TrivalStructInfo) bool) {
 			}
 			// 继承结构体，继续往上层遍历
 			if tfield.Kind() == reflect.Struct {
-				if !trivalStruct(tfield, vfield) {
+				fs := append(fields, field)
+				if !trivalStruct(fs, tfield, vfield) {
 					return false
 				}
 			}
 		}
 		return true
 	}
-	trivalStruct(rt, rv)
+	trivalStruct([]reflect.StructField{}, rt, rv)
 }
 
 // -------------------------------------------------------------------

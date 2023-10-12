@@ -20,7 +20,6 @@ import (
 
 	"fsky.pro/fscollection"
 	"fsky.pro/fsky"
-	"fsky.pro/fsreflect"
 	"fsky.pro/fsregexp"
 	"fsky.pro/fsstr"
 	"fsky.pro/fstype"
@@ -294,15 +293,14 @@ func (this *S_SQL) parse_TV(exp string, argOrder int, exclude bool, walias strin
 		this.errorf("argument %d must a db map object for expression %q", argOrder, exp)
 		return exp
 	}
-	vobj, err := fsreflect.BaseRefValue(arg)
-	if err != nil {
-		this.errorf("artument %d must be a not nil value for expression %q", argOrder, exp)
-		return exp
-	}
 
 	dollers := []string{}
 	addMember := func(m *S_Member) bool {
-		subsql, err := this.addInput(m.value(vobj))
+		value, err := m.value(arg)
+		if err != nil {
+			this.errorf("value of member %q error in argument %d, %v", m.name, argOrder, err)
+		}
+		subsql, err := this.addInput(value)
 		if err != nil {
 			this.errorf("value of member %q error in argument %d, %v", m.name, argOrder, err)
 			return false
@@ -356,15 +354,14 @@ func (this *S_SQL) parse_TE(exp string, argOrder int, exclude bool, alias string
 		this.errorf("argument %d must a db map object for expression %q", argOrder, exp)
 		return exp
 	}
-	vobj, err := fsreflect.BaseRefValue(arg)
-	if err != nil {
-		this.errorf("artument %d must be a not nil value for expression %q", argOrder, exp)
-		return exp
-	}
 
 	eqs := []string{}
 	addMember := func(m *S_Member) bool {
-		subsql, err := this.addInput(m.value(vobj))
+		value, err := m.value(arg)
+		if err != nil {
+			this.errorf("value of member %q error in argument %d, %v", m.name, argOrder, err)
+		}
+		subsql, err := this.addInput(value)
 		if err != nil {
 			this.errorf("value of member %q error in argument %d, %v", m.name, argOrder, err)
 			return false
@@ -408,22 +405,26 @@ func (this *S_SQL) parse_TO(exp string, argOrder int, exclude bool, alias string
 		return exp
 	}
 
-	vobj, err := fsreflect.BaseRefValue(arg)
-	if err != nil {
-		this.errorf("artument %d must be a not nil value for expression %q", argOrder, exp)
-		return exp
-	}
-
 	dbkeys := []string{}
 	if len(members) == 0 {
 		for _, m := range tb.orderMembers {
-			this.Outputs = append(this.Outputs, m.valuePtr(vobj))
+			pvalue, err := m.valuePtr(arg)
+			if err != nil {
+				this.errorf("parse output object for member %q fail, %v", m.name, err)
+				return exp
+			}
+			this.Outputs = append(this.Outputs, pvalue)
 			dbkeys = append(dbkeys, this.getOutMemberName(m, alias, withTable))
 		}
 	} else if exclude {
 		for _, m := range tb.orderMembers {
 			if fscollection.SliceHas(members, m.name) { continue }
-			this.Outputs = append(this.Outputs, m.valuePtr(vobj))
+			pvalue, err := m.valuePtr(arg)
+			if err != nil {
+				this.errorf("parse output object fro member %q fail, %v", m.name, err)
+				return exp
+			}
+			this.Outputs = append(this.Outputs, pvalue)
 			dbkeys = append(dbkeys, this.getOutMemberName(m, alias, withTable))
 		}
 	} else {
@@ -433,7 +434,12 @@ func (this *S_SQL) parse_TO(exp string, argOrder int, exclude bool, alias string
 				this.errorf("argument %d has no member named %q for expression %q", argOrder, name, exp)
 				return exp
 			}
-			this.Outputs = append(this.Outputs, m.valuePtr(vobj))
+			pvalue, err := m.valuePtr(arg)
+			if err != nil {
+				this.errorf("parse output object fro member %q fail, %v", m.name, err)
+				return exp
+			}
+			this.Outputs = append(this.Outputs, pvalue)
 			dbkeys = append(dbkeys, this.getOutMemberName(m, alias, withTable))
 		}
 	}

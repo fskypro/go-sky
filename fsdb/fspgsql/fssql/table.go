@@ -38,13 +38,13 @@ type T_DBFields map[string]*S_DBField
 // sql 语法中的成员
 // ---------------------------------------------------------------------------------------
 type S_Member struct {
-	table     *S_Table     // 成员所属的表
-	name      string       // 成员名称
-	buildInfo string       // 构建列描述
-	dbkey     string       // 在数据库中对应的列关键字
-	dbout     string       // 列传出时的表达式
-	vtype     reflect.Type // 类型
-	offset    uintptr      // 字段偏移值
+	table      *S_Table              // 成员所属的表
+	name       string                // 成员名称
+	buildInfo  string                // 构建列描述
+	dbkey      string                // 在数据库中对应的列关键字
+	dbout      string                // 列传出时的表达式
+	field      reflect.StructField   // 成员所属结构体的域
+	pathFields []reflect.StructField // 继承链的域列表
 }
 
 var memberType = reflect.TypeOf(new(S_Member)).Elem()
@@ -68,15 +68,76 @@ func (this *S_Member) quoteWithTable() string {
 }
 
 // vobj 必须是结构体对象的 reflect.Value (非 reflect.Ptr)
-func (this *S_Member) value(vobj reflect.Value) interface{} {
-	p := unsafe.Pointer(this.offset + vobj.UnsafeAddr())
-	return reflect.NewAt(this.vtype, p).Elem().Interface()
+func (this *S_Member) value(obj any) (any, error) {
+	var state int
+	vobj := reflect.ValueOf(obj)
+	for _, field := range this.pathFields {
+		state, vobj = fsreflect.BaseRefValue(vobj)
+		if state < 1 {
+			return nil, fmt.Errorf("nil object or nil inner object")
+		}
+		vobj = vobj.FieldByName(field.Name)
+	}
+	state, vobj = fsreflect.BaseRefValue(vobj)
+	if state < 1 {
+		return nil, fmt.Errorf("nil object or nil inner object")
+	}
+	fobj := vobj.FieldByName(this.field.Name)
+	if !fobj.IsValid() {
+		return nil, fmt.Errorf("no filed name %q in object of type %v", this.field.Name, fobj.Type())
+	}
+	if !fobj.CanAddr() {
+		return nil, fmt.Errorf("field %q in object of type %v is not accessable", this.field.Name, vobj.Type())
+	}
+	if fobj.CanInterface() {
+		return fobj.Interface(), nil
+	}
+	return reflect.NewAt(this.field.Type, unsafe.Pointer(fobj.UnsafeAddr())).Elem().Interface(), nil
 }
 
 // vobj 必须是结构体对象的 reflect.Value (非 reflect.Ptr)
-func (this *S_Member) valuePtr(vobj reflect.Value) interface{} {
-	p := unsafe.Pointer(this.offset + vobj.UnsafeAddr())
-	return reflect.NewAt(this.vtype, p).Interface()
+func (this *S_Member) valuePtr(obj any) (any, error) {
+	state, vobj := fsreflect.BaseRefValue(reflect.ValueOf(obj))
+	if state < 1 {
+		return nil, fmt.Errorf("nil object")
+	}
+	for _, field := range this.pathFields {
+		fobj := vobj.FieldByName(field.Name)
+		state, fobj := fsreflect.BaseRefValue(fobj)
+		if state < 0 {
+			return nil, fmt.Errorf("object of %v has no field named %q", vobj.Type(), field.Name)
+		}
+		if state > 0 {
+			// 只要继承的不是结构体指针，则会走这里
+			vobj = fobj
+			continue
+		}
+		// 进入这里意味着继承的一定是指针
+		if fobj.CanSet() {
+			// 因此，这里不需要判断 field.Type 是不是指针(一定是指针)
+			fobj.Set(reflect.New(field.Type.Elem()))
+		} else if !fobj.CanAddr() {
+			return nil, fmt.Errorf("object of type %v can't be accessed", field.Type)
+		} else {
+			// 这里 filed.Type 也一定是指针
+			p := reflect.NewAt(field.Type, unsafe.Pointer(fobj.UnsafeAddr()))
+			p.Elem().Set(reflect.New(field.Type.Elem()))
+		}
+		_, fobj = fsreflect.BaseRefValue(fobj)
+		vobj = fobj
+	}
+	state, vobj = fsreflect.BaseRefValue(vobj)
+	if state < 1 {
+		// 原则上永远也不会进入这里
+		return nil, fmt.Errorf("nil object or nil inner object")
+	}
+	fv := vobj.FieldByName(this.field.Name)
+	if !fv.IsValid() {
+		return nil, fmt.Errorf("object of %v has no field named %q", vobj.Type(), this.field.Name)
+	} else if !fv.CanAddr() {
+		return nil, fmt.Errorf("field %q in object of %v can't be accessed", this.field.Name, vobj.Type())
+	}
+	return reflect.NewAt(this.field.Type, unsafe.Pointer(fv.UnsafeAddr())).Interface(), nil
 }
 
 // -----------------------------------------------------------------------------
@@ -194,38 +255,30 @@ func (this *S_Table) getDBBuildInfo(f reflect.StructField) string {
 	return ""
 }
 
-func (this *S_Table) takeMembers(table *S_Table, t reflect.Type) {
-	for i := 0; i < t.NumField(); i++ {
-		tfield := t.Field(i)
-		if tfield.Anonymous { // 匿名结构
-			continue
-		}
+func (this *S_Table) takeMembers(table *S_Table, obj any) {
+	fsreflect.TrivalStructMembers(obj, func(info *fsreflect.S_TrivalStructInfo) bool {
+		dbkey := this.getMemberDBKey(info.Field)
+		if dbkey == "-" { return true } // “-” 为，排除标记，表示该成员不映射到数据库
 
-		dbkey := this.getMemberDBKey(tfield)
-		if dbkey == "-" { // “-” 为，排除标记，表示该成员不映射到数据库
-			continue
-		}
-
-		buildInfo := this.getDBBuildInfo(tfield)
-
+		buildInfo := this.getDBBuildInfo(info.Field)
 		m := &S_Member{
-			table:     table,
-			name:      tfield.Name,
-			buildInfo: buildInfo,
-			dbkey:     dbkey,
-			dbout:     this.getMemberDBOut(tfield),
-			vtype:     tfield.Type,
-			offset:    tfield.Offset,
+			table:      table,
+			name:       info.Field.Name,
+			buildInfo:  buildInfo,
+			dbkey:      dbkey,
+			dbout:      this.getMemberDBOut(info.Field),
+			field:      info.Field,
+			pathFields: info.PathFields,
 		}
-
 		this.members[m.name] = m
 		this.orderMembers = append(this.orderMembers, m)
-	}
+		return true
+	})
 }
 
 func (this *S_Table) bindObjType(obj any) error {
-	tobj, err := fsreflect.BaseRefType(obj)
-	if err != nil {
+	tobj := fsreflect.BaseRefType(reflect.TypeOf(obj))
+	if tobj == nil {
 		return errors.New("database table map object mustn't be a nil value")
 	}
 	if tobj.Kind() != reflect.Struct {
@@ -235,7 +288,7 @@ func (this *S_Table) bindObjType(obj any) error {
 	this.tobj = tobj
 	this.members = make(map[string]*S_Member)
 	this.orderMembers = make([]*S_Member, 0)
-	this.takeMembers(this, tobj)
+	this.takeMembers(this, obj)
 	if len(this.members) == 0 {
 		return fmt.Errorf(`object "%v" has no map db members, may be is not a db map object`, tobj)
 	}
