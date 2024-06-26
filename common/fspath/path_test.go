@@ -1,7 +1,9 @@
-package fsos
+package fspath
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
 	"testing"
 
 	"fsky.pro/fstest"
@@ -44,8 +46,8 @@ func TestIsFileExists(t *testing.T) {
 func TestWorkDir(t *testing.T) {
 	fstest.PrintTestBegin("WorkDir")
 	defer fstest.PrintTestEnd()
-	WorkDir("../", func(file string, isDir bool) bool {
-		fmt.Println(file, isDir)
+	WorkDir("."+string(os.PathSeparator), func(file string, info fs.FileInfo) bool {
+		fmt.Println(file, info)
 		return true
 	})
 }

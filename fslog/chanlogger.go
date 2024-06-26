@@ -91,6 +91,14 @@ func (this *S_ChanLogger) Hackf(msg string, args ...any) {
 	this.S_Logger.Hackf_(1, msg, args...)
 }
 
+func (this *S_ChanLogger) Illeg(arg any, args ...any) {
+	this.S_Logger.Hack_(1, arg, args...)
+}
+
+func (this *S_ChanLogger) Illegf(msg string, args ...any) {
+	this.S_Logger.Hackf_(1, msg, args...)
+}
+
 func (this *S_ChanLogger) Critical(arg any, args ...any) {
 	this.S_Logger.Critical_(1, arg, args...)
 }

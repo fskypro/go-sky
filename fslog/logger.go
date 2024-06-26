@@ -17,29 +17,33 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"fsky.pro/fspath"
 )
 
 type S_Logger struct {
 	sync.Mutex
-	writer   func(time.Time, string, []byte)
-	levels   map[string]bool
+	writer   func(time.Time, T_Level, []byte)
+	levels   map[T_Level]bool
 	levelFmt string
 	goidSize int
 
 	showSite   bool
+	cutSrcRoot string
 	UseUTCTime bool
 }
 
-func NewLogger(writer func(time.Time, string, []byte)) *S_Logger {
+func NewLogger(writer func(time.Time, T_Level, []byte)) *S_Logger {
 	logger := &S_Logger{
 		writer: writer,
-		levels: map[string]bool{
+		levels: map[T_Level]bool{
 			"DEBUG": true,
 			"INFO":  true,
 			"NOTIC": true,
 			"WARN":  true,
 			"ERROR": true,
 			"HACK":  true,
+			"ILLEG": true,
 			"CRIT":  true,
 			"TRACE": true,
 			"PANIC": true,
@@ -67,7 +71,7 @@ func (this *S_Logger) nowTime() time.Time {
 	return time.Now()
 }
 
-func (this *S_Logger) send(t time.Time, lv string, msg []byte) {
+func (this *S_Logger) send(t time.Time, lv T_Level, msg []byte) {
 	this.Lock()
 	defer this.Unlock()
 	if this.writer != nil {
@@ -76,11 +80,11 @@ func (this *S_Logger) send(t time.Time, lv string, msg []byte) {
 }
 
 // ---------------------------------------------------------
-func (this *S_Logger) writef(bb *bytes.Buffer, msg string, args ...any) {
-	bb.WriteString(fmt.Sprintf(msg, args...))
+func (this *S_Logger) writef(buff *bytes.Buffer, msg string, args ...any) {
+	buff.WriteString(fmt.Sprintf(msg, args...))
 }
 
-func (this *S_Logger) writeGoID(bb *bytes.Buffer) {
+func (this *S_Logger) writeGoID(buff *bytes.Buffer) {
 	var buf = make([]byte, 23)
 	runtime.Stack(buf, false)
 	fields := bytes.Fields(buf)
@@ -89,51 +93,61 @@ func (this *S_Logger) writeGoID(bb *bytes.Buffer) {
 		if len(goid) > this.goidSize {
 			this.goidSize = len(goid)
 		}
-		this.writef(bb, fmt.Sprintf("[G-%%0%ds]|", this.goidSize), goid)
+		this.writef(buff, fmt.Sprintf("[G-%%0%ds]|", this.goidSize), goid)
 	} else {
-		bb.WriteString("[G-ERR]|")
+		buff.WriteString("[G-ERR]|")
 	}
 }
 
-func (this *S_Logger) writePrefix(bb *bytes.Buffer, level string) {
-	this.writef(bb, this.levelFmt, "["+level+"]")
+func (this *S_Logger) writePrefix(buff *bytes.Buffer, level T_Level) {
+	this.writef(buff, this.levelFmt, "["+level+"]")
 }
 
-func (this *S_Logger) writeDateTime(bb *bytes.Buffer) time.Time {
+func (this *S_Logger) writeDateTime(buff *bytes.Buffer) time.Time {
 	now := this.nowTime()
-	bb.WriteString(now.Format("2006/01/02 15:04:05.999999"))
+	buff.WriteString(now.Format("2006/01/02 15:04:05.999999"))
 	return now
 }
 
-func (this *S_Logger) writeCallStack(bb *bytes.Buffer, depth int) {
+func (this *S_Logger) writeCallStack(buff *bytes.Buffer, depth int) {
 	pc := make([]uintptr, 50)
 	n := runtime.Callers(depth+2, pc)
 	if n < 1 {
-		bb.WriteString("\n???:?")
+		buff.WriteString("\n???:?")
 		return
 	}
 	frames := runtime.CallersFrames(pc)
 	for {
 		frame, more := frames.Next()
-		this.writef(bb, "\n\t%s(...):\n", frame.Function)
-		this.writef(bb, "\t\t%s:%d", frame.File, frame.Line)
+		this.writef(buff, "\n\t%s(...):\n", frame.Function)
+		file := fspath.CleanPath(frame.File)
+		if this.cutSrcRoot != "" {
+			file = strings.TrimPrefix(file, this.cutSrcRoot)
+			file = strings.TrimSuffix(file, ".go")
+		}
+		this.writef(buff, "\t\t%s:%d", file, frame.Line)
 		if !more {
 			break
 		}
 	}
 }
 
-func (this *S_Logger) writeCallTopStack(bb *bytes.Buffer, depth int) {
+func (this *S_Logger) writeCallTopStack(buff *bytes.Buffer, depth int) {
 	_, file, line, ok := runtime.Caller(depth + 1)
 	if !ok {
-		bb.WriteString("???:?")
+		buff.WriteString("???:?")
 		return
 	}
-	this.writef(bb, "%s:%d", file, line)
+	file = fspath.CleanPath(file)
+	if this.cutSrcRoot != "" {
+		file = strings.TrimPrefix(file, this.cutSrcRoot)
+		file = strings.TrimSuffix(file, ".go")
+	}
+	this.writef(buff, "%s:%d", file, line)
 }
 
 // ---------------------------------------------------------
-func (this *S_Logger) isShield(lv string) bool {
+func (this *S_Logger) isShield(lv T_Level) bool {
 	this.Lock()
 	defer this.Unlock()
 	return !this.levels[lv]
@@ -188,6 +202,14 @@ func (this *S_Logger) Hack_(depth int, arg any, args ...any) {
 
 func (this *S_Logger) Hackf_(depth int, msg string, args ...any) {
 	this.Outputf(depth+1, "HACK", msg, args...)
+}
+
+func (this *S_Logger) Illeg_(depth int, arg any, args ...any) {
+	this.Output(depth+1, "ILLEG", arg, args...)
+}
+
+func (this *S_Logger) Illegf_(depth int, msg string, args ...any) {
+	this.Outputf(depth+1, "ILLEG", msg, args...)
 }
 
 func (this *S_Logger) Critical_(depth int, arg any, args ...any) {
@@ -293,14 +315,18 @@ func (this *S_Logger) ToggleSite(showSite bool) {
 	this.showSite = showSite
 }
 
-func (this *S_Logger) SetOutputWriter(writer func(time.Time, string, []byte)) {
+func (this *S_Logger) CutSrcRoot(root string) {
+	this.cutSrcRoot = fspath.CleanPath(root) + string(os.PathSeparator)
+}
+
+func (this *S_Logger) SetOutputWriter(writer func(time.Time, T_Level, []byte)) {
 	this.Lock()
 	defer this.Unlock()
 	this.writer = writer
 }
 
 // ---------------------------------------------------------
-func (this *S_Logger) Output(depth int, level string, arg any, args ...any) {
+func (this *S_Logger) Output(depth int, level T_Level, arg any, args ...any) {
 	if this.isShield(level) {
 		return
 	}
@@ -321,7 +347,7 @@ func (this *S_Logger) Output(depth int, level string, arg any, args ...any) {
 	this.send(now, level, bb.Bytes())
 }
 
-func (this *S_Logger) Outputf(depth int, level string, msg string, args ...any) {
+func (this *S_Logger) Outputf(depth int, level T_Level, msg string, args ...any) {
 	if this.isShield(level) {
 		return
 	}
@@ -345,8 +371,8 @@ func (this *S_Logger) Outputf(depth int, level string, msg string, args ...any) 
 func (this *S_Logger) Shield(lvs ...string) {
 	this.Lock()
 	defer this.Unlock()
-	for _, lv := range lvs {
-		lv = strings.ToUpper(lv)
+	for _, l := range lvs {
+		lv := T_Level(strings.ToUpper(l))
 		if _, ok := this.levels[lv]; ok {
 			this.levels[lv] = false
 		}
@@ -367,8 +393,8 @@ func (this *S_Logger) ShieldAll() {
 func (this *S_Logger) Unshield(lvs ...string) {
 	this.Lock()
 	defer this.Unlock()
-	for _, lv := range lvs {
-		lv = strings.ToUpper(lv)
+	for _, l := range lvs {
+		lv := T_Level(strings.ToUpper(l))
 		if _, ok := this.levels[lv]; ok {
 			this.levels[lv] = true
 		}
@@ -385,16 +411,25 @@ func (this *S_Logger) UnshieldAll() {
 }
 
 // ---------------------------------------------------------
-func (this *S_Logger) Whatever(lv string, arg any, args ...any) {
+func (this *S_Logger) Whatever(lv T_Level, arg any, args ...any) {
 	this.Output(1, lv, arg, args...)
 }
 
-func (this *S_Logger) Whateverf(lv string, msg string, args ...any) {
+func (this *S_Logger) Whateverf(lv T_Level, msg string, args ...any) {
 	this.Output(1, lv, msg, args)
 }
 
 // 直接输出字符串，不带任何前缀记录
-func (this *S_Logger) Direct(lv string, msg []byte) {
+func (this *S_Logger) Direct(lv T_Level, msg string) {
 	if this.isShield(lv) { return }
-	this.send(time.Now(), lv, msg)
+	bb := new(bytes.Buffer)
+	this.writeGoID(bb)
+	this.writePrefix(bb, lv)
+	bb.Write([]byte(msg))
+	bb.WriteByte('\n')
+	this.send(time.Now(), lv, bb.Bytes())
+}
+
+func (this *S_Logger) Directf(lv T_Level, msg string, args ...any) {
+	this.Direct(lv, fmt.Sprintf(msg, args...))
 }

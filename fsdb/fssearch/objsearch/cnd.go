@@ -31,9 +31,9 @@ type s_Cnd struct {
 	i_Cnd
 	Key      string
 	Match    string
-	Value    string
-	comparer func(any, string, string) (bool, error)
-	conf i_Config
+	Value    *s_CmpValue
+	comparer func(any, string, *s_CmpValue) (bool, error)
+	conf     i_Config
 }
 
 func newCnd(conf i_Config) *s_Cnd {
@@ -43,34 +43,42 @@ func newCnd(conf i_Config) *s_Cnd {
 }
 
 func (this *s_Cnd) parse(cnd map[string]any) (i_Cnd, error) {
-	if v, ok := cnd["col"]; !ok {
-		return nil, errors.New("condition key is not indicated")
-	} else if fstype.IsType[string](v) {
-		this.Key = v.(string)
+	// 解释条件中的 key/col
+	v, ok := cnd["key"]
+	if !ok {
+		v, ok = cnd["col"]
+	}
+	if !ok {
+		return nil, errors.New("no search condition key/col indicated")
+	} else if !fstype.IsType[string](v) {
+		return nil, fmt.Errorf("search condition key/col must be a string, but not %v", v)
 	} else {
-		return nil, fmt.Errorf("%q in search condition must be a string", "col")
+		this.Key = v.(string)
+	}
+	if this.Key == "" {
+		return nil, errors.New("search condition key/col is not allow to be empty")
 	}
 
+	// 解释条件中的 match
 	if v, ok := cnd["match"]; !ok {
 		return nil, errors.New("condition match is not indicated")
 	} else if fstype.IsType[string](v) {
 		this.Match = v.(string)
 	} else {
-		return nil, fmt.Errorf("%q in search condition must be a string", "match")
+		return nil, makeErrLegalMatcher(this.Key, fmt.Sprintf("%v", v))
 	}
 
+	// 解释条件中的 value
 	if v, ok := cnd["value"]; !ok {
 		return nil, errors.New("condition value is not indicated")
-	} else if fstype.IsType[string](v) {
-		this.Value = v.(string)
 	} else {
-		return nil, fmt.Errorf("%q in search condition must be a string", "value")
+		this.Value = newCmpValue(v)
 	}
 
-	comparer := this.conf.GetMatchHandler(this.Match)
-	this.comparer = cmpHandlers.handlers[comparer]
+	matcher := this.conf.GetMatchHandler(this.Match)
+	this.comparer = cmpHandlers.handlers[matcher]
 	if this.comparer == nil {
-		return nil, fmt.Errorf("compare handler(match=%q, comparer=%q) is not exists", this.Match, comparer)
+		return nil, makeErrLegalMatcher(this.Key, this.Match)
 	}
 	return this, nil
 }
@@ -141,7 +149,6 @@ func (this *s_OrCnds) compare(obj any) (bool, error) {
 	return false, nil
 }
 
-
 // -------------------------------------------------------------------
 // parser
 // -------------------------------------------------------------------
@@ -170,4 +177,3 @@ func parseCnd(conf i_Config, anyCnd any) (i_Cnd, error) {
 	}
 	return nil, fmt.Errorf(`invalid search condition("%#v")`, anyCnd)
 }
-

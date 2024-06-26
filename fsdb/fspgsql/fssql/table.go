@@ -143,6 +143,10 @@ func (this *S_Member) valuePtr(obj any) (any, error) {
 // -----------------------------------------------------------------------------
 // public
 // -----------------------------------------------------------------------------
+func (this *S_Member) Name() string {
+	return this.name
+}
+
 func (this *S_Member) String() string {
 	return this.table.String() + "." + this.name
 }
@@ -256,15 +260,21 @@ func (this *S_Table) getDBBuildInfo(f reflect.StructField) string {
 }
 
 func (this *S_Table) takeMembers(table *S_Table, obj any) {
-	fsreflect.TrivalStructMembers(obj, func(info *fsreflect.S_TrivalStructInfo) bool {
+	// 遍历顺序为，优先遍历子结构体成员
+	fsreflect.TrivalStructMembers(obj, false, func(info *fsreflect.S_TrivalStructInfo) bool {
+		if info.IsBase { return true }
 		dbkey := this.getMemberDBKey(info.Field)
 		if dbkey == "-" { return true } // “-” 为，排除标记，表示该成员不映射到数据库
+		fieldName := info.Field.Name
+		// 如果继承的父结构里有同名成员，则取子的，忽略父的
+		if this.members[fieldName] != nil {
+			return true
+		}
 
-		buildInfo := this.getDBBuildInfo(info.Field)
 		m := &S_Member{
 			table:      table,
-			name:       info.Field.Name,
-			buildInfo:  buildInfo,
+			name:       fieldName,
+			buildInfo:  this.getDBBuildInfo(info.Field),
 			dbkey:      dbkey,
 			dbout:      this.getMemberDBOut(info.Field),
 			field:      info.Field,
@@ -335,6 +345,17 @@ func (this *S_Table) HasMember(m *S_Member) bool {
 
 func (this *S_Table) HasMemberName(mname string) bool {
 	return this.members[mname] != nil
+}
+
+func (this *S_Table) CreateSQL(tails ...string) string {
+	sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %q(%%s)", this.name)
+	cols := []string{}
+	for _, member := range this.members {
+		col := fmt.Sprintf("%s %s", member.dbkey, member.buildInfo)
+		cols = append(cols, col)
+	}
+	items := append(cols, tails...)
+	return fmt.Sprintf(sql, strings.Join(items, ","))
 }
 
 // -------------------------------------------------------------------

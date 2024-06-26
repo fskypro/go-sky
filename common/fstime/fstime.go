@@ -68,6 +68,14 @@ func Seconds2DaysTime(snds int) (d, h, m, s int) {
 	return
 }
 
+// 秒数转换为小时+分钟+秒
+func Seconds2HoursTime(snds int) (h, m, s int) {
+	h = snds / 3600
+	m = (snds - h*3600) / 60
+	s = snds % 60
+	return
+}
+
 // -------------------------------------------------------------------
 // 起始日期相关
 // -------------------------------------------------------------------
@@ -104,12 +112,38 @@ func MonthEndDay(t time.Time) int {
 // ---------------------------------------------------------
 // 获取两个时间点之间的距离天数
 // 如果 t2 > t1 则返回正，如果 t2 < t1 则返回负
-func DaysBetween(t1, t2 time.Time) float64 {
-	return float64(t2.Sub(t1)) / float64(time.Hour*24)
+func DaysBetween(t1, t2 time.Time) int {
+	neg := 1
+	if t1.After(t2) {
+		t1, t2 = t2, t1
+		neg = -1
+	}
+	days := 0
+	for {
+		temp := t1.AddDate(200, 0, 0)
+		if !temp.Before(t2) {
+			days += int(t2.Sub(t1).Hours() / 24)
+			break
+		}
+		days += int(temp.Sub(t1).Hours() / 24)
+		t1 = temp
+	}
+	return days * neg
 }
 
 // 获取两个时间点之间的时间间隔
 // 如果 t2 > t1 则返回正，如果 t2 < t1 则返回负
 func HmsBetween(t1, t2 time.Time) *S_Hms {
 	return NewHmsFromDuration(t2.Sub(t1))
+}
+
+// ---------------------------------------------------------
+// 获取计算机元年到指定是时间的距离天数
+func DaysFromUnixTime(t time.Time) int {
+	return int(t.Sub(time.Unix(0, 0)).Hours()) / 24
+}
+
+// 给出距离计算机元年天数，返回实际时间
+func DateToUnixTime(days int) time.Time {
+	return time.Unix(0, 0).AddDate(0, 0, days)
 }

@@ -6,20 +6,28 @@
 @date: 2019-01-06
 **/
 
-package fsos
+package fspath
 
 import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
-	"syscall"
+	"strings"
 
 	"fsky.pro/fsdef"
 )
+
+// 整理路径
+func CleanPath(path string) string {
+	path = filepath.Clean(path)
+	path = strings.ReplaceAll(path, "/", string(os.PathSeparator))
+	return strings.ReplaceAll(path, "\\", string(os.PathSeparator))
+}
 
 // 获取文件路径的去掉扩展名部分
 func FileNoExt(file string) string {
@@ -61,36 +69,51 @@ func IsFileExists(path string) bool {
 }
 
 // IsFileAccess 文件是否可被存取
-func IsFileAccess(file string) bool {
-	return syscall.Access(file, syscall.O_RDWR) == nil
+func IsFileAccessable(filePath string) bool {
+	file, err := os.OpenFile(filePath, os.O_RDWR, 0666)
+	if err != nil { return false }
+	fileInfo, err := file.Stat()
+	if err != nil { return false }
+	return fileInfo.Mode().Perm()&0400 == 0
 }
 
 // -------------------------------------------------------------------
 // CurrentDir 获取可执行程序当前路径
-func CurrentDir() (string, error) {
-	return filepath.Abs(filepath.Dir(os.Args[0]))
+func ExecuteDir() (string, error) {
+	execFile, err := os.Executable()
+	if err != nil { return "", err }
+	dir := filepath.Dir(execFile)
+	return filepath.Clean(dir), nil
+}
+
+// IsSubFilePathOf
+// 判断指定文件或目录是否为另一个目录的子目录或子文件
+func IsSubFilePathOf(sub string, parent string) bool {
+	relPath, err := filepath.Rel(parent, sub)
+	if err != nil { return false }
+	return !filepath.IsAbs(relPath) && !strings.HasPrefix(relPath, "..")
 }
 
 // -------------------------------------------------------------------
 // 遍历指定文件夹下所有子孙文件
 // fun 的第一个参数是当前遍历到的文件相对于 root 的路径；第二个参数表示是否是文件夹
 // 如果 fun 返回 false 则退出遍历
-func WorkDir(root string, fun func(string, bool) bool) error {
+func WorkDir(root string, fun func(string, fs.FileInfo) bool) error {
 	cache := [][2]string{[2]string{root, ""}}
 	for len(cache) > 0 {
-		root_sub := cache[0]
+		subRoot := cache[0]
 		cache = cache[1:]
-		finfos, err := ioutil.ReadDir(root_sub[0])
-		if err != nil { return fmt.Errorf("read dir %q fail", root_sub[0]) }
+		finfos, err := ioutil.ReadDir(subRoot[0])
+		if err != nil { return fmt.Errorf("read dir %q fail", subRoot[0]) }
 		for _, finfo := range finfos {
 			if finfo.IsDir() {
-				root := path.Join(root_sub[0], finfo.Name())
-				sub := path.Join(root_sub[1], finfo.Name())
-				if !fun(sub, true) { return nil }
+				root := path.Join(subRoot[0], finfo.Name())
+				sub := path.Join(subRoot[1], finfo.Name())
+				if !fun(sub, finfo) { return nil }
 				cache = append(cache, [2]string{root, sub})
 			} else {
-				sub := path.Join(root_sub[1], finfo.Name())
-				if !fun(sub, false) {
+				sub := path.Join(subRoot[1], finfo.Name())
+				if !fun(sub, finfo) {
 					return nil
 				}
 			}

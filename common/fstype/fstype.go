@@ -37,15 +37,31 @@ func SameOriginType[T1, T2 any]() bool {
 // value type
 // -------------------------------------------------------------------
 // 判断传入的值是否是模板参数中的类型
-// 注意，类似下面这种，判断是 false：
-//   type S string
-//   var s S = "xxx"
-//   IsType[string](s) == false
+// 注意：
+//   类似下面这种(结构体重定义)，判断是 false：
+//     type S string
+//     var s S = "xxx"
+//     IsType[string](s) == false
+//   类似一下这种(接口重定义)，判断为 true
+//     type E error
+//     var e E = errors.New("error")
+//     IsType[error](e) == true
+//     IsType[E](errors.New("")) == true
 func IsType[T any](v any) bool {
 	switch v.(type){
 	case T: return true
 	}
 	return false
+}
+
+// 还原被 any 包装后的类型
+func AsType[T any](v any) (T, bool) {
+	switch v.(type) {
+	case T:
+		return v.(T), true
+	}
+	var t T
+	return t, false
 }
 
 // 判断传入的值的类型与模板类型是否有相同的原始类型

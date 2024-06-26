@@ -44,16 +44,16 @@ func (self s_Sorter[T]) Less(i, j int) bool {
 			return strings.Compare(s2, s1) < 0
 		}
 		return strings.Compare(s1, s2) < 0
-	} else if v1.CanConvert(reflect.TypeOf(1.0)) {
-		n1 := v1.Convert(reflect.TypeOf(1.0)).Interface().(float64)
-		n2 := v2.Convert(reflect.TypeOf(1.0)).Interface().(float64)
+	} else if v1.CanConvert(refFloat64) {
+		n1 := v1.Convert(refFloat64).Interface().(float64)
+		n2 := v2.Convert(refFloat64).Interface().(float64)
 		if self.searchArg.Desc > 0 {
 			return n2 < n1
 		}
 		return  n1 < n2
 	} else if v1.CanConvert(reflect.TypeOf(time.Now())) {
-		t1 := v1.Convert(reflect.TypeOf(time.Now())).Interface().(time.Time)
-		t2 := v2.Convert(reflect.TypeOf(time.Now())).Interface().(time.Time)
+		t1 := v1.Convert(refTime).Interface().(time.Time)
+		t2 := v2.Convert(refTime).Interface().(time.Time)
 		if self.searchArg.Desc > 0 {
 			return t2.Before(t1)
 		}

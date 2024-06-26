@@ -1,56 +1,43 @@
 package fserror
 
-import "fmt"
-import "errors"
-import "testing"
-import "fsky.pro/fstest"
+import (
+	"errors"
+	"fmt"
+	"testing"
 
-type s_BaseError struct {
-	msg string
+	"fsky.pro/fstest"
+)
+
+type E1 struct {
+    error
+    S string
 }
 
-func (this *s_BaseError) Error() string {
-	return this.msg
+type E2 struct {
+    error
 }
 
-var baseError = new(s_BaseError)
-
-func newError1() error {
-	return Wrapf(baseError, "new error1")
+type E3 struct{
+	error 
 }
 
-type s_Error2 struct {
-	S_Error
+func test1() error {
+    e1 := E1{fmt.Errorf("ADFASDFASDFAS"), "xxx"}
+    e2 := E2{fmt.Errorf("ADFASDFASDFAS")}
+    return errors.Join(e1, e2)
 }
 
-func newError2() I_Error {
-	return &s_Error2{
-		S_Error: *Wrapf(newError1(), "new error2"),
-	}
+func test2() error {
+    return E3{fmt.Errorf("xxxx: %d", 100)}
 }
 
-func newError3() I_Error {
-	return Wrapf(newError2(), "new error3")
-}
+func TestIsErrType(t *testing.T) {
+	fstest.PrintTestBegin("fserror.IsErrType")
+	err := test1()
+	fmt.Println(1111, IsErrType[E1](err))
+	fmt.Println(2222, IsErrType[E2](err))
 
-func TestError(t *testing.T) {
-	fstest.PrintTestBegin("fserror.Error")
-	err := newError3()
-	fmt.Println("errors.Is(newError2(), new(s_BaseError)) = ", errors.Is(err, new(s_BaseError)))
-	fmt.Println("errors.Is(newError2(), baseError) = ", errors.Is(err, baseError))
-
-	var tmp *s_BaseError
-	fmt.Println("errors.As(newError2(), *s_BaseError) = ", errors.As(err, &tmp))
-	fmt.Println("error message:")
-	fmt.Println(err.Error())
-	fstest.PrintTestEnd()
-}
-
-func TestErrors(t *testing.T) {
-	fstest.PrintTestBegin("fserror.Errors")
-	errs := NewErrors()
-	errs.Addf("the first error.")
-	errs.Add(newError3())
-	fmt.Println(errs.FmtErrors())
+	err = test2()
+	fmt.Println(3333, IsErrType[E3](err))
 	fstest.PrintTestEnd()
 }

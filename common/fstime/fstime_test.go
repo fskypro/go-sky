@@ -49,11 +49,3 @@ func TestDaysBetween(t *testing.T) {
 	t2 := t1.AddDate(0, -1, 0)
 	fmt.Println(DaysBetween(t1, t2))
 }
-
-func TestDayTime(t *testing.T) {
-	fstest.PrintTestBegin("DayTime")
-	defer fstest.PrintTestEnd()
-
-	dt, _ := NewDayTime(0, 0, 59)
-	fmt.Println(dt.Add(-1, 0, 0))
-}

@@ -10,7 +10,8 @@
 package fslog
 
 type I_Logger interface {
-	ToggleSite(bool) // 是否输出打印文件
+	ToggleSite(bool)   // 显示/不显示源文件
+	CutSrcRoot(string) // 显示源文件根目录
 
 	Debug_(int, any, ...any)
 	Debugf_(int, string, ...any)
@@ -30,6 +31,9 @@ type I_Logger interface {
 	Hack_(int, any, ...any)
 	Hackf_(int, string, ...any)
 
+	Illeg_(int, any, ...any)
+	Illegf_(int, string, ...any)
+
 	Critical_(int, any, ...any)
 	Criticalf_(int, string, ...any)
 
@@ -47,9 +51,8 @@ type I_Logger interface {
 	Unshield(...string)
 	UnshieldAll()
 
-	Whatever(string, any, ...any)
-	Whateverf(string, string, ...any)
-	Direct(string, []byte)
+	Direct(T_Level, string)
+	Directf(T_Level, string, ...any)
 }
 
 // -----------------------------------------------------------------------------
@@ -67,6 +70,14 @@ func SetLogger(l I_Logger) {
 
 func UsedLogger() I_Logger {
 	return logger
+}
+
+func ToggleSite(show bool) {
+	logger.ToggleSite(show)
+}
+
+func CutSrcRoot(root string) {
+	logger.CutSrcRoot(root)
 }
 
 func Debug(arg any, args ...any) {
@@ -117,6 +128,14 @@ func Hackf(msg string, args ...any) {
 	logger.Hackf_(1, msg, args...)
 }
 
+func Illeg(arg any, args ...any) {
+	logger.Illeg_(1, arg, args...)
+}
+
+func Illegf(msg string, args ...any) {
+	logger.Illegf_(1, msg, args...)
+}
+
 func Critical(arg any, args ...any) {
 	logger.Critical_(1, arg, args...)
 }
@@ -164,4 +183,13 @@ func Unshield(lvs ...string) {
 
 func UnshieldAll() {
 	logger.UnshieldAll()
+}
+
+// ---------------------------------------------------------
+func Direct(lv T_Level, msg string) {
+	logger.Direct(lv, msg)
+}
+
+func Directf(lv T_Level, msg string, args ...any) {
+	logger.Directf(lv, msg, args...)
 }

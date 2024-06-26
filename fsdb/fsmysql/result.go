@@ -14,8 +14,6 @@ import (
 	"fmt"
 
 	"fsky.pro/fsmysql/fssql"
-
-	"fsky.pro/fsreflect"
 )
 
 type I_SQLInfo interface {
@@ -150,8 +148,7 @@ func (this *S_OPSelectResult) ForObjectsTx(fun F_IterObjects) error {
 			}
 			continue
 		}
-		rowObj, err := fsreflect.CopyStructObject(obj)
-		if !fun(err, rowObj) {
+		if !fun(err, obj) {
 			return nil
 		}
 	}

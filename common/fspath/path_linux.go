@@ -7,7 +7,7 @@
 @date: 2022-08-28
 **/
 
-package fsos
+package fspath
 
 import (
 	"os"

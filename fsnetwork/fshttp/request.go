@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 	"unsafe"
 )
@@ -26,6 +27,16 @@ import (
 //
 //go:linkname serveFile net/http.serveFile
 func serveFile(http.ResponseWriter, *http.Request, http.FileSystem, string, bool)
+
+// -------------------------------------------------------------------
+// inner inits
+// -------------------------------------------------------------------
+var _timeKind reflect.Kind
+
+func init() {
+	var t time.Time
+	_timeKind = reflect.TypeOf(t).Kind()
+}
 
 // -------------------------------------------------------------------
 // S_Request
@@ -176,6 +187,16 @@ L:
 			}
 		case reflect.Float64:
 			if v, err := strconv.ParseFloat(svalue, 64); err != nil {
+				return newReqArgTypeError(tag, tfield)
+			} else {
+				value = v
+			}
+		case _timeKind:
+			v, err := time.ParseInLocation(time.DateTime, svalue, time.Local)
+			if err != nil {
+				v, err = time.ParseInLocation(time.DateOnly, svalue, time.Local)
+			}
+			if err != nil {
 				return newReqArgTypeError(tag, tfield)
 			} else {
 				value = v
@@ -379,6 +400,11 @@ func (this *S_Request) ReadBody() ([]byte, error) {
 }
 
 // ---------------------------------------------------------
+// 写入响应头
+func (this *S_Request) WriteResponseCode(code int) {
+	this.W.WriteHeader(code)
+}
+
 // 直接写入回复字符串
 func (this *S_Request) WriteRspString(str string) {
 	this.buff.WriteString(str)
@@ -428,10 +454,15 @@ func (this *S_Request) CancelJsonObject(obj interface{}) {
 // ---------------------------------------------------------
 // 回复客户端
 func (this *S_Request) Response() bool {
-	if !this.cancel {
-		this.W.Write([]byte(this.buff.String()))
+	if this.cancel { return false }
+	if this.jsonObj != nil {
+		this.W.Header().Set("Content-Type", "application/json")
+		bs, _ := json.Marshal(this.jsonObj)
+		this.W.Write(bs)
+		return true
 	}
-	return !this.cancel
+	this.W.Write([]byte(this.buff.String()))
+	return true
 }
 
 func (this *S_Request) ResponseCrossDomain() bool {

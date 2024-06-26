@@ -26,11 +26,12 @@ import (
 //  }
 //	譬如：Smprintf("123 %[k1]s 456; %.2[k2]f", &Arg{"xxx", 3.33}, "fm")
 //	返回：123 xxx 456; 3.33
-func SobjPrintf(format string, args any, tag string) string {
+func SobjPrintf(format string, obj any, tag string) string {
 	return SfuncPrintf(format, func(key string) (any, bool) {
 		ok := false
 		var member reflect.Value
-		fsreflect.TrivalStructMembers(args, func(info *fsreflect.S_TrivalStructInfo) bool {
+		fsreflect.TrivalStructMembers(obj, false, func(info *fsreflect.S_TrivalStructInfo) bool {
+			if info.IsBase { return true }
 			if tag == "" {
 				if info.Field.Name == key {
 					ok = true

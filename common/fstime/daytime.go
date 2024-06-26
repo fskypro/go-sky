@@ -10,8 +10,8 @@
 package fstime
 
 import (
-	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -21,59 +21,55 @@ import (
 
 type T_DayTime uint
 
-func NewDayTime[T fstype.T_IUNumber](h, m, s T) (T_DayTime, error) {
-	if h < 0 || h > 23 {
-		return 0, errors.New("hours in day time must be 0~23")
-	}
-	if m < 0 || m > 59 {
-		return 0, errors.New("minutes in day time must be 0~59")
-	}
-	if s < 0 || s > 59 {
-		return 0, errors.New("seconds in day time must be 0~59")
-	}
-	v := uint(uint(h)<<16) + uint(uint(m)<<8) + uint(s)
-	return T_DayTime(v), nil
+func NewDayTime[T fstype.T_IUNumber](h, m, s T) (T_DayTime) {
+	return T_DayTime(0).Add(int(h), int(m), int(s))
 }
 
-func MustDayTime[T fstype.T_IUNumber](h, m, s T) T_DayTime {
-	t, err := NewDayTime(h, m, s)
-	if err != nil {
-		panic(err)
-	}
-	return t
+// 自动从 json 值中解释
+func (this *T_DayTime) UnmarshalJSON(b []byte)(err error) {
+	str := strings.Trim(string(b), `"`)
+	*this, err = ParseDayTime(str)
+	return
+}
+
+// 从数据库扫描
+func (this *T_DayTime) Scan(value any) error {
+    if value == nil { return nil }
+    switch value.(type) {
+    case string:
+		t, err := ParseDayTime(value.(string))
+		if err != nil {
+			return fmt.Errorf("can't convert type %v value to %v", reflect.TypeOf(value), reflect.TypeOf(*this))
+		}
+		*this = t
+		return nil
+    }
+    return fmt.Errorf("can't convert type %v value to %v", reflect.TypeOf(value), reflect.TypeOf(*this))
 }
 
 // 格式为：00:00:00
-// 允许空字符串，空字符串返回 00:00:01
+// 允许空字符串，空字符串返回 00:00:00
 func ParseDayTime(text string) (T_DayTime, error) {
 	if strings.TrimSpace(text) == "" {
 		return ZeroDayTime(), nil
 	}
 	hms := strings.Split(text, ":")
 	if len(hms) != 3 {
-		return 0, errors.New("error day time format string %q, it must be like '00:00:00'")
+		return 0, fmt.Errorf("error day time format string %q, it must be like '00:00:00'", text)
 	}
 	h, err := strconv.Atoi(hms[0])
 	if err != nil {
-		return 0, errors.New("error day time format string %q, it must be like '00:00:00'")
+		return 0, fmt.Errorf("error day time format string %q, it must be like '00:00:00'", text)
 	}
 	m, err := strconv.Atoi(hms[1])
 	if err != nil {
-		return 0, errors.New("error day time format string %q, it must be like '00:00:00'")
+		return 0, fmt.Errorf("error day time format string %q, it must be like '00:00:00'", text)
 	}
 	s, err := strconv.Atoi(hms[2])
 	if err != nil {
-		return 0, errors.New("error day time format string %q, it must be like '00:00:00'")
+		return 0, fmt.Errorf("error day time format string %q, it must be like '00:00:00'", text)
 	}
-	return NewDayTime(h, m, s)
-}
-
-func ParseDayTimeDefault(text string, def T_DayTime) T_DayTime {
-	t, err := ParseDayTime(text)
-	if err != nil {
-		return def
-	}
-	return t
+	return NewDayTime(h, m, s), nil
 }
 
 // 截取 time 的时间部分
@@ -89,7 +85,7 @@ func ZeroDayTime() T_DayTime {
 // methods
 // -------------------------------------------------------------------
 func (self T_DayTime) String() string {
-	return fmt.Sprintf("%d:%d:%d", self.Hour(), self.Minute(), self.Second())
+	return fmt.Sprintf("%02d:%02d:%02d", self.Hour(), self.Minute(), self.Second())
 }
 
 // 与指定时间的日期部分合并
@@ -97,6 +93,12 @@ func (self T_DayTime) WithGoTime(t time.Time) time.Time {
 	year, month, day := t.Date()
 	return time.Date(year, month, day, self.Hour(), self.Minute(), self.Second(), 0, t.Location())
 }
+
+// 该时间点在今天的时间值
+func (self T_DayTime) TodayTime() time.Time {
+	return self.WithGoTime(time.Now())
+}
+
 
 // ---------------------------------------------------------
 func (self T_DayTime) Hour() int {

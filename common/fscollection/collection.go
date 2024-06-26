@@ -12,6 +12,26 @@ package fscollection
 // -------------------------------------------------------------------
 // slice utils
 // -------------------------------------------------------------------
+// 复制一个 slice
+func SliceCopy[T any](items []T) []T {
+	newItems := make([]T, len(items))
+	copy(newItems, items)
+	return newItems
+}
+
+// 判断两个 slice 中的元素是否完全相等
+func SliceEqual[T comparable](items1, items2 []T) bool {
+	if len(items1) != len(items2) { 
+		return false 
+	}
+	for idx, item := range items1 {
+		if item != items2[idx] {
+			return false
+		}
+	}
+	return true
+}
+
 // 判断 slice 中是否存在指定元素
 func SliceHas[T comparable](items []T, value T) bool {
 	for _, item := range items {

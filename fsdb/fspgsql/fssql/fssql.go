@@ -333,11 +333,11 @@ func (this *S_SQL) parse_TV(exp string, argOrder int, exclude bool, walias strin
 
 // 将传入对象的值作为构建 SQL 的设置值
 // 格式化字符串：
-//   1、%TE() 或 %[index]TE()
+//   1、%TE{} 或 %[index]TE{}
 //     表示将对应参数对象的所有成员值作为 SQL 的传入值
-//   2、%TE(mname1, mname2, ...) 或 %[index]TE(mname1, mname2, ...)
-//     表示将对应参数对象的成员(括号中指定的成员)值作为 SQL 的传入值
-//   3、%TE-(manme1, mname2, ...) 或 %[index]TE-(mname1, mname2, ...)
+//   2、%TE{mname1, mname2, ...} 或 %[index]TE{mname1, mname2, ...}
+//     表示将对应参数对象的成员(大括号中指定的成员)值作为 SQL 的传入值
+//   3、%TE-{manme1, mname2, ...} 或 %[index]TE-{mname1, mname2, ...}
 //     表示将对应参数对象的成员(括号中指定的成员)值作为 SQL 的设置传入值
 //
 // 注意：
@@ -392,6 +392,58 @@ func (this *S_SQL) parse_TE(exp string, argOrder int, exclude bool, alias string
 	return strings.Join(eqs, ",")
 }
 
+// 该表达式主要用于插入数据时，如果表中已经存在则更新语句，SET 后面的语句：ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name;
+// 如：%TU{M1, M2} 则生成的 SQL 为：m1=EXCLUDED.m1, m2=EXCLUDED.m2
+func (this *S_SQL) parse_TU(exp string, argOrder int, exclude bool, alias string, withTable bool, content string, arg any) string {
+	members := []string{}
+	for _, m := range strings.Split(content, ",") {
+		m = strings.TrimSpace(m)
+		if m == "" { continue }
+		members = append(members, m)
+	}
+	tb, err := getObjTable(arg)
+	if err != nil {
+		this.errorf("argument %d must a db map object for expression %q", argOrder, exp)
+		return exp
+	}
+
+	eqs := []string{}
+	addMember := func(m *S_Member) bool {
+		col := this.getMemberName(m, alias, withTable)
+		eqs = append(eqs, fmt.Sprintf("%s=EXCLUDED.%s", col, col))
+		return true
+	}
+
+	if len(members) == 0 {
+		for _, m := range tb.orderMembers {
+			if !addMember(m) { return exp }
+		}
+	} else if exclude {
+		for _, m := range tb.orderMembers {
+			if fscollection.SliceHas(members, m.name) { continue }
+			if !addMember(m)                          { return exp }
+		}
+	} else {
+		for _, name := range members {
+			m := tb.members[name]
+			if m == nil {
+				this.errorf("argument %d has no member named %q for expression %q", argOrder, name, exp)
+				return exp
+			}
+			if !addMember(m) { return exp }
+		}
+	}
+	return strings.Join(eqs, ",")
+}
+
+// 将传入对象的成员名称作为逗号分隔字符串，并将对象的成员制作存放到 SQL 的传出值列表中
+// 格式化字符串：
+//   1、%TO{} 或 %[index]TO{}
+//     表示将对应参数对象的所有成员名称，以逗号分隔开拼接成一个 sql 字符串，并将所有成员指针放进 sql 对象的传出列表中
+//   2、%TO{mname1, mname2, ...} 或 %[index]TO{mname1, mname2, ...}
+//     表示将对应参数对象的大括号中指定的成员名称，以逗号分隔开拼接成一个 sql 字符串，并将对应的成员指针放进 sql 对象的传出列表中
+//   3、%TO-{mname1, mname2, ...} 或 %[index]TO-{mname1, mname2}
+//     表示将对应参数对象的除了大括号中指定的成员以外的所有成员名称，以逗号分隔开拼接成一个 sql 字符串，并将同样对应的成员指针放进 sql 对象的传出列表中
 func (this *S_SQL) parse_TO(exp string, argOrder int, exclude bool, alias string, withTable bool, content string, arg any) string {
 	members := []string{}
 	for _, m := range strings.Split(content, ",") {
@@ -492,6 +544,7 @@ func (this *S_SQL) parseArg(exp string, args []any) string {
 			"TN": this.parse_TN,
 			"TM": this.parse_TM,
 			"TE": this.parse_TE,
+			"TU": this.parse_TU,
 			"TV": this.parse_TV,
 			"TO": this.parse_TO,
 		}[esc](group[0], order, exclude, alias, withTable, content, args[order-1])
@@ -574,6 +627,16 @@ func (this *S_SQL) SQL(tx string, args ...any) *S_SQL {
 //      指定对象的指定成员指针，作为构建 SQL 的传出参数，指定对象的成员名称（对应位置的参数必须是一个数据库表记录映射对象）
 //  17、%[参数索引(可选)]TO-{成员名称1, 成员名称2, ...}
 //      指定对象除了指出成员以外的所有成员指针，作为构建 SQL 的传出参数，包含除了大括号指定的成员名称以外的所有成员（对应位置的参数必须是一个数据库表记录映射对象）
+//
+//  18、%[参数索引(可选)]TU{}
+//      将对象所有成员构建成以下等式列表：m1=EXCLUDED.m1, m2=EXCLUDED.m2
+//      如：%TU{}，假设对象有两个成员，对应字段为 m1、m2，则生成的 SQL 子句为：m1=EXCLUDED.m1, m2=EXCLUDED.m2
+//  19、%[参数索引(可选)]TU{成员名称1, 成员名称2}
+//      将大括号中指定的对象名称所以对应的数据字段，生成以下形式的 SQL 子句：m1=EXCLUDED.m1, m2=EXCLUDED.m2
+//      如：%TU{M1, M2} 则生成的 SQL 为：m1=EXCLUDED.m1, m2=EXCLUDED.m2
+//  20、%[参数索引(可选)]TUi-{成员名称1, 成员名称2}
+//      将除了大括号中指定成员名称以外的成员，其对应的数据库字段，生成以下格式的 SQL 子句：m1=EXCLUDED.m1, m2=EXCLUDED.m2
+//      如：假设对象有四个成员 M1/M2/M3/M4，则，%TU-{M1, M2} 则生成的 SQL 子句为：m2=EXCLUDED.m2, m3=EXCLUDED.m3
 //
 //  注意：
 //      大括号前面如果有 “.” 号，则表示构建 SQL 语句中，对于表字段的引用，前面加上表名。例如，假设表 table 中有字段 col，则如果加上点去引用，则 SQL 语句类似如下：

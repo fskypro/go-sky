@@ -89,14 +89,12 @@ func JoinFunc[T any](s []T, sep string, f func(e T) string) string {
 
 // 将 s 中的元素以 v% 的形式与 sep 逐个拼接
 func JoinAny[T any](s []T, sep string) string {
-	if len(s) == 0 {
-		return ""
+	if len(s) == 0 { return "" }
+	ss := []string{}
+	for _, item := range s {
+		ss = append(ss, fmt.Sprintf("%v", item))
 	}
-	str := fmt.Sprintf("%v", s[0])
-	for i := 1; i < len(s); i++ {
-		str += fmt.Sprintf(",%v", s[i])
-	}
-	return str
+	return strings.Join(ss, sep)
 }
 
 // 将以固定字符分割元素的字符串，分割成指定的 slice

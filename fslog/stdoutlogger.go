@@ -32,7 +32,7 @@ func NewStdoutLogger() *S_StdoutLogger {
 // -------------------------------------------------------------------
 // private
 // -------------------------------------------------------------------
-func (this *S_StdoutLogger) write(t time.Time, lv string, msg []byte) {
+func (this *S_StdoutLogger) write(t time.Time, lv T_Level, msg []byte) {
 	os.Stdout.Write(msg)
 }
 
@@ -84,6 +84,14 @@ func (this *S_StdoutLogger) Hack(arg any, args ...any) {
 }
 
 func (this *S_StdoutLogger) Hackf(msg string, args ...any) {
+	this.S_Logger.Hackf_(1, msg, args...)
+}
+
+func (this *S_StdoutLogger) Illeg(arg any, args ...any) {
+	this.S_Logger.Hack_(1, arg, args...)
+}
+
+func (this *S_StdoutLogger) Illegf(msg string, args ...any) {
 	this.S_Logger.Hackf_(1, msg, args...)
 }
 

@@ -44,7 +44,7 @@ func NewFileLogger(file string) (*S_FileLogger, error) {
 // private
 // -------------------------------------------------------------------
 // 父类中的 send 函数中已经 lock，因此这里不需要再上锁了
-func (this *S_FileLogger) write(t time.Time, lv string, msg []byte) {
+func (this *S_FileLogger) write(t time.Time, lv T_Level, msg []byte) {
 	if this.file == nil {
 		now := this.nowTime()
 		os.Stderr.WriteString(fmt.Sprintf("%s: %v", now.Format("[ERROR]|2006/01/02 15:04:05.999999 "), "file logger has been closed"))
@@ -116,6 +116,14 @@ func (this *S_FileLogger) Hack(arg any, args ...any) {
 }
 
 func (this *S_FileLogger) Hackf(msg string, args ...any) {
+	this.S_Logger.Hackf_(1, msg, args...)
+}
+
+func (this *S_FileLogger) Illeg(arg any, args ...any) {
+	this.S_Logger.Hack_(1, arg, args...)
+}
+
+func (this *S_FileLogger) Illegf(msg string, args ...any) {
 	this.S_Logger.Hackf_(1, msg, args...)
 }
 

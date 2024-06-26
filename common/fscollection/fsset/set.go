@@ -83,6 +83,18 @@ func (this *S_Set[T]) For(f func(T) bool) {
 	}
 }
 
+func (this *S_Set[T]) AddSlice(values []T) {
+	for _, value := range values {
+		this.items[value] = nil 
+	}
+}
+
+func (this *S_Set[T]) DelSlice(values []T) {
+	for _, value := range values {
+		delete(this.items, value)
+	}
+}
+
 func (this *S_Set[T]) ToSlice() []T {
 	items := make([]T, 0)
 	for v := range this.items {

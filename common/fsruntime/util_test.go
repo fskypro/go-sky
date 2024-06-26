@@ -19,12 +19,14 @@ func test1() {
 }
 
 func TestGetFuncName(t *testing.T) {
-	defer fstest.PrintTestBegin("GetFuncName")()
+	fstest.PrintTestBegin("GetFuncName")()
+	defer fstest.PrintTestEnd()
 	fmt.Println(11111, GetFuncName(test1))
 }
 
 func TestFindFuncWithName(t *testing.T) {
-	defer fstest.PrintTestBegin("FindFuncWithName")()
+	fstest.PrintTestBegin("FindFuncWithName")()
+	defer fstest.PrintTestEnd()
 
 	fmt.Println(FindFuncWithName("fsky.pro/fsruntime.test1"))
 	fmt.Println(FindFuncWithName("fsky.pro/fsruntime.test2"))

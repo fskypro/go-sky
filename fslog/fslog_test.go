@@ -95,6 +95,27 @@ func TestHack(t *testing.T) {
 	fstest.PrintTestEnd()
 }
 
+func TestIlleg(t *testing.T) {
+	fstest.PrintTestBegin("Illeg")
+
+	// fslog
+	Illeg("test hack 111111!")
+	Illegf("test %s 222222!", "illeg")
+
+	Shield("hack")
+	Illeg("test hack 333333!")
+
+	Unshield("hack")
+	Illeg("test hack 444444!")
+
+	// fslogger
+	fl := NewDayfileLogger("./logs", "test")
+	SetLogger(fl)
+	Illeg("hack", "aaaaaaa")
+
+	fstest.PrintTestEnd()
+}
+
 func TestTrace(t *testing.T) {
 	fstest.PrintTestBegin("Trace")
 

@@ -18,11 +18,19 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"fsky.pro/fstime"
 )
+
+// 文件是否存在
+func fileExists(filename string) bool {
+	_, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !os.IsNotExist(err)
+}
 
 // -----------------------------------------------------------------------------
 // new log command
@@ -61,8 +69,9 @@ type S_DayfileLogger struct {
 	file        *os.File
 	nextDayTime time.Time
 
-	newLogCmd *s_NewLogCmd
-	newLogCB  func(string, error)
+	newLogCmd   *s_NewLogCmd
+	newLogCB    func(string, error)
+	newLinkFile string
 }
 
 // NewDayfileLogger，新建 DayfileLogger
@@ -83,6 +92,14 @@ func NewDayfileLogger(root string, filePrefix string) *S_DayfileLogger {
 	return logger
 }
 
+func (this *S_DayfileLogger) GetRoot() string {
+	return this.dir
+}
+
+func (this *S_DayfileLogger) GetPrefix() string {
+	return this.prefix
+}
+
 // -------------------------------------------------------------------
 // private
 // -------------------------------------------------------------------
@@ -94,7 +111,7 @@ func (this *S_DayfileLogger) getLogFilePath(t time.Time) string {
 // 新建一个 log 文件
 func (this *S_DayfileLogger) newLogFile(t time.Time) (string, *os.File, error) {
 	logPath := this.getLogFilePath(t)
-	exists := syscall.Access(logPath, syscall.O_RDWR) == nil
+	exists := fileExists(logPath)
 	if !exists {
 		file, err := os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE, 0666)
 		if this.newLogCB != nil {
@@ -103,6 +120,7 @@ func (this *S_DayfileLogger) newLogFile(t time.Time) (string, *os.File, error) {
 		if err != nil {
 			err = fmt.Errorf("create log file %q fail, %v", logPath, err)
 		} else {
+			go this.linkTo(logPath)
 			this.newLogCmd.exec(this, logPath)
 		}
 		return logPath, file, err
@@ -122,7 +140,7 @@ func (this *S_DayfileLogger) newLogFile(t time.Time) (string, *os.File, error) {
 }
 
 // 父类中的 send 函数中已经 lock，因此这里不需要再上锁了
-func (this *S_DayfileLogger) write(t time.Time, lv string, msg []byte) {
+func (this *S_DayfileLogger) write(t time.Time, lv T_Level, msg []byte) {
 	now := this.nowTime()
 	if this.file != nil && now.Before(this.nextDayTime) {
 		if _, err := this.file.Write(msg); err == nil {
@@ -146,6 +164,19 @@ func (this *S_DayfileLogger) write(t time.Time, lv string, msg []byte) {
 	this.nextDayTime = fstime.Dawn(time.Now().AddDate(0, 0, 1).Add(time.Hour))
 }
 
+func (this *S_DayfileLogger) linkTo(logPath string) {
+	if this.newLinkFile == "" { return }
+	_, err := os.Lstat(this.newLinkFile)
+	if err == nil {
+		os.Remove(this.newLinkFile)
+	}
+
+	err = os.Symlink(logPath, this.newLinkFile)
+	if err != nil {
+		this.Errorf("link new log file %q to %q fail, %v", logPath, this.newLinkFile, err)
+	}
+}
+
 // -------------------------------------------------------------------
 // public
 // -------------------------------------------------------------------
@@ -162,6 +193,11 @@ func (this *S_DayfileLogger) SetNewLogCmd(cmd string, args ...string) {
 // cb 第二个参数表示创建文件失败错误，如果创建成功，则为 nil
 func (this *S_DayfileLogger) SetNewLogCallback(cb func(string, error)) {
 	this.newLogCB = cb
+}
+
+// 对新产生对 log 文件进行软连接到指定地方
+func (this *S_DayfileLogger) SetNewLogLinkFile(path string) {
+	this.newLinkFile = path
 }
 
 func (this *S_DayfileLogger) Close() {
@@ -221,6 +257,14 @@ func (this *S_DayfileLogger) Hack(arg any, args ...any) {
 
 func (this *S_DayfileLogger) Hackf(msg string, args ...any) {
 	this.S_Logger.Hackf_(1, msg, args...)
+}
+
+func (this *S_DayfileLogger) Illeg(arg any, args ...any) {
+	this.S_Logger.Illeg_(1, arg, args...)
+}
+
+func (this *S_DayfileLogger) Illegf(msg string, args ...any) {
+	this.S_Logger.Illegf_(1, msg, args...)
 }
 
 func (this *S_DayfileLogger) Critical(arg any, args ...any) {

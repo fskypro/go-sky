@@ -1,3 +1,5 @@
+//go:build darwin || linux
+// +build darwin linux
 /**
 @copyright: fantasysky 2016
 @website: https://www.fsky.pro

@@ -227,14 +227,14 @@ func Ping4(laddr, raddr string, seq int, timeout time.Duration) (delay time.Dura
 	}
 
 	reply := make([]byte, 1024)
-	n, addr, e := conn.ReadFrom(reply)
+	_, addr, e := conn.ReadFrom(reply)
 	if e != nil {
 		// 接收数据失败，可能超时
 		err = ErrTimeout
 		return
 	}
 
-	if n == 0 || addr.String() != ip.IP.String() {
+	if addr.String() != ip.IP.String() {
 		// 脏数据包
 		err = ErrInvalidPackage
 		return

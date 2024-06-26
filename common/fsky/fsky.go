@@ -72,8 +72,20 @@ func DeepCopy(dst, src interface{}) error {
 }
 
 // -------------------------------------------------------------------
-// 安全关闭指定通道 
-func SafeCloseChan[T any](ch chan T) {                                                                                                                                                                    
+// 将指定字节数转换为合适的数据单位值
+func CalcBytes[T int|uint|int64|uint64|float32|float64](bytes T) (float64, string) {
+    units := []string{"B", "KB", "MB", "GB", "TB"}
+    unitIndex := 0
+    for bytes >= 1024 && unitIndex < len(units)-1 {
+        bytes /= 1024
+        unitIndex++
+    }
+    return float64(bytes), units[unitIndex]
+}
+
+// -------------------------------------------------------------------
+// 安全关闭指定通道
+func SafeCloseChan[T any](ch chan T) {
     defer func () { recover() }()
     close(ch)
 }

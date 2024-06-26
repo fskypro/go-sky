@@ -128,12 +128,7 @@ func (this *S_Cnd) parse(mcnd map[string]any) error {
 	if !ok {
 		return fmt.Errorf("sql condition must contains %q key", "value")
 	}
-	switch value.(type) {
-	case string:
-		this.Value = value.(string)
-	default:
-		this.Value = fmt.Sprintf("%s", value)
-	}
+	this.Value = fmt.Sprintf("%v", value)
 	return nil
 }
 

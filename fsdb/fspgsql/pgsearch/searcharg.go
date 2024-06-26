@@ -148,6 +148,7 @@ func (this *S_SearchArg) ParseCnd() error {
 }
 
 func (this *S_SearchArg) PageIndex() int {
+	if this.PageSize < 1 { return 0 }
 	return (this.Page - 1) * this.PageSize
 }
 
@@ -165,6 +166,12 @@ func (this *S_SearchArg) Where() string {
 func (this *S_SearchArg) WhereAndTail() string {
 	if !this.parsed {
 		return "<unparsed search argument>"
+	}
+	if this.PageSize < 1 {
+		if this.OrderBy == "" {
+			return this.cndExp
+		}
+		return fmt.Sprintf(`%s ORDER BY "%s" %s`, this.cndExp, this.OrderBy, this.Order())
 	}
 	if this.OrderBy == "" {
 		return fmt.Sprintf("%s LIMIT %d OFFSET %d", this.cndExp, this.PageSize, this.PageIndex())

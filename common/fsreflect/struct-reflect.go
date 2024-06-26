@@ -378,9 +378,25 @@ func SetDeepFieldValue(obj interface{}, fpath string, value interface{}) error {
 }
 
 // -------------------------------------------------------------------
+// 遍历结构体成员
+// -------------------------------------------------------------------
+// 遍历结构体成员时，传出的成员信息
+type S_TrivalStructInfo struct {
+	IsBase      bool                  // 是否是基类成员
+	PathFields  []reflect.StructField // 继承链路
+	StructType  reflect.Type          // 成员所属结构体类型
+	StructValue reflect.Value         // 成员所属结构体值
+	Field       reflect.StructField   // 成员
+	FieldValue  reflect.Value         // 成员值
+}
+
 // 遍历结构体成员，包括父结构体的成员
 // 如果参数 f 返回 false，则停止遍历
 // 函数参数 f 的参数：
+//  S_TrivalStructInfo.IsBase：
+//		是否是基类成员
+//  S_TrivalStructInfo.PathFields：
+//		继承链路
 //	S_TrivalStructInfo.StructType：
 //		遍历过程中，当前结构体的类型
 //  S_TrivalStructInfo::StructValue：
@@ -408,16 +424,8 @@ func SetDeepFieldValue(obj interface{}, fpath string, value interface{}) error {
 //  TrivalFields(c, func(*S_TrivalStructInfo)bool{
 //      return true
 //  })
-// -------------------------------------------------------------------
-type S_TrivalStructInfo struct {
-	PathFields  []reflect.StructField // 继承链路
-	StructType  reflect.Type          // 成员所属结构体类型
-	StructValue reflect.Value         // 成员所属结构体值
-	Field       reflect.StructField   // 成员
-	FieldValue  reflect.Value         // 成员值
-}
-
-func TrivalStructMembers(v any, f func(*S_TrivalStructInfo) bool) {
+// 参数 baseFirst 为 true 时，表示优先遍历继承结构体
+func TrivalStructMembers(v any, baseFirst bool, f func(*S_TrivalStructInfo) bool) {
 	rt := reflect.TypeOf(v)
 	if rt == nil { return }
 	rv := reflect.ValueOf(v)
@@ -429,11 +437,18 @@ func TrivalStructMembers(v any, f func(*S_TrivalStructInfo) bool) {
 			rv = reflect.Value{}
 		}
 	}
+	type InheritInfo struct {
+		fieldList   []reflect.StructField
+		StructType  reflect.Type
+		StructValue reflect.Value
+	}
 
 	var trivalStruct func([]reflect.StructField, reflect.Type, reflect.Value) bool
 	trivalStruct = func(fields []reflect.StructField, rt reflect.Type, rv reflect.Value) bool {
 		if rt == nil                   { return true }
 		if rt.Kind() != reflect.Struct { return true }
+		infos := []*S_TrivalStructInfo{}
+		inheritInfos := []*InheritInfo{}
 		for i := 0; i < rt.NumField(); i++ {
 			field := rt.Field(i)
 			vfield := reflect.ValueOf(nil)
@@ -441,14 +456,20 @@ func TrivalStructMembers(v any, f func(*S_TrivalStructInfo) bool) {
 				vfield = rv.Field(i)
 			}
 			if !field.Anonymous {
-				info := new(S_TrivalStructInfo)
-				info.PathFields = fields
-				info.StructType = rt
-				info.StructValue = rv
-				info.Field = field
-				info.FieldValue = vfield
-				if f(info) { continue }
-				return false
+				info := &S_TrivalStructInfo{
+					IsBase:      false,
+					PathFields:  fields,
+					StructType:  rt,
+					StructValue: rv,
+					Field:       field,
+					FieldValue:  vfield,
+				}
+				if baseFirst {
+					infos = append(infos, info)
+				} else if !f(info) {
+					return false
+				}
+				continue
 			}
 			// 匿名结构体
 			tfield := field.Type
@@ -462,56 +483,34 @@ func TrivalStructMembers(v any, f func(*S_TrivalStructInfo) bool) {
 			}
 			// 继承结构体，继续往上层遍历
 			if tfield.Kind() == reflect.Struct {
+				info := &S_TrivalStructInfo{
+					IsBase:      true,
+					PathFields:  fields,
+					StructType:  rt,
+					StructValue: rv,
+					Field:       field,
+					FieldValue:  vfield,
+				}
+				if !f(info) { return false }
 				fs := append(fields, field)
-				if !trivalStruct(fs, tfield, vfield) {
+				if !baseFirst {
+					inheritInfos = append(inheritInfos, &InheritInfo{fs, tfield, vfield})
+				} else if !trivalStruct(fs, tfield, vfield) {
 					return false
 				}
+			}
+		}
+		// 先 base
+		for _, info := range infos {
+			if !f(info) { return false }
+		}
+		// 后 base
+		for _, info := range inheritInfos {
+			if !trivalStruct(info.fieldList, info.StructType, info.StructValue) {
+				return false
 			}
 		}
 		return true
 	}
 	trivalStruct([]reflect.StructField{}, rt, rv)
-}
-
-// -------------------------------------------------------------------
-// 浅拷贝结构对象，src 必须为结构体指针
-func CopyStructObject(src interface{}) (dst interface{}, err error) {
-	tsrc := reflect.TypeOf(src)
-	if src == nil || tsrc == nil {
-		err = errors.New("src object is not allow to be a nil value")
-		return
-	}
-	if tsrc.Kind() != reflect.Ptr {
-		err = errors.New("src object must be an object pointer")
-		return
-	}
-	tsrc = tsrc.Elem()
-	// 限制类型必须为结构体
-	if tsrc.Kind() != reflect.Struct {
-		err = fmt.Errorf("type of src object must be a pointer of struct")
-		return
-	}
-
-	vsrc := reflect.ValueOf(src).Elem()
-	vdst := reflect.New(tsrc)
-	dst = vdst.Interface()
-	vdst = vdst.Elem()
-
-	// 将 src 所有成员复制给 dst
-	for i := 0; i < tsrc.NumField(); i++ {
-		vfSrc := vsrc.Field(i)
-		vfDst := vdst.Field(i)
-		if vfDst.CanSet() {
-			vfDst.Set(vfSrc)
-		} else {
-			upSrc := unsafe.Pointer(vfSrc.UnsafeAddr())
-			pfSrc := reflect.NewAt(vfSrc.Type(), upSrc)
-			v := pfSrc.Elem().Interface()
-
-			upDst := unsafe.Pointer(vfDst.UnsafeAddr())
-			pfDst := reflect.NewAt(vfDst.Type(), upDst)
-			pfDst.Elem().Set(reflect.ValueOf(v))
-		}
-	}
-	return
 }

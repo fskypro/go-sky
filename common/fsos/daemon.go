@@ -1,3 +1,6 @@
+//go:build darwin || linux
+// +build darwin linux
+
 /**
 @copyright: fantasysky 2016
 @website: https://www.fsky.pro
@@ -51,7 +54,7 @@ func CreateDaemonFile(file string, cover bool) (df *S_DaemonFile, err error) {
 	}
 
 	// 读取旧文件
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err == nil {
 		df.LastPid, _ = strconv.Atoi(string(data))
 		if !cover {
