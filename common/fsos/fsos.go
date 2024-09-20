@@ -13,6 +13,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 // 按提示获取一组输入字符串
@@ -34,4 +36,14 @@ func ScanInputs(asks [][2]string) []string {
 		}
 	}
 	return out
+}
+
+// 判断是否 go run 启动的运行
+func IsGoRun() (bool, error) {
+	tempDir := os.TempDir()
+	execDir, err := filepath.Abs(os.Args[0])
+	if err != nil {
+		return false, err
+	}
+	return strings.HasPrefix(execDir, tempDir), nil
 }

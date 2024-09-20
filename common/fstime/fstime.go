@@ -140,10 +140,11 @@ func HmsBetween(t1, t2 time.Time) *S_Hms {
 // ---------------------------------------------------------
 // 获取计算机元年到指定是时间的距离天数
 func DaysFromUnixTime(t time.Time) int {
-	return int(t.Sub(time.Unix(0, 0)).Hours()) / 24
+	utime := time.Date(1970, 1, 1, 0, 0, 0, 0, t.Location())
+	return int(t.Sub(utime).Hours()) / 24
 }
 
 // 给出距离计算机元年天数，返回实际时间
-func DateToUnixTime(days int) time.Time {
-	return time.Unix(0, 0).AddDate(0, 0, days)
+func DateToUnixTime(days int, loc *time.Location) time.Time {
+	return time.Date(1970, 1, 1, 0, 0, 0, 0, loc).AddDate(0, 0, days)
 }

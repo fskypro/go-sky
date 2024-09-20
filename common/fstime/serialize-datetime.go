@@ -33,6 +33,23 @@ func (this *T_SerDateTime) Update(t time.Time) {
 	*this = T_SerDateTime(t)
 }
 
+// GobEncoder 接口，可以让 gob 序列化
+func (self T_SerDateTime) GobEncode() ([]byte, error) {
+	ts := time.Time(self)
+	return ts.GobEncode()
+}
+
+// GobDecoder 接口，可以让 gob 反序列化
+func (this *T_SerDateTime) GobDecode(data []byte) error {
+	var ts time.Time
+	err := ts.GobDecode(data)
+	if err != nil {
+		return err
+	}
+	*this = T_SerDateTime(ts)
+	return nil
+}
+
 // json unmarshal
 func (this *T_SerDateTime) UnmarshalJSON(b []byte) error {
 	if len(b) == 0 || string(b) == "null" {

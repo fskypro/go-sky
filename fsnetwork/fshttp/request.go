@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -22,11 +23,6 @@ import (
 	"unicode"
 	"unsafe"
 )
-
-// 引用私有函数，用于请求文件
-//
-//go:linkname serveFile net/http.serveFile
-func serveFile(http.ResponseWriter, *http.Request, http.FileSystem, string, bool)
 
 // -------------------------------------------------------------------
 // inner inits
@@ -453,16 +449,22 @@ func (this *S_Request) CancelJsonObject(obj interface{}) {
 
 // ---------------------------------------------------------
 // 回复客户端
-func (this *S_Request) Response() bool {
-	if this.cancel { return false }
+func (this *S_Request) Response() error {
+	if this.cancel { return nil }
 	if this.jsonObj != nil {
 		this.W.Header().Set("Content-Type", "application/json")
-		bs, _ := json.Marshal(this.jsonObj)
-		this.W.Write(bs)
-		return true
+		bs, err := json.Marshal(this.jsonObj)
+		if err != nil {
+			return fmt.Errorf("marshal response obj(type of %v) fail, %v", reflect.TypeOf(this.jsonObj), err)
+		}
+		_, err = this.W.Write(bs)
+		if err != nil {
+			return fmt.Errorf("wirte data to response stream fail, %v", err)
+		}
+		return nil
 	}
-	this.W.Write([]byte(this.buff.String()))
-	return true
+	_, err := this.W.Write([]byte(this.buff.String()))
+	return err
 }
 
 func (this *S_Request) ResponseCrossDomain() bool {
@@ -487,7 +489,8 @@ func (this *S_Request) ResponseFile(webroot string, file string) {
 	if mimeType != "" {
 		this.W.Header().Set("Content-Type", mimeType)
 	}
-	serveFile(this.W, this.R, http.Dir(webroot), path.Clean(file), true)
+	fullPath := filepath.Join(webroot, filepath.Clean(file))
+	http.ServeFile(this.W, this.R, fullPath)
 }
 
 func (this *S_Request) Redirect(url string, code int) {

@@ -37,7 +37,6 @@ func FileNoExt(file string) string {
 
 // IsPathExists 判断路径是否存在(包括文件和文件夹)
 // 注意：
-//
 //	如果参数 path 为空字符串，则返回 false
 func IsPathExists(path string) bool {
 	_, err := os.Stat(path)
@@ -47,9 +46,8 @@ func IsPathExists(path string) bool {
 	return true
 }
 
-// IsDir 判断指定路径是否是已经存在的文件夹
+// IsDir 判断指定路径，是否是已经存在的路径
 // 注意：
-//
 //	如果 path 为空字符串，则返回 false，而不会认为是当前路径
 func IsDirExists(path string) bool {
 	s, err := os.Stat(path)
@@ -80,10 +78,21 @@ func IsFileAccessable(filePath string) bool {
 // -------------------------------------------------------------------
 // CurrentDir 获取可执行程序当前路径
 func ExecuteDir() (string, error) {
-	execFile, err := os.Executable()
-	if err != nil { return "", err }
-	dir := filepath.Dir(execFile)
-	return filepath.Clean(dir), nil
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	// 判断是否 go run 启动的运行
+	tempDir := os.TempDir()
+	execDir, err := filepath.Abs(os.Args[0])
+	if err != nil {
+		return "", err
+	}
+	goRun := strings.HasPrefix(execDir, tempDir)
+	if goRun {
+		return dir, nil
+	}
+	return filepath.Abs(filepath.Dir(os.Args[0]))
 }
 
 // IsSubFilePathOf
