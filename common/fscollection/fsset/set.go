@@ -9,6 +9,8 @@
 
 package fsset
 
+import "fmt"
+
 type S_Set[T comparable] struct {
 	items map[T]any
 }
@@ -62,6 +64,23 @@ func NewWithMapValues[K comparable, T comparable](m map[K]T) *S_Set[T] {
 // -------------------------------------------------------------------
 // public
 // -------------------------------------------------------------------
+func (this *S_Set[T]) String() string {
+	str := "Set{"
+	index := 0
+	for key := range this.items {
+		if index > 0 {
+			str += ","
+		}
+		str += fmt.Sprintf("%v", key)
+		index ++
+	}
+	return str + "}"
+}
+
+func (this *S_Set[T]) Count() int {
+	return len(this.items)
+}
+
 func (this *S_Set[T]) Has(value T) bool {
 	_, ok := this.items[value]
 	return ok

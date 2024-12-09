@@ -9,6 +9,8 @@
 
 package fscollection
 
+import "slices"
+
 // -------------------------------------------------------------------
 // slice utils
 // -------------------------------------------------------------------
@@ -85,10 +87,10 @@ func SliceGetsFunc[T any](items []T, f func(T)bool) []T {
 }
 
 // 删除指定的子元素
-func SliceRemove[T comparable](items []T, e T) []T {
+func SliceRemoves[T comparable](items []T, es ...T) []T {
 	newItems := []T{}
 	for _, item := range items {
-		if item != e {
+		if !slices.Contains(es, item){
 			newItems = append(newItems, item)
 		}
 	}
@@ -110,26 +112,21 @@ func SliceRemoveFunc[T any](items []T, f func(e T) bool) []T {
 // 获取两个 slice 的交集部分
 func SliceIntersection[T comparable](items1 []T, items2 []T) []T {
 	items := make([]T, 0)
-	for _, item1 := range items1 {
-		for _, item2 := range items2 {
-			if item1 == item2 {
-				items = append(items, item1)
-			}
+	for _, item := range items1 {
+		if slices.Contains(items2, item) {
+			items = append(items, item)
 		}
 	}
 	return items
 }
 
 // 获取 items1 中存在，items2 中不存在的集合(即 items2 的补集)
-func SilceDifference[T comparable](items1 []T, items2 []T) []T {
+func SliceDifference[T comparable](items1 []T, items2 []T) []T {
 	items := make([]T, 0)
-	for _, item1 := range items1 {
-		for _, item2 := range items2 {
-			if item1 == item2 {
-				continue
-			}
+	for _, item := range items1 {
+		if !slices.Contains(items2, item) {
+			items = append(items, item)
 		}
-		items = append(items, item1)
 	}
 	return items
 }

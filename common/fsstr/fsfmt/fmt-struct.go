@@ -22,6 +22,9 @@ import (
 
 // 获取自定义显示字符串
 func (*s_Writer) getViewString(v reflect.Value) (ok bool, str string) {
+	if v.Type().Kind() == reflect.Interface && v.IsNil() {
+		return
+	}
 	m := v.MethodByName("String")
 	if !m.IsValid() {
 		return
@@ -200,7 +203,22 @@ func (this *s_Writer) writePStructType(v reflect.Value) {
 // -----------------------------------------------
 // isTop 是否是最顶层结构体
 func (this *s_Writer) writeValue(v reflect.Value, tag string, isTop bool) {
-	if v.IsValid() && v.IsZero() {
+	// 空指针
+	if !v.IsValid() {
+		this.writeStringf("%v", v)
+		return
+	}
+	if v.Type().Kind() == reflect.Ptr && v.IsNil() {
+		if v.Type().Elem().Kind() == reflect.Struct {
+			this.writePStructType(v)
+			this.w.WriteString("(nil)")
+		} else {
+			this.writeStringf("%v", v)
+		}
+		return
+	}
+
+	if v.IsZero() {
 		v = reflect.Zero(v.Type())
 	}
 
@@ -221,21 +239,6 @@ func (this *s_Writer) writeValue(v reflect.Value, tag string, isTop bool) {
 		return
 	}
 
-	// 空指针
-	if !v.IsValid() {
-		this.writeStringf("%v", v)
-		return
-	}
-	if v.IsNil() {
-		if v.Type().Elem().Kind() == reflect.Struct {
-			this.writePStructType(v)
-			this.w.WriteString("(nil)")
-		} else {
-			this.writeStringf("%v", v)
-		}
-		return
-	}
-
 	elem := v.Elem()
 	pprinter, ok := _pprinters[elem.Type().Kind()]
 	if ok {
@@ -248,6 +251,49 @@ func (this *s_Writer) writeValue(v reflect.Value, tag string, isTop bool) {
 // -------------------------------------------------------------------
 // module private
 // -------------------------------------------------------------------
+// 调用类型的 String 输出
+func _getValueString(v reflect.Value, strMethod string) string {
+	call := func(vv reflect.Value, check bool) (bool, string) {
+		method := vv.MethodByName(strMethod)
+		if !method.IsValid() {
+			return false, ""
+		}
+		if method.Type().NumOut() != 1 || method.Type().NumIn() != 0 {
+			return false, ""
+		}
+		if method.Type().Out(0) != reflect.TypeOf((*string)(nil)).Elem() {
+			return false, ""
+		}
+		if check && method.Type().PkgPath() == "" {
+			return false, ""
+		}
+		rets := method.Call([]reflect.Value{})
+		if !rets[0].CanInterface() {
+			return false, ""
+		}
+		if rets[0].Interface() == nil {
+			return false, ""
+		}
+		return true, rets[0].Interface().(string)
+	}
+	if ok, str := call(v, true); ok {
+		return str
+	}
+
+	if !v.CanAddr() {
+		return ""
+	}
+	pv := reflect.NewAt(v.Type(), unsafe.Pointer(v.UnsafeAddr()))
+	if ok, str := call(pv.Elem(), false); ok {
+		return str
+	}
+	if ok, str := call(pv, false); ok {
+		return str
+	}
+	return ""
+}
+
+// ---------------------------------------------------------
 // 数组/切片
 func _printArray(w *s_Writer, v reflect.Value, tag string) {
 	isArray := v.Type().Kind() == reflect.Array
@@ -338,7 +384,7 @@ func _printArray(w *s_Writer, v reflect.Value, tag string) {
 
 func _printPArray(w *s_Writer, v reflect.Value, tag string) {
 	w.writeByte('&')
-	_printArray(w, v, tag)
+	_printArray(w, v.Elem(), tag)
 }
 
 // -----------------------------------------------
@@ -428,7 +474,7 @@ func _printMap(w *s_Writer, v reflect.Value, tag string) {
 
 func _printPMap(w *s_Writer, v reflect.Value, tag string) {
 	w.writeByte('&')
-	_printMap(w, v, tag)
+	_printMap(w, v.Elem(), tag)
 }
 
 // -----------------------------------------------
@@ -452,6 +498,20 @@ func _printStructField(w *s_Writer, v reflect.Value, tag string) {
 		w.writeIdents(fold)
 		if fold {
 			w.writeStringf("+ %s: {...}", name)
+			continue
+		}
+
+		// 直接调用 String() 方法输出
+		str := w.hasFieldTag(tags, "str")
+		if str {
+			str := _getValueString(vf, "FmtString")
+			if str == "" {
+				str = _getValueString(vf, "String")
+			}
+			if str == "" {
+				str = fmt.Sprintf("%v", vf)
+			}
+			w.writeStringf("%s: %v{%s}", name, tf.Type, str)
 			continue
 		}
 
