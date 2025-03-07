@@ -393,41 +393,49 @@ type S_TrivalStructInfo struct {
 // 遍历结构体成员，包括父结构体的成员
 // 如果参数 f 返回 false，则停止遍历
 // 函数参数 f 的参数：
-//  S_TrivalStructInfo.IsBase：
-//		是否是基类成员
-//  S_TrivalStructInfo.PathFields：
-//		继承链路
-//	S_TrivalStructInfo.StructType：
-//		遍历过程中，当前结构体的类型
-//  S_TrivalStructInfo::StructValue：
-//		历过程中，当前结构体对象
-//  S_TrivalStructInfo::Field：
-//		遍历过程中，当前成员域
-//  S_TrivalStructInfo::FieldValue：
-//		遍历过程中，当前成员的值，FieldValue.IsValid()、FieldValue.Type()、FieldValue.IsNil()，都是不确定的
-// 提示：
-//  参数 v 可以传入任何结构体的 nil 值，但是如果传入 nil，则遍历过程中，f 的参数 a1.IsValid() 和 a3.IsValid() 都是 false
-// 示例：
-//  type A struct {
-//		member1 string
-//  }
-//  type B struct {
-//		member2 int
-//	}
-//	type C struct {
-//		A
-//		*B
-//		member3 uint64
-//  }
 //
-//  var c *C = nil
-//  TrivalFields(c, func(*S_TrivalStructInfo)bool{
-//      return true
-//  })
+//	 S_TrivalStructInfo.IsBase：
+//			是否是基类成员
+//	 S_TrivalStructInfo.PathFields：
+//			继承链路
+//		S_TrivalStructInfo.StructType：
+//			遍历过程中，当前结构体的类型
+//	 S_TrivalStructInfo::StructValue：
+//			历过程中，当前结构体对象
+//	 S_TrivalStructInfo::Field：
+//			遍历过程中，当前成员域
+//	 S_TrivalStructInfo::FieldValue：
+//			遍历过程中，当前成员的值，FieldValue.IsValid()、FieldValue.Type()、FieldValue.IsNil()，都是不确定的
+//
+// 提示：
+//
+//	参数 v 可以传入任何结构体的 nil 值，但是如果传入 nil，则遍历过程中，f 的参数 a1.IsValid() 和 a3.IsValid() 都是 false
+//
+// 示例：
+//
+//	 type A struct {
+//			member1 string
+//	 }
+//	 type B struct {
+//			member2 int
+//		}
+//		type C struct {
+//			A
+//			*B
+//			member3 uint64
+//	 }
+//
+//	 var c *C = nil
+//	 TrivalFields(c, func(*S_TrivalStructInfo)bool{
+//	     return true
+//	 })
+//
 // 参数 baseFirst 为 true 时，表示优先遍历继承结构体
 func TrivalStructMembers(v any, baseFirst bool, f func(*S_TrivalStructInfo) bool) {
 	rt := reflect.TypeOf(v)
-	if rt == nil { return }
+	if rt == nil {
+		return
+	}
 	rv := reflect.ValueOf(v)
 	for rt.Kind() == reflect.Ptr {
 		rt = rt.Elem()
@@ -445,8 +453,12 @@ func TrivalStructMembers(v any, baseFirst bool, f func(*S_TrivalStructInfo) bool
 
 	var trivalStruct func([]reflect.StructField, reflect.Type, reflect.Value) bool
 	trivalStruct = func(fields []reflect.StructField, rt reflect.Type, rv reflect.Value) bool {
-		if rt == nil                   { return true }
-		if rt.Kind() != reflect.Struct { return true }
+		if rt == nil {
+			return true
+		}
+		if rt.Kind() != reflect.Struct {
+			return true
+		}
 		infos := []*S_TrivalStructInfo{}
 		inheritInfos := []*InheritInfo{}
 		for i := 0; i < rt.NumField(); i++ {
@@ -473,12 +485,13 @@ func TrivalStructMembers(v any, baseFirst bool, f func(*S_TrivalStructInfo) bool
 			}
 			// 匿名结构体
 			tfield := field.Type
+			vbase := vfield
 			for tfield.Kind() == reflect.Ptr {
 				tfield = tfield.Elem()
-				if !vfield.IsValid() || vfield.IsNil() {
-					vfield = reflect.ValueOf(nil)
+				if !vbase.IsValid() || vbase.IsNil() {
+					vbase = reflect.ValueOf(nil)
 				} else {
-					vfield = vfield.Elem()
+					vbase = vbase.Elem()
 				}
 			}
 			// 继承结构体，继续往上层遍历
@@ -491,18 +504,22 @@ func TrivalStructMembers(v any, baseFirst bool, f func(*S_TrivalStructInfo) bool
 					Field:       field,
 					FieldValue:  vfield,
 				}
-				if !f(info) { return false }
+				if !f(info) {
+					return false
+				}
 				fs := append(fields, field)
 				if !baseFirst {
-					inheritInfos = append(inheritInfos, &InheritInfo{fs, tfield, vfield})
-				} else if !trivalStruct(fs, tfield, vfield) {
+					inheritInfos = append(inheritInfos, &InheritInfo{fs, tfield, vbase})
+				} else if !trivalStruct(fs, tfield, vbase) {
 					return false
 				}
 			}
 		}
 		// 先 base
 		for _, info := range infos {
-			if !f(info) { return false }
+			if !f(info) {
+				return false
+			}
 		}
 		// 后 base
 		for _, info := range inheritInfos {

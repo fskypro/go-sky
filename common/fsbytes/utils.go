@@ -36,3 +36,28 @@ func IndexN(bs []byte, n int, sub []byte) int {
 	}
 	return -1
 }
+
+// 将字节数转换为合理单位的大小
+// 第二个参数为保留几位小数
+func BytesTo(size int64, decs int) string {
+	const (
+		_          = iota             // 忽略第一个值 (0)
+		KB float64 = 1 << (10 * iota) // 1 KB = 1024
+		MB                            // 1 MB = 1024 * 1024
+		GB                            // 1 GB = 1024 * 1024 * 1024
+		TB                            // 1 TB
+	)
+
+	switch {
+	case size >= int64(TB):
+		return fmt.Sprintf(fmt.Sprintf("%%.%dfTB", decs), float64(size)/TB)
+	case size >= int64(GB):
+		return fmt.Sprintf(fmt.Sprintf("%%.%dfGB", decs), float64(size)/GB)
+	case size >= int64(MB):
+		return fmt.Sprintf(fmt.Sprintf("%%.%dfMB", decs), float64(size)/MB)
+	case size >= int64(KB):
+		return fmt.Sprintf(fmt.Sprintf("%%.%dfKB", decs), float64(size)/KB)
+	default:
+		return fmt.Sprintf("%dB", size)
+	}
+}

@@ -95,7 +95,9 @@ func NewSearchArg(conf I_Config) *S_SearchArg {
 // 解释搜索条件
 func (this *S_SearchArg) ParseCnd() error {
 	this.parsed = true
-	if this.Cnds == nil { return nil }
+	if this.Cnds == nil {
+		return nil
+	}
 	cnds, err := dbsearch.NewCnds(this.Cnds)
 	if err != nil {
 		return fmt.Errorf("parse search condition(%#v) fail, %v", this.Cnds, err)
@@ -138,7 +140,9 @@ func (this *S_SearchArg) ParseCnd() error {
 		}
 		return nil
 	})
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	this.cndExp = sb.String()
 	if this.cndExp == "" {
 		this.cndExp = "TRUE"
@@ -148,7 +152,9 @@ func (this *S_SearchArg) ParseCnd() error {
 }
 
 func (this *S_SearchArg) PageIndex() int {
-	if this.PageSize < 1 { return 0 }
+	if this.PageSize < 1 {
+		return 0
+	}
 	return (this.Page - 1) * this.PageSize
 }
 

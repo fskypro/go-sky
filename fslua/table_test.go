@@ -1,6 +1,7 @@
 package fslua
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"fsky.pro/fsstr/fsfmt"
 	"fsky.pro/fstest"
 	glua "github.com/yuin/gopher-lua"
+	lua "github.com/yuin/gopher-lua"
 )
 
 // -------------------------------------------------------------------
@@ -68,6 +70,7 @@ type s_SubConfig struct {
 type s_Config struct {
 	*s_Base
 	s_Base2
+	Unexposed string `lua:"-"`
 
 	Name       string
 	IntValue   int8
@@ -82,6 +85,7 @@ type s_Config struct {
 	} `lua:"inner"`
 
 	NestSice []map[string]int `lua:"nestSlice"`
+	NestAnys map[string]any
 }
 
 // -------------------------------------------------------------------
@@ -99,6 +103,7 @@ func newLuaState() *glua.LState {
 // -------------------------------------------------------------------
 // 测试函数
 // -------------------------------------------------------------------
+// lua table 解释为 go 对象
 func TestUnmarshalTable(t *testing.T) {
 	fstest.PrintTestBegin("unmarshal lua table")
 	defer fstest.PrintTestEnd()
@@ -126,6 +131,13 @@ func TestUnmarshalTable(t *testing.T) {
 	}
 
 	fmt.Println(fsfmt.SprintStruct(mapConf, nil))
+
+	fmt.Println("-------------------")
+	jdata, err := json.MarshalIndent(mapConf, "", "  ")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(string(jdata))
 }
 
 type I interface {
@@ -144,6 +156,7 @@ type B struct {
 	A *A
 }
 
+// go 对象解释为 lua table
 func TestMarshalTable(t *testing.T) {
 	fstest.PrintTestBegin("marshal lua table")
 	defer fstest.PrintTestEnd()
@@ -154,7 +167,7 @@ func TestMarshalTable(t *testing.T) {
 	b := &B{
 		A: &A{
 			Str:  "xxx",
-			List: []int{1, 2, 3},
+			List: []int{100, 200, 300},
 			Map:  &map[int]string{1: "xxx", 2: "yy"},
 		},
 	}
@@ -163,6 +176,19 @@ func TestMarshalTable(t *testing.T) {
 		log.Fatal(err)
 	}
 
+	fnPrintTable := L.GetGlobal("printTable")
+	if fnPrintTable.Type() == glua.LTFunction {
+		err := L.CallByParam(lua.P{
+			Fn:      fnPrintTable,
+			NRet:    1,
+			Protect: true,
+		}, tb)
+		if err != nil {
+			log.Fatalf("call lua function fail, %v\n", err)
+		}
+	}
+
+	fmt.Println("-------------------")
 	bb := new(B)
 	if err = UnmarshalTable(tb, bb); err != nil {
 		log.Fatal(err)

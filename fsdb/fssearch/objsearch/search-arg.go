@@ -67,10 +67,13 @@ func NewSearchArg[T any](conf i_Config) *S_SearchArg[T] {
 }
 
 // 可能返回错误：
-//   ErrNoOrderByKey: 搜索对象没有 orderby 字段
-//   error          ：其他错误
+//
+//	ErrNoOrderByKey: 搜索对象没有 orderby 字段
+//	error          ：其他错误
 func (this *S_SearchArg[T]) Parse() error {
-	if this.parsed { return nil }
+	if this.parsed {
+		return nil
+	}
 	this.parsed = true
 
 	if this.Page < 1 {
@@ -92,9 +95,11 @@ func (this *S_SearchArg[T]) Parse() error {
 	var obj T
 	hasKey := false
 	fsreflect.TrivalStructMembers(obj, false, func(info *fsreflect.S_TrivalStructInfo) bool {
-		if info.IsBase { return true }
+		if info.IsBase {
+			return true
+		}
 		tag := info.Field.Tag.Get("json")
-		if tag == this.OrderBy { 
+		if tag == this.OrderBy {
 			hasKey = true
 			return false
 		}
@@ -107,10 +112,11 @@ func (this *S_SearchArg[T]) Parse() error {
 }
 
 // 检查对象是否符合当前搜索条件，可能会产生以下错误：
-//  ErrUnsupportMatch ：字段不支持条件表达式中指定的匹配方式
-//  ErrCndValue       ：条件表达式的值类型错误，不能与字段值进行比较
-//  ErrCndTimeValue   ：条件表达式中，比较值使用的时间格式不正确
-//  ErrRePattern      ：条件表达式中，要参与比较的正则表达式不正确
+//
+//	ErrUnsupportMatch ：字段不支持条件表达式中指定的匹配方式
+//	ErrCndValue       ：条件表达式的值类型错误，不能与字段值进行比较
+//	ErrCndTimeValue   ：条件表达式中，比较值使用的时间格式不正确
+//	ErrRePattern      ：条件表达式中，要参与比较的正则表达式不正确
 func (this *S_SearchArg[T]) Check(obj any) (bool, error) {
 	if !this.parsed {
 		return false, errors.New("search argument is not parsed")
@@ -123,7 +129,7 @@ func (this *S_SearchArg[T]) Check(obj any) (bool, error) {
 
 func (this *S_SearchArg[T]) Filter(items []T) (*S_PageInfo, []T) {
 	if this.OrderBy != "" {
-		sort.Sort(newSorter[T](this, items))
+		sort.Sort(newSorter(this, items))
 	}
 	total := len(items)
 	pageInfo := NewPageInfo(total, this.Page, this.PageSize)

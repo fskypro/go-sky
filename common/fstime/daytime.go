@@ -10,41 +10,66 @@
 package fstime
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
-
-	"fsky.pro/fstype"
 )
 
-type T_DayTime uint
+type T_Int interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
+}
 
-func NewDayTime[T fstype.T_IUNumber](h, m, s T) (T_DayTime) {
+// 高 16 位表示时
+// 低 8 位表示秒，中八位表示分
+type T_DayTime uint32
+
+func NewDayTime[T T_Int](h, m, s T) T_DayTime {
 	return T_DayTime(0).Add(int(h), int(m), int(s))
 }
 
 // 自动从 json 值中解释
-func (this *T_DayTime) UnmarshalJSON(b []byte)(err error) {
+func (this *T_DayTime) UnmarshalJSON(b []byte) (err error) {
 	str := strings.Trim(string(b), `"`)
 	*this, err = ParseDayTime(str)
 	return
 }
 
+// 序列号到 json 中
+func (this *T_DayTime) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"%02d:%02d:%02d"`, this.Hour(), this.Minute(), this.Second())), nil
+}
+
+// 字符串形式写入数据库
+func (self T_DayTime) Value() (driver.Value, error) {
+	return self.String(), nil
+}
+
 // 从数据库扫描
 func (this *T_DayTime) Scan(value any) error {
-    if value == nil { return nil }
-    switch value.(type) {
-    case string:
-		t, err := ParseDayTime(value.(string))
-		if err != nil {
-			return fmt.Errorf("can't convert type %v value to %v", reflect.TypeOf(value), reflect.TypeOf(*this))
-		}
-		*this = t
+	if value == nil {
 		return nil
-    }
-    return fmt.Errorf("can't convert type %v value to %v", reflect.TypeOf(value), reflect.TypeOf(*this))
+	}
+
+	var str string
+	switch value.(type) {
+	case []byte:
+		str = string(value.([]byte))
+	case string:
+		str = value.(string)
+	default:
+		return fmt.Errorf("can't convert type %v value %q to %v", reflect.TypeOf(value), value, reflect.TypeOf(*this))
+	}
+	t, err := ParseDayTime(str)
+	if err != nil {
+		return fmt.Errorf("can't convert type %v value %v to %v", reflect.TypeOf(value), value, reflect.TypeOf(*this))
+	}
+	*this = t
+
+	return nil
 }
 
 // 格式为：00:00:00
@@ -98,7 +123,6 @@ func (self T_DayTime) WithGoTime(t time.Time) time.Time {
 func (self T_DayTime) TodayTime() time.Time {
 	return self.WithGoTime(time.Now())
 }
-
 
 // ---------------------------------------------------------
 func (self T_DayTime) Hour() int {

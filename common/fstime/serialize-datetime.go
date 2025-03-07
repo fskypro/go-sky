@@ -11,11 +11,16 @@ package fstime
 
 import (
 	"bytes"
+	"database/sql/driver"
 	"fmt"
 	"time"
 )
 
 type T_SerDateTime time.Time
+
+func NowSerDateTime() T_SerDateTime {
+	return T_SerDateTime(time.Now())
+}
 
 func (this *T_SerDateTime) Origin() time.Time {
 	return time.Time(*this)
@@ -70,4 +75,9 @@ func (this *T_SerDateTime) UnmarshalJSON(b []byte) error {
 func (this *T_SerDateTime) MarshalJSON() ([]byte, error) {
 	str := `"` + time.Time(*this).Format(time.DateTime) + `"`
 	return []byte(str), nil
+}
+
+// 解释给数据库(存入数据库时调用)
+func (self T_SerDateTime) Value() (driver.Value, error) {
+	return time.Time(self), nil
 }

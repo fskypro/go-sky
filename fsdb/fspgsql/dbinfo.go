@@ -16,6 +16,7 @@ import (
 
 /*
 使用 CA 证书时，需要对 PostgreSQL 中的配置进行设置：
+
 	postgresql.conf
 		ssl = on
 		ssl_ca_file = '/etc/postgres/security/root.crt'
@@ -34,6 +35,7 @@ type S_DBInfo struct {
 	ConnMaxLifetime time.Duration // 控线连接的最长有效期
 	SSLMode         bool          // 是否使用 SSL 私密连接
 	Timeout         int           // 超时（秒）
+	LocalAddr       string        // 本地地址
 
 	Host     string // 数据库主机地址
 	Port     int    // 数据库连接端口
@@ -42,7 +44,7 @@ type S_DBInfo struct {
 	DBName   string // 数据库名称，可以省略
 }
 
-func (this *S_DBInfo) LinkText() string {
+func (this *S_DBInfo) ConnString() string {
 	segs := []string{}
 	if strings.TrimSpace(this.Host) != "" {
 		segs = append(segs, "host="+strings.TrimSpace(this.Host))

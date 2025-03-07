@@ -138,7 +138,7 @@ type I_SafeGoWorker interface {
 	Error(any)
 }
 
-// 调用 worker 中的 Do 方法来执行异步操作，如果产生 Do 方法产生 panic，则 worker 的 Error 方法会被调用
+// 调用 worker 中的 Do 方法来执行异步操作，如果 Do 方法产生 panic，则 worker 的 Error 方法会被调用
 func SafeGo(worker I_SafeGoWorker) {
 	defer func() {
 		if err := recover(); err != nil {

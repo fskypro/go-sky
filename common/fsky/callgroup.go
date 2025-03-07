@@ -13,12 +13,13 @@ type E_CGLevel int
 
 // CG_L1 优先于 CG_L5 调用
 const (
-	CG_L1 E_CGLevel = 1
-	CG_L2           = 2
-	CG_L3           = 3
-	CG_L4           = 4
-	CG_L5           = 5
-	CG_L6           = 6
+	CG_L1   E_CGLevel = 1
+	CG_L2             = 2
+	CG_L3             = 3
+	CG_L4             = 4
+	CG_L5             = 5
+	CG_L6             = 6
+	cg_LMax           = 7
 )
 
 // -------------------------------------------------------------------
@@ -46,9 +47,9 @@ func (self CallGroup) AddUnorder(call func()) {
 }
 
 // 调用初始化接收函数
-// CG_L1 比 CG_L5 优先调用
+// CG_L1 比 CG_L6 优先调用
 func (self CallGroup) Call() {
-	for l := CG_L1; l <= CG_L5; l++ {
+	for l := CG_L1; l < cg_LMax; l++ {
 		calls := self[l]
 		if calls == nil {
 			continue
@@ -84,9 +85,9 @@ func (self CallGroup1[A]) AddUnorder(call func(A)) {
 }
 
 // 调用初始化接收函数
-// CG_L1 比 CG_L5 优先调用
+// CG_L1 比 CG_L6 优先调用
 func (self CallGroup1[A]) Call(arg A) {
-	for l := CG_L1; l <= CG_L5; l++ {
+	for l := CG_L1; l < cg_LMax; l++ {
 		calls := self[l]
 		if calls == nil {
 			continue
@@ -122,9 +123,9 @@ func (self CallGroup2[T1, T2]) AddUnorder(call func(T1, T2)) {
 }
 
 // 调用初始化接收函数
-// CG_L1 比 CG_L5 优先调用
+// CG_L1 比 CG_L6 优先调用
 func (self CallGroup2[A1, A2]) Call(arg1 A1, arg2 A2) {
-	for l := CG_L1; l <= CG_L5; l++ {
+	for l := CG_L1; l < cg_LMax; l++ {
 		calls := self[l]
 		if calls == nil {
 			continue
@@ -160,9 +161,9 @@ func (self CallGroup3[A1, A2, A3]) AddUnorder(call func(A1, A2, A3)) {
 }
 
 // 调用初始化接收函数
-// CG_L1 比 CG_L5 优先调用
+// CG_L1 比 CG_L6 优先调用
 func (self CallGroup3[A1, A2, A3]) Call(arg1 A1, arg2 A2, arg3 A3) {
-	for l := CG_L1; l <= CG_L5; l++ {
+	for l := CG_L1; l < cg_LMax; l++ {
 		calls := self[l]
 		if calls == nil {
 			continue
@@ -198,9 +199,9 @@ func (self CallGroup4[A1, A2, A3, A4]) AddUnorder(call func(A1, A2, A3, A4)) {
 }
 
 // 调用初始化接收函数
-// CG_L1 比 CG_L5 优先调用
+// CG_L1 比 CG_L6 优先调用
 func (self CallGroup4[A1, A2, A3, A4]) Call(arg1 A1, arg2 A2, arg3 A3, arg4 A4) {
-	for l := CG_L1; l <= CG_L5; l++ {
+	for l := CG_L1; l < cg_LMax; l++ {
 		calls := self[l]
 		if calls == nil {
 			continue

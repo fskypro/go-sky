@@ -25,7 +25,6 @@ func IsError[E error](err error) bool {
 	return errors.As(err, &e)
 }
 
-
 // 把指定错误还原或转换为原错误类型对象
 func AsError[E error](err error) (E, bool) {
 	var e E

@@ -5,12 +5,18 @@ function get()
 end
 
 config  = {
+    -- Base
     BaseName = "base",
     Array = {1, 2, 3},
 
+    -- Base2
     Base2Name = "base2",
     Slice = {1, 2, "xxx", 2.3},
 
+    -- unexposed
+    Unexposed = "unexposed",
+
+    -----------------
     Name = "LuaTable",
     IntValue = 1000000,
     FloatValue = 2.2,
@@ -41,5 +47,23 @@ config  = {
             xx = 3000,
             yy = get(),
         }
+    },
+
+    NestAnys = {
+        xx = { aa = 100, bb = 200 },
+        yy = { cc = 300, cc = 400 },
     }
 }
+
+
+function printTable(tb)
+    indent = indent or 0
+    for k, v in pairs(tb) do
+        if type(v) == "table" then
+            print(string.rep(" ", indent) .. k .. ":")
+            printTable(v, indent + 2)
+        else
+            print(string.rep(" ", indent) .. k, v)
+        end
+    end
+end

@@ -15,7 +15,6 @@ import (
 	"unsafe"
 
 	glua "github.com/yuin/gopher-lua"
-	lua "github.com/yuin/gopher-lua"
 )
 
 type s_Table struct {
@@ -80,6 +79,16 @@ func (self s_Table) luaValueToRefMap(lv glua.LValue, rm reflect.Value) (reflect.
 	tb.ForEach(func(key, value glua.LValue) {
 		if err != nil {
 			return
+		}
+		rkey := reflect.New(keyType).Elem()
+		if rkey.CanConvert(rtNumnber) {
+			if key.Type() != glua.LTNumber {
+				return
+			}
+		} else if rkey.CanConvert(rtString) {
+			if key.Type() != glua.LTString {
+				key = glua.LString(key.String())
+			}
 		}
 		refKey, e := self.luaValueToRefValue(key, reflect.New(keyType).Elem())
 		if e != nil {
@@ -173,7 +182,7 @@ func (self s_Table) luaValueToRefObj(lv glua.LValue, robj reflect.Value) (reflec
 }
 
 // 通过 go 对象的 MumarshalLua 方法反序列化 lua 数据
-func (self s_Table) unmarshalByMethod(lv lua.LValue, vobj reflect.Value) (bool, error) {
+func (self s_Table) unmarshalByMethod(lv glua.LValue, vobj reflect.Value) (bool, error) {
 	const methodName = "UnmarshalLua"
 
 	if vobj.Type().Kind() == reflect.Interface && vobj.IsNil() {
@@ -212,11 +221,11 @@ func (self s_Table) unmarshalByMethod(lv lua.LValue, vobj reflect.Value) (bool, 
 		return false, nil
 	}
 	// 参数类型判断
-	if method.Type().In(0) != reflect.TypeOf((*glua.LValue)(nil)).Elem() {
+	if method.Type().In(0) != rtLValue {
 		return false, nil
 	}
 	// 返回值类型判断
-	if method.Type().Out(0) != reflect.TypeOf((*error)(nil)).Elem() {
+	if method.Type().Out(0) != rtError {
 		return false, nil
 	}
 	// 调用自定义解释方法
@@ -269,7 +278,7 @@ func (self s_Table) luaValueToRefValue(lv glua.LValue, rv reflect.Value) (reflec
 			break
 		}
 		// 将 table 赋值给不确定类型，则认为这个不确定类型为 Map
-		newMap := reflect.MakeMap(reflect.TypeOf((map[any]any)(nil)))
+		newMap := reflect.MakeMap(reflect.TypeOf((map[string]any)(nil)))
 		rvNew, err := self.luaValueToRefValue(lv, newMap)
 		if err != nil {
 			return rv, fmt.Errorf("can't set lua value <%v> to go any type value, %v", lv, err)
@@ -325,7 +334,8 @@ func (self s_Table) refListToLuaValue(rv reflect.Value) (glua.LValue, error) {
 		} else if lv == nil {
 			continue
 		}
-		tb.RawSet(glua.LNumber(i), lv)
+		// lua table 的索引从 1 开始，所以这里 i+1
+		tb.RawSet(glua.LNumber(i+1), lv)
 	}
 	return tb, nil
 }
@@ -372,7 +382,7 @@ func (self s_Table) refObjToLuaValue(rv reflect.Value) (glua.LValue, error) {
 				return nil, fmt.Errorf("get base object of type %v in %v fail, %v", tfield.Type, rv.Type(), err)
 			}
 			if tbBase.Type() == glua.LTTable {
-				tbBase.(*glua.LTable).ForEach(func(key, value lua.LValue) {
+				tbBase.(*glua.LTable).ForEach(func(key, value glua.LValue) {
 					tb.RawSet(key, value)
 				})
 			} else {
@@ -387,7 +397,7 @@ func (self s_Table) refObjToLuaValue(rv reflect.Value) (glua.LValue, error) {
 		} else if lv == nil {
 			continue
 		}
-		tb.RawSet(glua.LString(tfield.Name), lv)
+		tb.RawSet(glua.LString(tag), lv)
 	}
 	return tb, nil
 }
@@ -411,7 +421,7 @@ func (self s_Table) objMethodToLuaValue(rv reflect.Value) (bool, glua.LValue) {
 		return false, nil
 	}
 	// 返回值类型判断
-	if method.Type().Out(0) != reflect.TypeOf((*glua.LValue)(nil)).Elem() {
+	if method.Type().Out(0) != rtLValue {
 		return false, nil
 	}
 	// 调用自定义解释方法
@@ -445,29 +455,66 @@ func (self s_Table) refValueToLuaValue(rv reflect.Value) (glua.LValue, error) {
 		return self.refObjToLuaValue(rv)
 	}
 
-	getValue := func(v reflect.Value) reflect.Value {
-		if v.CanInterface() {
-			return v
+	if !rv.CanInterface() {
+		if rv.CanAddr() {
+			rv = reflect.NewAt(tv, unsafe.Pointer(rv.UnsafeAddr())).Elem()
+		} else {
+			rv = reflect.Zero(tv)
 		}
-		if v.CanAddr() {
-			return reflect.NewAt(tv, unsafe.Pointer(v.UnsafeAddr())).Elem()
-		}
-		return reflect.ValueOf(fmt.Sprintf("%v", v))
 	}
 
-	if rv.CanConvert(reflect.TypeOf(float64(0))) {
-		v := getValue(rv).Convert(reflect.TypeOf(float64(0)))
+	if rv.CanConvert(rtNumnber) {
+		v := rv.Convert(rtNumnber)
 		return glua.LNumber(v.Interface().(float64)), nil
 	}
-	if rv.CanConvert(reflect.TypeOf(true)) {
-		v := getValue(rv).Convert(reflect.TypeOf(true))
+	if rv.CanConvert(rtBool) {
+		v := rv.Convert(rtBool)
 		return glua.LBool(v.Interface().(bool)), nil
 	}
-	if rv.CanConvert(reflect.TypeOf("")) {
-		v := getValue(rv).Convert(reflect.TypeOf(""))
+	if rv.CanConvert(rtString) {
+		v := rv.Convert(rtString)
 		return glua.LString(v.Interface().(string)), nil
 	}
 	return nil, nil
+}
+
+// 将 go 结构对象解释为 lua table
+func (self s_Table) refMarshalTable(vobj reflect.Value) (*glua.LTable, error) {
+	if !vobj.IsValid() {
+		return &glua.LTable{}, nil
+	}
+	tobj := vobj.Type()
+
+L:
+	for tobj.Kind() == reflect.Ptr {
+		tobj = tobj.Elem()
+		if vobj.IsNil() {
+			return &glua.LTable{}, nil
+		}
+		vobj = vobj.Elem()
+	}
+	if tobj.Kind() == reflect.Interface {
+		if vobj.IsNil() {
+			return &glua.LTable{}, nil
+		}
+		if !vobj.CanInterface() {
+			// 如果不能解包，则不再往深层找，后面如果有需求再加
+			return &glua.LTable{}, nil
+		}
+		v := vobj.Interface()
+		vobj = reflect.ValueOf(v)
+		goto L
+	}
+
+	switch tobj.Kind() {
+	case reflect.Array, reflect.Slice, reflect.Map, reflect.Struct:
+		lv, err := s_Table{}.refValueToLuaValue(vobj)
+		if err != nil {
+			return nil, err
+		}
+		return lv.(*glua.LTable), nil
+	}
+	return nil, fmt.Errorf("object must be an object pointer or array/slice/map instances")
 }
 
 // -----------------------------------------------------------------------------
@@ -483,7 +530,12 @@ func UnmarshalTable(tb *glua.LTable, obj any) error {
 	for tobj.Kind() == reflect.Ptr {
 		tobj = tobj.Elem()
 		if vobj.IsNil() {
-			vobj = reflect.New(tobj)
+			temp := reflect.New(tobj)
+			if vobj.CanSet() {
+				vobj.Set(temp)
+			} else {
+				return fmt.Errorf("obj is unaccessable")
+			}
 		}
 		vobj = vobj.Elem()
 	}
@@ -514,25 +566,29 @@ func UnmarshalTable(tb *glua.LTable, obj any) error {
 
 // 将 go 结构对象解释为 lua table
 func MarshalTable(obj any) (*glua.LTable, error) {
-	tobj := reflect.TypeOf(obj)
-	vobj := reflect.ValueOf(obj)
-	if tobj == nil || tobj.Kind() != reflect.Ptr || vobj.IsNil() {
-		return &glua.LTable{}, nil
+	return s_Table{}.refMarshalTable(reflect.ValueOf(obj))
+}
+
+func FmtLValue(lv glua.LValue) string {
+	if lv.Type() == glua.LTString {
+		return fmt.Sprintf(`"%v"`, lv)
 	}
-	for tobj.Kind() == reflect.Ptr {
-		tobj = tobj.Elem()
-		if vobj.IsNil() {
-			vobj = reflect.New(tobj)
+	if lv.Type() != glua.LTTable {
+		return fmt.Sprintf("%v", lv)
+	}
+	if lv == glua.LNil {
+		return "nil"
+	}
+
+	content := "{"
+	index := 0
+	lv.(*glua.LTable).ForEach(func(l1, l2 glua.LValue) {
+		if index > 0 {
+			content = content + ", "
 		}
-		vobj = vobj.Elem()
-	}
-	switch tobj.Kind() {
-	case reflect.Array, reflect.Slice, reflect.Map, reflect.Struct:
-		lv, err := s_Table{}.refValueToLuaValue(vobj)
-		if err != nil {
-			return nil, err
-		}
-		return lv.(*glua.LTable), nil
-	}
-	return nil, fmt.Errorf("object must be an object pointer or array/slice/map instances")
+		content += fmt.Sprintf("%v=%v", l1, FmtLValue(l2))
+		index++
+	})
+	content += "}"
+	return content
 }

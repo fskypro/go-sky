@@ -71,7 +71,9 @@ func (this *S_Request) unmarshalValues(obj interface{}, get func(string) (string
 L:
 	for i := 0; i < tobj.NumField(); i++ {
 		sfield := tobj.Field(i)
-		if sfield.Anonymous { continue }
+		if sfield.Anonymous {
+			continue
+		}
 		if strings.HasSuffix(sfield.Name, "__") {
 			// __ 结尾的为默认值成员
 			continue
@@ -255,13 +257,15 @@ func (this *S_Request) UnmarshalPostForms(obj interface{}) error {
 
 // 解释 POST json 参数到结构体对象，如果传入参数中不存在结构体中的成员则返回错误，定义了默认值的例外
 // 如：
-//   args := &struct {
-//      Value1 string `json:"value1"`
-//      Value2 string `json:"value2"`
-//      Value1__ strring
-//   }{
-//      Value1__: "default value",
-//   }
+//
+//	args := &struct {
+//	   Value1 string `json:"value1"`
+//	   Value2 string `json:"value2"`
+//	   Value1__ strring
+//	}{
+//	   Value1__: "default value",
+//	}
+//
 // 用以下 json 字符串解码时，会提示缺少参数 value1：{"value2": "xxxx"}
 // 用以下 json 字符串解码时，不会有问题，并且 args.Value2 == "default value"：{"value": "xxxx"}
 func (this *S_Request) UnmarshalPostJsonBody(obj any) error {
@@ -290,7 +294,9 @@ func (this *S_Request) UnmarshalPostJsonBody(obj any) error {
 
 	// 获取请求参数内容
 	body, err := ioutil.ReadAll(this.R.Body)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer this.R.Body.Close()
 
 	// 如果是纯 map 或 slice，则直接反序列
@@ -319,9 +325,13 @@ func (this *S_Request) UnmarshalPostJsonBody(obj any) error {
 	}
 	var trivalStruct func(reflect.Value, map[string]*temp)
 	trivalStruct = func(rv reflect.Value, members map[string]*temp) {
-		if !rv.IsValid() { return }
+		if !rv.IsValid() {
+			return
+		}
 		rt := rv.Type()
-		if rt.Kind() != reflect.Struct { return }
+		if rt.Kind() != reflect.Struct {
+			return
+		}
 		for i := 0; i < rt.NumField(); i++ {
 			field := rt.Field(i)
 			if field.Tag.Get("json") == "-" && !strings.HasSuffix(field.Name, "__") {
@@ -345,8 +355,12 @@ func (this *S_Request) UnmarshalPostJsonBody(obj any) error {
 			// 匿名结构体
 			tfield := field.Type
 			for tfield.Kind() == reflect.Ptr {
-				if !vfield.IsValid() { break }
-				if vfield.IsNil()    { break }
+				if !vfield.IsValid() {
+					break
+				}
+				if vfield.IsNil() {
+					break
+				}
 				tfield = tfield.Elem()
 				vfield = vfield.Elem()
 			}
@@ -450,7 +464,9 @@ func (this *S_Request) CancelJsonObject(obj interface{}) {
 // ---------------------------------------------------------
 // 回复客户端
 func (this *S_Request) Response() error {
-	if this.cancel { return nil }
+	if this.cancel {
+		return nil
+	}
 	if this.jsonObj != nil {
 		this.W.Header().Set("Content-Type", "application/json")
 		bs, err := json.Marshal(this.jsonObj)

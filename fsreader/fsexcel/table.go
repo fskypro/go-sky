@@ -26,7 +26,7 @@ type S_RowHeader struct {
 	S_Header
 }
 
-func (this * S_RowHeader) Order() string {
+func (this *S_RowHeader) Order() string {
 	return IndexToColOrder(this.index)
 }
 
@@ -38,7 +38,7 @@ func (this *S_ColHeader) Order() int {
 	return this.index + 1
 }
 
-func newHeader[T S_RowHeader | S_ColHeader](name string, index int) *T  {
+func newHeader[T S_RowHeader | S_ColHeader](name string, index int) *T {
 	return &T{S_Header{name, index}}
 }
 
@@ -53,7 +53,7 @@ type s_Table[T S_RowHeader | S_ColHeader] struct {
 }
 
 func newTable[T S_RowHeader | S_ColHeader](data [][]string, headerIndex, validIndex int) *s_Table[T] {
-	if validIndex >= headerIndex {
+	if validIndex <= headerIndex {
 		validIndex = headerIndex + 1
 	}
 	headers := []*T{}
@@ -62,7 +62,9 @@ func newTable[T S_RowHeader | S_ColHeader](data [][]string, headerIndex, validIn
 		data = [][]string{}
 	} else {
 		for idx, text := range data[headerIndex] {
-			if text == "" { continue }
+			if text == "" {
+				continue
+			}
 			header := newHeader[T](text, idx)
 			nameHeaders[text] = header
 			headers = append(headers, header)
@@ -86,9 +88,9 @@ func (this *s_Table[T]) Count() int {
 }
 
 // 通过表头名称获取表头
-func (this *s_Table[T])GetHeaderByName(name string) *T {
+func (this *s_Table[T]) GetHeaderByName(name string) *T {
 	return this.nameHeaders[name]
-} 
+}
 
 // -------------------------------------------------------------------
 // 以某一行为表头的表格
@@ -101,7 +103,7 @@ func newRowsTable(data [][]string, headerIndex, validIndex int) *S_RowsTable {
 
 // 通过表头序号获取表头
 func (this *S_RowsTable) GetHeaderByOrder(order string) *S_RowHeader {
-	for _ , header := range this.headers {
+	for _, header := range this.headers {
 		if header.Order() == order {
 			return header
 		}
@@ -111,11 +113,16 @@ func (this *S_RowsTable) GetHeaderByOrder(order string) *S_RowHeader {
 
 // 获取指定序号的行
 // 注意：
-//   第一行为 1
-//   如果序号超出范围，则返回 nil
+//
+//	第一行为 1
+//	如果序号超出范围，则返回 nil
 func (this *S_RowsTable) GetRow(order int) *S_Row {
-	if order <= this.validIndex { return nil }
-	if order > len(this.data)   { return nil }
+	if order <= this.validIndex {
+		return nil
+	}
+	if order > len(this.data) {
+		return nil
+	}
 	return newRow(this.s_Table, order-1)
 }
 
@@ -143,7 +150,7 @@ func newColsTable(data [][]string, headerIndex, validIndex int) *S_ColsTable {
 	return &S_ColsTable{newTable[S_ColHeader](data, headerIndex, validIndex)}
 }
 
-func (this *S_ColsTable) GetHeaderByOrder(order int ) *S_ColHeader {
+func (this *S_ColsTable) GetHeaderByOrder(order int) *S_ColHeader {
 	for _, header := range this.headers {
 		if header.Order() == order {
 			return header
@@ -154,12 +161,17 @@ func (this *S_ColsTable) GetHeaderByOrder(order int ) *S_ColHeader {
 
 // 获取指定序号的列
 // 注意：
-//   第一列为 A
-//   如果序号超出范围，则返回 nil
+//
+//	第一列为 A
+//	如果序号超出范围，则返回 nil
 func (this *S_ColsTable) GetCol(order string) *S_Col {
 	index := ColOrderToIndex(order)
-	if index < this.validIndex { return nil }
-	if index >= len(this.data) { return nil }
+	if index < this.validIndex {
+		return nil
+	}
+	if index >= len(this.data) {
+		return nil
+	}
 	return newCol(this.s_Table, index)
 }
 

@@ -175,7 +175,9 @@ func (this *s_CndList) parse(lcnds []any) error {
 	}
 	for _, anyCnd := range lcnds {
 		cnd, err := _parseAnyCnd(anyCnd)
-		if err != nil { return err } else {
+		if err != nil {
+			return err
+		} else {
 			this.cnds = append(this.cnds, cnd)
 		}
 	}
@@ -183,7 +185,9 @@ func (this *s_CndList) parse(lcnds []any) error {
 }
 
 func (this *s_CndList) tran(f func(E_CndElem, *S_Cnd) error) error {
-	if len(this.cnds) == 0 { return nil }
+	if len(this.cnds) == 0 {
+		return nil
+	}
 	f(ECndLQuote, nil)
 	for idx, cnd := range this.cnds {
 		if idx > 0 {
@@ -200,13 +204,17 @@ func (this *s_CndList) tran(f func(E_CndElem, *S_Cnd) error) error {
 // SQL coditions
 // 假设 A、B、C、D 都是 S_Cnd 对象
 // 以下写法都是正确的：
-//   1、只有 A 条件时传入        ：A
-//   2、(A || B) && (C || D) 传入：[["OR", A, B], ["OR", C, D]]
-//   3、A && ((B || C) && D) 传入：["AND", [A, ["OR", B || C], D]]
+//
+//	1、只有 A 条件时传入        ：A
+//	2、(A || B) && (C || D) 传入：[["OR", A, B], ["OR", C, D]]
+//	3、A && ((B || C) && D) 传入：["AND", [A, ["OR", B || C], D]]
+//
 // 即：
-//   如果只有一个条件，可以直接写单个条件，即：{"match": <匹配方式>, "key": <数据库字段映射名>, "value": <条件判断字符串>}
-//   如果是多个条件或连接：["OR", 条件1， 条件2, ...]
-//   如果是多个条件与连接：["AND", 条件1， 条件2, ...]，或：["AND", 条件1， 条件2, ...]
+//
+//	如果只有一个条件，可以直接写单个条件，即：{"match": <匹配方式>, "key": <数据库字段映射名>, "value": <条件判断字符串>}
+//	如果是多个条件或连接：["OR", 条件1， 条件2, ...]
+//	如果是多个条件与连接：["AND", 条件1， 条件2, ...]，或：["AND", 条件1， 条件2, ...]
+//
 // -------------------------------------------------------------------
 type S_Cnds struct {
 	cnd i_Cnd

@@ -11,6 +11,11 @@ package fsstack
 
 import "errors"
 
+type F_Iter[T any] func(func(T) bool)
+
+// -------------------------------------------------------------------
+// Stack
+// -------------------------------------------------------------------
 type S_Stack[T comparable] struct {
 	items []T
 }
@@ -132,6 +137,28 @@ func (this *S_Stack[T]) TFor(f func(T) bool) {
 	for i := len(this.items) - 1; i >= 0; i-- {
 		if !f(this.items[i]) {
 			break
+		}
+	}
+}
+
+// 从栈底开始遍历
+func (this *S_Stack[T]) BIter() F_Iter[T] {
+	return func(yield func(T) bool) {
+		for _, v := range this.items {
+			if !yield(v) {
+				break
+			}
+		}
+	}
+}
+
+// 从栈顶开始遍历
+func (this *S_Stack[T]) TIter() F_Iter[T] {
+	return func(yield func(T) bool) {
+		for i := len(this.items) - 1; i >= 0; i-- {
+			if !yield(this.items[i]) {
+				break
+			}
 		}
 	}
 }

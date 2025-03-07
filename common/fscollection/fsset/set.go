@@ -11,6 +11,11 @@ package fsset
 
 import "fmt"
 
+type F_Iter[T any] func(func(T) bool)
+
+// -------------------------------------------------------------------
+// Set
+// -------------------------------------------------------------------
 type S_Set[T comparable] struct {
 	items map[T]any
 }
@@ -72,7 +77,7 @@ func (this *S_Set[T]) String() string {
 			str += ","
 		}
 		str += fmt.Sprintf("%v", key)
-		index ++
+		index++
 	}
 	return str + "}"
 }
@@ -102,9 +107,19 @@ func (this *S_Set[T]) For(f func(T) bool) {
 	}
 }
 
+func (this *S_Set[T]) Iter() F_Iter[T] {
+	return func(yield func(T) bool) {
+		for v := range this.items {
+			if !yield(v) {
+				return
+			}
+		}
+	}
+}
+
 func (this *S_Set[T]) AddSlice(values []T) {
 	for _, value := range values {
-		this.items[value] = nil 
+		this.items[value] = nil
 	}
 }
 

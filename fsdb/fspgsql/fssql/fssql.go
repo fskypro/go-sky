@@ -38,7 +38,7 @@ var reptns = []string{
 	// 必须指定 conent 的正则模式（group[4]=""; group[5]="", group[6]="", group[7]=content）
 	`(%[1]s)?%[1]s(?:\[\s*(\d+)\s*\])?(o)()()()\{(.+?)\}`,
 	// content 内容可选的（group[4]=alias, group[5] = "-"；group[]="."; group[7]=content）
-	`(%[1]s)?%[1]s(?:\[\s*(\d+)\s*\])?(TM|TV|TE|TO)(?:\(\s*(\w+)\s*\))?(-)?(\.)?(?:\{([_0-9A-z\., ]*)\})?`,
+	`(%[1]s)?%[1]s(?:\[\s*(\d+)\s*\])?(TM|TV|TE|TO|TU)(?:\(\s*(\w+)\s*\))?(-)?(\.)?(?:\{([_0-9A-z\., ]*)\})?`,
 }
 
 var bytea = reflect.TypeOf([]byte{})
@@ -92,7 +92,9 @@ func (this *S_SQL) takeContentMembers(content string) []string {
 	members := []string{}
 	for _, m := range strings.Split(content, ",") {
 		m = strings.TrimSpace(m)
-		if m == "" { continue }
+		if m == "" {
+			continue
+		}
 		members = append(members, m)
 	}
 	return members
@@ -101,7 +103,9 @@ func (this *S_SQL) takeContentMembers(content string) []string {
 // 添加传入值
 func (this *S_SQL) addInput(value any) (string, error) {
 	rt := reflect.TypeOf(value)
-	if rt == nil { return "NULL", nil }
+	if rt == nil {
+		return "NULL", nil
+	}
 	// 如果传入 []byte 类型的值，则认为数据库中对应的字段类型为 bytea
 	if rt.Kind() == reflect.Slice || rt.Kind() == reflect.Array {
 		// 注意：
@@ -137,33 +141,37 @@ func (this *S_SQL) getMemberName(m *S_Member, tbAlias string, withTable bool) st
 func (this *S_SQL) getOutMemberName(m *S_Member, tbAlias string, withTable bool) string {
 	if tbAlias != "" {
 		// 指定表别名
-		return fmt.Sprintf("%s.%s", tbAlias, m.quote())
+		return m.outexp(fmt.Sprintf("%s.%s", tbAlias, m.quote()))
 	}
 	if withTable {
-		return m.quoteWithTable()
+		// 带表名引用字段
+		return m.outexp(m.quoteWithTable())
 	}
-	return m.outexp()
+	return m.outexp(m.quote())
 }
 
 // ---------------------------------------------------------
 // 将指定参数直接取其字符串放入 SQL 语句
 // 格式化字符串：
-//   %s 或 %[index]s
+//
+//	%s 或 %[index]s
 func (this *S_SQL) parse_s(exp string, argOrder int, exclude bool, alias string, withTable bool, content string, arg any) string {
 	return fmt.Sprintf("%v", arg)
 }
 
 // 将指定参数直接取其字符串并加上双引号放入 SQL 语句
 // 格式化字符串：
-//   %q 或 %[index]q
+//
+//	%q 或 %[index]q
 func (this *S_SQL) parse_q(exp string, argOrder int, exclude bool, alias string, withTable bool, content string, arg any) string {
 	return fmt.Sprintf(`"%v"`, arg)
 }
 
 // 格式化预传入值
 // 格式化字符串：
-//   %v 或 %[index]v
-//     表示将指定参数作为 sql 的传入值
+//
+//	%v 或 %[index]v
+//	  表示将指定参数作为 sql 的传入值
 func (this *S_SQL) parse_v(exp string, argOrder int, exclude bool, alias string, withTable bool, content string, arg any) string {
 	subsql, err := this.addInput(arg)
 	if err != nil {
@@ -175,8 +183,9 @@ func (this *S_SQL) parse_v(exp string, argOrder int, exclude bool, alias string,
 
 // 设置传出参数
 // 格式化字符串：
-//   %o(mname) 或 %[index](mname)
-//     表示将 table.col 传出给指定的参数
+//
+//	%o(mname) 或 %[index](mname)
+//	  表示将 table.col 传出给指定的参数
 func (this *S_SQL) parse_o(exp string, argOrder int, exclude bool, alias string, withTable bool, content string, arg any) string {
 	if content == "" {
 		this.errorf("no content in expression %q", exp)
@@ -197,8 +206,9 @@ func (this *S_SQL) parse_o(exp string, argOrder int, exclude bool, alias string,
 
 // 根据表对象，传入表名
 // 格式化字符串：
-//   %TN 或 %[index]TN
-//     将转义符转换为对应参数表格的表名，对应参数必须是 S_Table 指针对象
+//
+//	%TN 或 %[index]TN
+//	  将转义符转换为对应参数表格的表名，对应参数必须是 S_Table 指针对象
 func (this *S_SQL) parse_TN(exp string, argOrder int, exclude bool, alias string, withTable bool, content string, arg any) string {
 	if !fstype.IsType[*S_Table](arg) {
 		this.errorf("argument %d must be a pointer of %v for expression %q", argOrder, tableType, exp)
@@ -213,22 +223,25 @@ func (this *S_SQL) parse_TN(exp string, argOrder int, exclude bool, alias string
 
 // 提取表记录对象成员所对应的数据库字段，并将这些字段排列成一串以逗号分隔开的字符串
 // 格式化字符串：
-//   1、%TM{} 或 %[index]{}
-//     表示获取指定参数表记录对象，其所有成员对应的数据库字段名称，并用逗号分隔开，将其放到 SQL 语句中。
-//   2、%TM{mname1, mname2, ...} 或 %TM[index]{mname1, mname2, ...}
-//     表示获取指定参数表记录对象，其括号中指定的成员对应的数据库字段名称，并用逗号分隔开，将其放到 SQL 语句中。
-//   3、%TM-{mname1, mname2, ...} 或 %TM[index]-{mname1, mname2, ...}
-//     表示获取指定参数表记录对象，其除了括号中的成员以外的所有成员对应的数据库字段名称，并用逗号分隔开，将其放到 SQL 语句中。
-//   4、以上三种方式下都可以通过在 %TM 后面加上一个括号括起来的别名，如：%TM(t){M1, M2}，这样在生成 sql 语句时，会字字段前面
-//     用别名限定，如：t.m1, t.m2
 //
-//  注意：
-//     对应参数必须是一个 S_Table 指针对象，或者是数据库表记录映射对象
+//	 1、%TM{} 或 %[index]{}
+//	   表示获取指定参数表记录对象，其所有成员对应的数据库字段名称，并用逗号分隔开，将其放到 SQL 语句中。
+//	 2、%TM{mname1, mname2, ...} 或 %TM[index]{mname1, mname2, ...}
+//	   表示获取指定参数表记录对象，其括号中指定的成员对应的数据库字段名称，并用逗号分隔开，将其放到 SQL 语句中。
+//	 3、%TM-{mname1, mname2, ...} 或 %TM[index]-{mname1, mname2, ...}
+//	   表示获取指定参数表记录对象，其除了括号中的成员以外的所有成员对应的数据库字段名称，并用逗号分隔开，将其放到 SQL 语句中。
+//	 4、以上三种方式下都可以通过在 %TM 后面加上一个括号括起来的别名，如：%TM(t){M1, M2}，这样在生成 sql 语句时，会字字段前面
+//	   用别名限定，如：t.m1, t.m2
+//
+//	注意：
+//	   对应参数必须是一个 S_Table 指针对象，或者是数据库表记录映射对象
 func (this *S_SQL) parse_TM(exp string, argOrder int, exclude bool, alias string, withTable bool, content string, arg any) string {
 	members := []string{}
 	for _, m := range strings.Split(content, ",") {
 		m = strings.TrimSpace(m)
-		if m == "" { continue }
+		if m == "" {
+			continue
+		}
 		members = append(members, m)
 	}
 	var tb *S_Table
@@ -244,7 +257,7 @@ func (this *S_SQL) parse_TM(exp string, argOrder int, exclude bool, alias string
 	}
 	// 所有成员
 	if len(members) == 0 {
-		return fsstr.JoinFunc(tb.orderMembers, ",", func(m *S_Member) string {
+		return fsstr.JoinFunc(tb.members, ",", func(m *S_Member) string {
 			return this.getMemberName(m, alias, withTable)
 		})
 	}
@@ -252,7 +265,7 @@ func (this *S_SQL) parse_TM(exp string, argOrder int, exclude bool, alias string
 	dbkeys := []string{}
 	// 排除指定成员外的所有成员
 	if exclude {
-		for _, m := range tb.orderMembers {
+		for _, m := range tb.members {
 			if !fscollection.SliceHas(members, m.name) {
 				dbkeys = append(dbkeys, this.getMemberName(m, alias, withTable))
 			}
@@ -272,20 +285,24 @@ func (this *S_SQL) parse_TM(exp string, argOrder int, exclude bool, alias string
 
 // 将传入对象的值作为构建 SQL 的传入值
 // 格式化字符串：
-//   1、%TV{} 或 %[index]TV{}
-//     表示将对应参数对象的所有成员值作为 SQL 的传入值
-//   2、%TV{mname1, mname2, ...} 或 %[index]TV{mname1, mname2, ...}
-//     表示将对应参数对象的成员(括号中指定的成员)值作为 SQL 的传入值
-//   3、%TV-{manme1, mname2, ...} 或 %[index]TV-{mname1, mname2, ...}
-//     表示将对应参数对象的成员(括号中指定的成员)值作为 SQL 的传入值
+//
+//	1、%TV{} 或 %[index]TV{}
+//	  表示将对应参数对象的所有成员值作为 SQL 的传入值
+//	2、%TV{mname1, mname2, ...} 或 %[index]TV{mname1, mname2, ...}
+//	  表示将对应参数对象的成员(括号中指定的成员)值作为 SQL 的传入值
+//	3、%TV-{manme1, mname2, ...} 或 %[index]TV-{mname1, mname2, ...}
+//	  表示将对应参数对象的成员(括号中指定的成员)值作为 SQL 的传入值
 //
 // 注意：
-//   对应参数必须为数据库记录映射对象
+//
+//	对应参数必须为数据库记录映射对象
 func (this *S_SQL) parse_TV(exp string, argOrder int, exclude bool, walias string, ithTable bool, content string, arg any) string {
 	members := []string{}
 	for _, m := range strings.Split(content, ",") {
 		m = strings.TrimSpace(m)
-		if m == "" { continue }
+		if m == "" {
+			continue
+		}
 		members = append(members, m)
 	}
 	tb, err := getObjTable(arg)
@@ -310,22 +327,30 @@ func (this *S_SQL) parse_TV(exp string, argOrder int, exclude bool, walias strin
 	}
 
 	if len(members) == 0 {
-		for _, m := range tb.orderMembers {
-			if !addMember(m) { return exp }
+		for _, m := range tb.members {
+			if !addMember(m) {
+				return exp
+			}
 		}
 	} else if exclude {
-		for _, m := range tb.orderMembers {
-			if fscollection.SliceHas(members, m.name) { continue }
-			if !addMember(m)                          { return exp }
+		for _, m := range tb.members {
+			if fscollection.SliceHas(members, m.name) {
+				continue
+			}
+			if !addMember(m) {
+				return exp
+			}
 		}
 	} else {
 		for _, name := range members {
-			m := tb.members[name]
+			m := tb.Member(name)
 			if m == nil {
 				this.errorf("argument %d has no member named %q for expression %q", argOrder, name, exp)
 				return exp
 			}
-			if !addMember(m) { return exp }
+			if !addMember(m) {
+				return exp
+			}
 		}
 	}
 	return strings.Join(dollers, ",")
@@ -333,20 +358,24 @@ func (this *S_SQL) parse_TV(exp string, argOrder int, exclude bool, walias strin
 
 // 将传入对象的值作为构建 SQL 的设置值
 // 格式化字符串：
-//   1、%TE{} 或 %[index]TE{}
-//     表示将对应参数对象的所有成员值作为 SQL 的传入值
-//   2、%TE{mname1, mname2, ...} 或 %[index]TE{mname1, mname2, ...}
-//     表示将对应参数对象的成员(大括号中指定的成员)值作为 SQL 的传入值
-//   3、%TE-{manme1, mname2, ...} 或 %[index]TE-{mname1, mname2, ...}
-//     表示将对应参数对象的成员(括号中指定的成员)值作为 SQL 的设置传入值
+//
+//	1、%TE{} 或 %[index]TE{}
+//	  表示将对应参数对象的所有成员值作为 SQL 的传入值
+//	2、%TE{mname1, mname2, ...} 或 %[index]TE{mname1, mname2, ...}
+//	  表示将对应参数对象的成员(大括号中指定的成员)值作为 SQL 的传入值
+//	3、%TE-{manme1, mname2, ...} 或 %[index]TE-{mname1, mname2, ...}
+//	  表示将对应参数对象的成员(括号中指定的成员)值作为 SQL 的设置传入值
 //
 // 注意：
-//   对应参数必须为数据库记录映射对象
+//
+//	对应参数必须为数据库记录映射对象
 func (this *S_SQL) parse_TE(exp string, argOrder int, exclude bool, alias string, withTable bool, content string, arg any) string {
 	members := []string{}
 	for _, m := range strings.Split(content, ",") {
 		m = strings.TrimSpace(m)
-		if m == "" { continue }
+		if m == "" {
+			continue
+		}
 		members = append(members, m)
 	}
 	tb, err := getObjTable(arg)
@@ -371,22 +400,30 @@ func (this *S_SQL) parse_TE(exp string, argOrder int, exclude bool, alias string
 	}
 
 	if len(members) == 0 {
-		for _, m := range tb.orderMembers {
-			if !addMember(m) { return exp }
+		for _, m := range tb.members {
+			if !addMember(m) {
+				return exp
+			}
 		}
 	} else if exclude {
-		for _, m := range tb.orderMembers {
-			if fscollection.SliceHas(members, m.name) { continue }
-			if !addMember(m)                          { return exp }
+		for _, m := range tb.members {
+			if fscollection.SliceHas(members, m.name) {
+				continue
+			}
+			if !addMember(m) {
+				return exp
+			}
 		}
 	} else {
 		for _, name := range members {
-			m := tb.members[name]
+			m := tb.Member(name)
 			if m == nil {
 				this.errorf("argument %d has no member named %q for expression %q", argOrder, name, exp)
 				return exp
 			}
-			if !addMember(m) { return exp }
+			if !addMember(m) {
+				return exp
+			}
 		}
 	}
 	return strings.Join(eqs, ",")
@@ -398,7 +435,9 @@ func (this *S_SQL) parse_TU(exp string, argOrder int, exclude bool, alias string
 	members := []string{}
 	for _, m := range strings.Split(content, ",") {
 		m = strings.TrimSpace(m)
-		if m == "" { continue }
+		if m == "" {
+			continue
+		}
 		members = append(members, m)
 	}
 	tb, err := getObjTable(arg)
@@ -415,22 +454,30 @@ func (this *S_SQL) parse_TU(exp string, argOrder int, exclude bool, alias string
 	}
 
 	if len(members) == 0 {
-		for _, m := range tb.orderMembers {
-			if !addMember(m) { return exp }
+		for _, m := range tb.members {
+			if !addMember(m) {
+				return exp
+			}
 		}
 	} else if exclude {
-		for _, m := range tb.orderMembers {
-			if fscollection.SliceHas(members, m.name) { continue }
-			if !addMember(m)                          { return exp }
+		for _, m := range tb.members {
+			if fscollection.SliceHas(members, m.name) {
+				continue
+			}
+			if !addMember(m) {
+				return exp
+			}
 		}
 	} else {
 		for _, name := range members {
-			m := tb.members[name]
+			m := tb.Member(name)
 			if m == nil {
 				this.errorf("argument %d has no member named %q for expression %q", argOrder, name, exp)
 				return exp
 			}
-			if !addMember(m) { return exp }
+			if !addMember(m) {
+				return exp
+			}
 		}
 	}
 	return strings.Join(eqs, ",")
@@ -438,17 +485,20 @@ func (this *S_SQL) parse_TU(exp string, argOrder int, exclude bool, alias string
 
 // 将传入对象的成员名称作为逗号分隔字符串，并将对象的成员制作存放到 SQL 的传出值列表中
 // 格式化字符串：
-//   1、%TO{} 或 %[index]TO{}
-//     表示将对应参数对象的所有成员名称，以逗号分隔开拼接成一个 sql 字符串，并将所有成员指针放进 sql 对象的传出列表中
-//   2、%TO{mname1, mname2, ...} 或 %[index]TO{mname1, mname2, ...}
-//     表示将对应参数对象的大括号中指定的成员名称，以逗号分隔开拼接成一个 sql 字符串，并将对应的成员指针放进 sql 对象的传出列表中
-//   3、%TO-{mname1, mname2, ...} 或 %[index]TO-{mname1, mname2}
-//     表示将对应参数对象的除了大括号中指定的成员以外的所有成员名称，以逗号分隔开拼接成一个 sql 字符串，并将同样对应的成员指针放进 sql 对象的传出列表中
+//
+//	1、%TO{} 或 %[index]TO{}
+//	  表示将对应参数对象的所有成员名称，以逗号分隔开拼接成一个 sql 字符串，并将所有成员指针放进 sql 对象的传出列表中
+//	2、%TO{mname1, mname2, ...} 或 %[index]TO{mname1, mname2, ...}
+//	  表示将对应参数对象的大括号中指定的成员名称，以逗号分隔开拼接成一个 sql 字符串，并将对应的成员指针放进 sql 对象的传出列表中
+//	3、%TO-{mname1, mname2, ...} 或 %[index]TO-{mname1, mname2}
+//	  表示将对应参数对象的除了大括号中指定的成员以外的所有成员名称，以逗号分隔开拼接成一个 sql 字符串，并将同样对应的成员指针放进 sql 对象的传出列表中
 func (this *S_SQL) parse_TO(exp string, argOrder int, exclude bool, alias string, withTable bool, content string, arg any) string {
 	members := []string{}
 	for _, m := range strings.Split(content, ",") {
 		m = strings.TrimSpace(m)
-		if m == "" { continue }
+		if m == "" {
+			continue
+		}
 		members = append(members, m)
 	}
 	tb, err := getObjTable(arg)
@@ -459,37 +509,48 @@ func (this *S_SQL) parse_TO(exp string, argOrder int, exclude bool, alias string
 
 	dbkeys := []string{}
 	if len(members) == 0 {
-		for _, m := range tb.orderMembers {
+		for _, m := range tb.members {
 			pvalue, err := m.valuePtr(arg)
 			if err != nil {
 				this.errorf("parse output object for member %q fail, %v", m.name, err)
 				return exp
 			}
+			if m.isList() {
+				pvalue = pq.Array(pvalue)
+			}
 			this.Outputs = append(this.Outputs, pvalue)
 			dbkeys = append(dbkeys, this.getOutMemberName(m, alias, withTable))
 		}
 	} else if exclude {
-		for _, m := range tb.orderMembers {
-			if fscollection.SliceHas(members, m.name) { continue }
+		for _, m := range tb.members {
+			if fscollection.SliceHas(members, m.name) {
+				continue
+			}
 			pvalue, err := m.valuePtr(arg)
 			if err != nil {
-				this.errorf("parse output object fro member %q fail, %v", m.name, err)
+				this.errorf("parse output object for member %q fail, %v", m.name, err)
 				return exp
+			}
+			if m.isList() {
+				pvalue = pq.Array(pvalue)
 			}
 			this.Outputs = append(this.Outputs, pvalue)
 			dbkeys = append(dbkeys, this.getOutMemberName(m, alias, withTable))
 		}
 	} else {
 		for _, name := range members {
-			m := tb.members[name]
+			m := tb.Member(name)
 			if m == nil {
 				this.errorf("argument %d has no member named %q for expression %q", argOrder, name, exp)
 				return exp
 			}
 			pvalue, err := m.valuePtr(arg)
 			if err != nil {
-				this.errorf("parse output object fro member %q fail, %v", m.name, err)
+				this.errorf("parse output object for member %q fail, %v", m.name, err)
 				return exp
+			}
+			if m.isList() {
+				pvalue = pq.Array(pvalue)
 			}
 			this.Outputs = append(this.Outputs, pvalue)
 			dbkeys = append(dbkeys, this.getOutMemberName(m, alias, withTable))
@@ -501,9 +562,13 @@ func (this *S_SQL) parse_TO(exp string, argOrder int, exclude bool, alias string
 func (this *S_SQL) parseArg(exp string, args []any) string {
 	for _, re := range this.resubs {
 		group := re.FindStringSubmatch(exp)
-		if len(group) == 0 { continue }
+		if len(group) == 0 {
+			continue
+		}
 
-		if group[1] != "" { return group[0][1:] } // 引导字符开头的忽略
+		if group[1] != "" {
+			return group[0][1:]
+		} // 引导字符开头的忽略
 		// 参数索引
 		order := this.argOrder
 		if group[2] != "" {
@@ -558,7 +623,9 @@ func (this *S_SQL) parseArg(exp string, args []any) string {
 // SQL public
 // -------------------------------------------------------------------
 func (this *S_SQL) Fmt() string {
-	if this.Error != nil { return this.Error.Error() }
+	if this.Error != nil {
+		return this.Error.Error()
+	}
 	index := 0
 	return fmt.Sprintf("%s\n\t%s", this.SQLTxt,
 		fsstr.JoinFunc(this.Inputs, ", ", func(e any) string {
@@ -582,67 +649,79 @@ func (this *S_SQL) SQL(tx string, args ...any) *S_SQL {
 	return this
 }
 
+func (this *S_SQL) AddInputs(inputs []any) {
+	for _, input := range inputs {
+		this.addInput(input)
+	}
+}
+
+func (this *S_SQL) NextInputOrder() int {
+	return len(this.Inputs) + 1
+}
+
 // -----------------------------------------------------------------------------
 // public
 // -----------------------------------------------------------------------------
 // 构建 sql 语句
 // tx 可以包含以下转义符：
-//  1、%[参数索引(可选)]s
-//      将指定参数直接填补到 sql 语句的 %s 表达式中
-//  2、%[参数索引(可选)]q
-//      将指定参数直接填补到 sql 语句的 %s 表达式中，并在参数两边加上双引号
 //
-//  3、%[参数索引(可选)]v
-//      普通 sql 传入值参数
-//  4、%[参数索引(可选)]o{<sql表达式>}
-//      普通传出参数（注意，必须是指针类型）
+//	1、%[参数索引(可选)]s
+//	    将指定参数直接填补到 sql 语句的 %s 表达式中
+//	2、%[参数索引(可选)]q
+//	    将指定参数直接填补到 sql 语句的 %s 表达式中，并在参数两边加上双引号
 //
-//  5、%[参数索引(可选)]TN
-//      S_Table 在数据库中的名称
+//	3、%[参数索引(可选)]v
+//	    普通 sql 传入值参数
+//	4、%[参数索引(可选)]o{<sql表达式>}
+//	    普通传出参数（注意，必须是指针类型）
 //
-//  6、%[参数索引(可选)]TM{} 或 %[参数索引(可选)]TM.{}
-//      指定 S_Table 的所有成员对应的数据库字段名称，以逗号分隔（对应位置的参数必须是 S_Table 对象）
-//  7、%[参数索引(可选)]TM{成员名称1, 成员名称2, ...} 或 %[参数索引(可选)]TM.{成员名称1, 成员名称2, ...}
-//      指定 S_Table 的成员对应的数据库字段名称，以逗号分隔（对应位置的参数必须是 S_Table 对象）
-//  8、%[参数索引(可选)]TM-{成员名称1, 成员名称2, ...} 或 %[参数索引(可选)]TM-.{成员名称1, 成员名称2, ...}
-//      指定 S_Table 排除掉大括号中指定的成员后，剩余成员对应的数据库字段名称，以逗号分隔（对应位置的参数必须是 S_Table 对象）
+//	5、%[参数索引(可选)]TN
+//	    S_Table 在数据库中的名称
 //
-//  9、%[参数索引(可选)]TE{} 或 %[参数索引(可选)]TE.{}
-//      将数据库映射对象的所有成员对应的数据库字段组合成 <dbkey1>=$n1,<dbkey2>=$n2 的形式
-//  10、%[参数索引(可选)]TE{成员名称1, 成员名称2, ...} 或 %[参数索引(可选)]TE.{成员名称1, 成员名称2, ...}
-//      将数据库映射对象，在大括号中列出的成员对应的数据库字段组合成 <dbkey1>=$n1,<dbkey2>=$n2 的形式
-//  11、%[参数索引(可选)]TE-{成员名称1, 成员名称2, ...} 或 %[参数索引(可选)]TE-.{成员名称1, 成员名称2, ...}
-//      将数据库映射对象，除了在大括号中列出的成员以外的所有成员对应的数据库字段组合成 <dbkey1>=$n1,<dbkey2>=$n2 的形式
+//	6、%[参数索引(可选)]TM{} 或 %[参数索引(可选)]TM.{}
+//	    指定 S_Table 的所有成员对应的数据库字段名称，以逗号分隔（对应位置的参数必须是 S_Table 对象）
+//	7、%[参数索引(可选)]TM{成员名称1, 成员名称2, ...} 或 %[参数索引(可选)]TM.{成员名称1, 成员名称2, ...}
+//	    指定 S_Table 的成员对应的数据库字段名称，以逗号分隔（对应位置的参数必须是 S_Table 对象）
+//	8、%[参数索引(可选)]TM-{成员名称1, 成员名称2, ...} 或 %[参数索引(可选)]TM-.{成员名称1, 成员名称2, ...}
+//	    指定 S_Table 排除掉大括号中指定的成员后，剩余成员对应的数据库字段名称，以逗号分隔（对应位置的参数必须是 S_Table 对象）
 //
-//  12、%[参数索引(可选)]TV{}
-//      将指定对象的成员值作为构建 SQL 语句的传入值，包括所有成员值（对应位置的参数必须是一个数据库表记录映射对象）
-//  13、%[参数索引(可选)]TV{成员名称1, 成员名称2, ...}
-//      将指定对象的成员值作为构建 SQL 语句的传入值，包括大括号中列出的成员值（对应位置的参数必须是一个数据库表记录映射对象）
-//  14、%[参数索引(可选)]TV-{成员名称1, 成员名称2, ...}
-//      将指定对象的成员值作为构建 SQL 语句的传入值，包括括号中指定成员以外的所有成员的值（对应位置的参数必须是一个数据库表记录映射对象）
+//	9、%[参数索引(可选)]TE{} 或 %[参数索引(可选)]TE.{}
+//	    将数据库映射对象的所有成员对应的数据库字段组合成 <dbkey1>=$n1,<dbkey2>=$n2 的形式
+//	10、%[参数索引(可选)]TE{成员名称1, 成员名称2, ...} 或 %[参数索引(可选)]TE.{成员名称1, 成员名称2, ...}
+//	    将数据库映射对象，在大括号中列出的成员对应的数据库字段组合成 <dbkey1>=$n1,<dbkey2>=$n2 的形式
+//	11、%[参数索引(可选)]TE-{成员名称1, 成员名称2, ...} 或 %[参数索引(可选)]TE-.{成员名称1, 成员名称2, ...}
+//	    将数据库映射对象，除了在大括号中列出的成员以外的所有成员对应的数据库字段组合成 <dbkey1>=$n1,<dbkey2>=$n2 的形式
 //
-//  15、%[参数索引(可选)]TO{}
-//      指定对象的成员指针，作为构建 SQL 的传出参数，包括对象的所有成员（对应位置的参数必须是一个数据库表记录映射对象）
-//  16、%[参数索引(可选)]TO{成员名称1, 成员名称2, ...}
-//      指定对象的指定成员指针，作为构建 SQL 的传出参数，指定对象的成员名称（对应位置的参数必须是一个数据库表记录映射对象）
-//  17、%[参数索引(可选)]TO-{成员名称1, 成员名称2, ...}
-//      指定对象除了指出成员以外的所有成员指针，作为构建 SQL 的传出参数，包含除了大括号指定的成员名称以外的所有成员（对应位置的参数必须是一个数据库表记录映射对象）
+//	12、%[参数索引(可选)]TV{}
+//	    将指定对象的成员值作为构建 SQL 语句的传入值，包括所有成员值（对应位置的参数必须是一个数据库表记录映射对象）
+//	13、%[参数索引(可选)]TV{成员名称1, 成员名称2, ...}
+//	    将指定对象的成员值作为构建 SQL 语句的传入值，包括大括号中列出的成员值（对应位置的参数必须是一个数据库表记录映射对象）
+//	14、%[参数索引(可选)]TV-{成员名称1, 成员名称2, ...}
+//	    将指定对象的成员值作为构建 SQL 语句的传入值，包括括号中指定成员以外的所有成员的值（对应位置的参数必须是一个数据库表记录映射对象）
 //
-//  18、%[参数索引(可选)]TU{}
-//      将对象所有成员构建成以下等式列表：m1=EXCLUDED.m1, m2=EXCLUDED.m2
-//      如：%TU{}，假设对象有两个成员，对应字段为 m1、m2，则生成的 SQL 子句为：m1=EXCLUDED.m1, m2=EXCLUDED.m2
-//  19、%[参数索引(可选)]TU{成员名称1, 成员名称2}
-//      将大括号中指定的对象名称所以对应的数据字段，生成以下形式的 SQL 子句：m1=EXCLUDED.m1, m2=EXCLUDED.m2
-//      如：%TU{M1, M2} 则生成的 SQL 为：m1=EXCLUDED.m1, m2=EXCLUDED.m2
-//  20、%[参数索引(可选)]TUi-{成员名称1, 成员名称2}
-//      将除了大括号中指定成员名称以外的成员，其对应的数据库字段，生成以下格式的 SQL 子句：m1=EXCLUDED.m1, m2=EXCLUDED.m2
-//      如：假设对象有四个成员 M1/M2/M3/M4，则，%TU-{M1, M2} 则生成的 SQL 子句为：m2=EXCLUDED.m2, m3=EXCLUDED.m3
+//	15、%[参数索引(可选)]TO{}
+//	    指定对象的成员指针，作为构建 SQL 的传出参数，包括对象的所有成员（对应位置的参数必须是一个数据库表记录映射对象）
+//	16、%[参数索引(可选)]TO{成员名称1, 成员名称2, ...}
+//	    指定对象的指定成员指针，作为构建 SQL 的传出参数，指定对象的成员名称（对应位置的参数必须是一个数据库表记录映射对象）
+//	17、%[参数索引(可选)]TO-{成员名称1, 成员名称2, ...}
+//	    指定对象除了指出成员以外的所有成员指针，作为构建 SQL 的传出参数，包含除了大括号指定的成员名称以外的所有成员（对应位置的参数必须是一个数据库表记录映射对象）
 //
-//  注意：
-//      大括号前面如果有 “.” 号，则表示构建 SQL 语句中，对于表字段的引用，前面加上表名。例如，假设表 table 中有字段 col，则如果加上点去引用，则 SQL 语句类似如下：
-//        SELECT "table"."col" FROM "table"
-//      如果不加点，则类似如下：
-//        SELECT "col" FROM "table"
+//	18、%[参数索引(可选)]TU{}
+//	    将对象所有成员构建成以下等式列表：m1=EXCLUDED.m1, m2=EXCLUDED.m2
+//	    如：%TU{}，假设对象有两个成员，对应字段为 m1、m2，则生成的 SQL 子句为：m1=EXCLUDED.m1, m2=EXCLUDED.m2
+//	19、%[参数索引(可选)]TU{成员名称1, 成员名称2}
+//	    将大括号中指定的对象名称所以对应的数据字段，生成以下形式的 SQL 子句：m1=EXCLUDED.m1, m2=EXCLUDED.m2
+//	    如：%TU{M1, M2} 则生成的 SQL 为：m1=EXCLUDED.m1, m2=EXCLUDED.m2
+//	20、%[参数索引(可选)]TUi-{成员名称1, 成员名称2}
+//	    将除了大括号中指定成员名称以外的成员，其对应的数据库字段，生成以下格式的 SQL 子句：m1=EXCLUDED.m1, m2=EXCLUDED.m2
+//	    如：假设对象有四个成员 M1/M2/M3/M4，则，%TU-{M1, M2} 则生成的 SQL 子句为：m2=EXCLUDED.m2, m3=EXCLUDED.m3
+//
+//	注意：
+//	    大括号前面如果有 “.” 号，则表示构建 SQL 语句中，对于表字段的引用，前面加上表名。例如，假设表 table 中有字段 col，则如果加上点去引用，则 SQL 语句类似如下：
+//	      SELECT "table"."col" FROM "table"
+//	    如果不加点，则类似如下：
+//	      SELECT "col" FROM "table"
+//
 // ---------------------------------------
 // 默认引导字符为 %
 func SQL(tx string, args ...any) *S_SQL {

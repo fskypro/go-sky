@@ -1,6 +1,6 @@
 module fsky.pro
 
-go 1.21
+go 1.23
 
 //replace fsky.pro => github.com/fskypro/gosky/common
 replace fsky.pro => ./common

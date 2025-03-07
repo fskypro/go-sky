@@ -26,11 +26,12 @@ func SameType[T1, T2 any]() bool {
 
 // 判断两个模板类型是否具有相同的原始类型
 // 如，以下类型判断为 true
-//   type S string
-//   var s S = "xxx"
-//   SameOriginType[S, string]() == true
+//
+//	type S string
+//	var s S = "xxx"
+//	SameOriginType[S, string]() == true
 func SameOriginType[T1, T2 any]() bool {
-    return reflect.TypeOf(new(T1)).Elem().Kind() == reflect.TypeOf(new(T2)).Elem().Kind()
+	return reflect.TypeOf(new(T1)).Elem().Kind() == reflect.TypeOf(new(T2)).Elem().Kind()
 }
 
 // -------------------------------------------------------------------
@@ -38,18 +39,20 @@ func SameOriginType[T1, T2 any]() bool {
 // -------------------------------------------------------------------
 // 判断传入的值是否是模板参数中的类型
 // 注意：
-//   类似下面这种(结构体重定义)，判断是 false：
-//     type S string
-//     var s S = "xxx"
-//     IsType[string](s) == false
-//   类似一下这种(接口重定义)，判断为 true
-//     type E error
-//     var e E = errors.New("error")
-//     IsType[error](e) == true
-//     IsType[E](errors.New("")) == true
+//
+//	类似下面这种(结构体重定义)，判断是 false：
+//	  type S string
+//	  var s S = "xxx"
+//	  IsType[string](s) == false
+//	类似一下这种(接口重定义)，判断为 true
+//	  type E error
+//	  var e E = errors.New("error")
+//	  IsType[error](e) == true
+//	  IsType[E](errors.New("")) == true
 func IsType[T any](v any) bool {
-	switch v.(type){
-	case T: return true
+	switch v.(type) {
+	case T:
+		return true
 	}
 	return false
 }
@@ -66,10 +69,10 @@ func AsType[T any](v any) (T, bool) {
 
 // 判断传入的值的类型与模板类型是否有相同的原始类型
 // 如，以下类型判断为 true
-//   type S string
-//   var s S = "xxx"
-//   IsOriginType[string](s) == true
-func IsOriginType[T any](v any) bool{
-    return reflect.TypeOf(new(T)).Elem().Kind() == reflect.TypeOf(v).Kind()
+//
+//	type S string
+//	var s S = "xxx"
+//	IsOriginType[string](s) == true
+func IsOriginType[T any](v any) bool {
+	return reflect.TypeOf(new(T)).Elem().Kind() == reflect.TypeOf(v).Kind()
 }
-

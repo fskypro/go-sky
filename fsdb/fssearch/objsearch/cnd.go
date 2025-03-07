@@ -49,14 +49,18 @@ func (this *s_Cnd) parse(cnd map[string]any) (i_Cnd, error) {
 		v, ok = cnd["col"]
 	}
 	if !ok {
-		return nil, errors.New("no search condition key/col indicated")
+		v, ok = cnd["field"]
+	}
+
+	if !ok {
+		return nil, errors.New("no search condition key/col/field indicated")
 	} else if !fstype.IsType[string](v) {
-		return nil, fmt.Errorf("search condition key/col must be a string, but not %v", v)
+		return nil, fmt.Errorf("search condition key/col/field must be a string, but not %v", v)
 	} else {
 		this.Key = v.(string)
 	}
 	if this.Key == "" {
-		return nil, errors.New("search condition key/col is not allow to be empty")
+		return nil, errors.New("search condition key/col/field is not allow to be empty")
 	}
 
 	// 解释条件中的 match
@@ -99,7 +103,9 @@ func (this *s_AndCnds) parse(conf i_Config, anyCnds []any) (i_Cnd, error) {
 	this.cnds = make([]i_Cnd, 0)
 	for _, anyCnd := range anyCnds {
 		cnd, err := parseCnd(conf, anyCnd)
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		this.cnds = append(this.cnds, cnd)
 	}
 	return this, nil
@@ -130,7 +136,9 @@ func (this *s_OrCnds) parse(conf i_Config, anyCnds []any) (i_Cnd, error) {
 	this.cnds = make([]i_Cnd, 0)
 	for _, anyCnd := range anyCnds {
 		cnd, err := parseCnd(conf, anyCnd)
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		this.cnds = append(this.cnds, cnd)
 	}
 	return this, nil
