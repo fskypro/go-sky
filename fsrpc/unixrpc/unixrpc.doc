@@ -1,0 +1,54 @@
+// -------------------------------------------------------------------
+// 使用方法
+// -------------------------------------------------------------------
+// 下面是服务器端和客户端都能访问都公共部分代码
+// 调用参数
+type Arg struct {
+	Value int
+}
+
+// 调用返回
+type Ret struct {
+	Error string
+}
+
+type Arith struct {
+	*S_CallWrap[Arith, Arg, Ret]
+}
+
+func NewArith() *Arith {
+	return &Arith {
+		S_CallWrap: NewCallWrap[Arith, Arg, Reg](),
+	}
+}
+
+
+// ---------------------------------------------------------
+// 下面是服务器端代码
+type ArithReceiver struct {}
+
+func (this *ArithReceiver) OnCalled(arg Arg, ret *Ret) error {
+	// 收到客户端请求
+}
+
+func main() {
+	server, _ := NewUnixServer(addr, nil)
+	newRegister().RegisterTo(server, &ArithReceiver{})
+	go server.Run(context.Background())
+}
+
+
+// ---------------------------------------------------------
+// 下面是客户端代码
+func main() {
+	client, _ := NewUnixClient(addr, nil)
+	arg := Arg{Value: "hello"}
+	var ret S_Ret
+	err := newRegister().CalledBy(client, arg, &ret)
+	if err != nil {
+		fmt.Println("call fail,", err)
+	} else {
+		fmt.Println("reply from server:", ret)
+	}
+}
+

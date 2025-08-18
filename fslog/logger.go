@@ -24,7 +24,7 @@ import (
 type S_Logger struct {
 	sync.Mutex
 	writer   func(time.Time, T_Level, []byte)
-	levels   map[T_Level]bool
+	levels   map[T_Level]bool // {<等级>: <是否输出>}
 	levelFmt string
 	goidSize int
 
@@ -410,6 +410,18 @@ func (this *S_Logger) UnshieldAll() {
 	}
 }
 
+// 设置指定等级是否输出
+func (this *S_Logger) SetOutoutStatus(output bool, lvs ...string) {
+	this.Lock()
+	defer this.Unlock()
+	for _, l := range lvs {
+		lv := T_Level(strings.ToUpper(l))
+		if _, ok := this.levels[lv]; ok {
+			this.levels[lv] = output
+		}
+	}
+}
+
 // ---------------------------------------------------------
 func (this *S_Logger) Whatever(lv T_Level, arg any, args ...any) {
 	this.Output(1, lv, arg, args...)
@@ -421,7 +433,9 @@ func (this *S_Logger) Whateverf(lv T_Level, msg string, args ...any) {
 
 // 直接输出字符串，不带任何前缀记录
 func (this *S_Logger) Direct(lv T_Level, msg string) {
-	if this.isShield(lv) { return }
+	if this.isShield(lv) {
+		return
+	}
 	bb := new(bytes.Buffer)
 	this.writeGoID(bb)
 	this.writePrefix(bb, lv)
@@ -432,4 +446,8 @@ func (this *S_Logger) Direct(lv T_Level, msg string) {
 
 func (this *S_Logger) Directf(lv T_Level, msg string, args ...any) {
 	this.Direct(lv, fmt.Sprintf(msg, args...))
+}
+
+func (this *S_Logger) Write(msg string) {
+	this.send(time.Now(), T_Level(""), []byte(msg))
 }

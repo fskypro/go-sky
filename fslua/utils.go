@@ -75,12 +75,12 @@ func AddPaths(L *glua.LState, paths ...string) {
 	packageTable := L.GetGlobal("package").(*glua.LTable)
 
 	// 获取当前 package.path
-	currentPath := L.GetField(packageTable, "path").String()
+	currentPaths := L.GetField(packageTable, "path").String()
 
 	for _, path := range paths {
-		currentPath += ";" + path
+		currentPaths += ";" + path
 	}
-	L.SetField(packageTable, "path", lua.LString(currentPath))
+	L.SetField(packageTable, "path", lua.LString(currentPaths))
 }
 
 // -------------------------------------------------------------------

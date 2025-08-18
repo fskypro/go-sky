@@ -13,10 +13,12 @@ require (
 	github.com/mbenkmann/goformat v0.0.0-20180512004123-256ef38c4271 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
+	github.com/samber/lo v1.51.0 // indirect
 	github.com/shirou/gopsutil v2.21.11+incompatible // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/text v0.22.0 // indirect
 	howett.net/plist v0.0.0-20181124034731-591f970eefbb // indirect
 	winterdrache.de/goformat v0.0.0-20180512004123-256ef38c4271 // indirect
 )

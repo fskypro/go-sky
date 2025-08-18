@@ -10,11 +10,11 @@ package fsxml
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
-	"fsky.pro/fserror"
 	"fsky.pro/fsstr/convert"
 )
 
@@ -338,7 +338,7 @@ func (this *S_Node) AttrCount() int {
 func (this *S_Node) GetChild(path string) (*S_Node, error) {
 	tag, tail, err := _firstSearchPath(path)
 	if err != nil {
-		return nil, fserror.Wrapf(err, "get xml child node fail: %q.", path)
+		return nil, errors.Join(err, fmt.Errorf("get xml child node fail, %q", path))
 	}
 	if tag.tag == "" {
 		return this, nil
@@ -387,7 +387,7 @@ func (this *S_Node) GetChild(path string) (*S_Node, error) {
 	if len(tail) > 0 {
 		node, e := child.GetChild(tail)
 		if e != nil {
-			return node, fserror.Wrapf(e, "get xml child node fail: %q.", path)
+			return node, errors.Join(e, fmt.Errorf("get xml child node fail, %q", path))
 		}
 		return node, nil
 	}

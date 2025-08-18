@@ -9,15 +9,17 @@
 
 package fsexcel
 
+import "strings"
+
 // -------------------------------------------------------------------
 // 一条记录
 // -------------------------------------------------------------------
-type s_Item[T S_RowHeader|S_ColHeader] struct {
+type s_Item[T S_RowHeader | S_ColHeader] struct {
 	table *s_Table[T]
 	index int
 }
 
-func newItem[T S_RowHeader|S_ColHeader](table *s_Table[T], index int) *s_Item[T] {
+func newItem[T S_RowHeader | S_ColHeader](table *s_Table[T], index int) *s_Item[T] {
 	return &s_Item[T]{
 		table: table,
 		index: index,
@@ -26,12 +28,12 @@ func newItem[T S_RowHeader|S_ColHeader](table *s_Table[T], index int) *s_Item[T]
 
 // ---------------------------------------------------------
 // 记录迭代器
-type s_ItemIter[T S_RowHeader|S_ColHeader] struct {
+type s_ItemIter[T S_RowHeader | S_ColHeader] struct {
 	table *s_Table[T]
 	index int
 }
 
-func newItemsIter[T S_RowHeader|S_ColHeader](table *s_Table[T]) *s_ItemIter[T] {
+func newItemsIter[T S_RowHeader | S_ColHeader](table *s_Table[T]) *s_ItemIter[T] {
 	return &s_ItemIter[T]{
 		table: table,
 		index: table.validIndex - 1,
@@ -59,13 +61,29 @@ func (this *S_Row) Order() int {
 // 通过表头名称获取单元格
 func (this *S_Row) GetCell(name string) *S_Cell {
 	header := this.table.nameHeaders[name]
-	if header == nil { return nil }
+	if header == nil {
+		return nil
+	}
 	rowData := this.table.data[this.index]
 	text := ""
 	if header.index < len(rowData) {
 		text = this.table.data[this.index][header.index]
 	}
 	return newCell(header.name, this.index, header.index, text)
+}
+
+// 获取指定表头单元格中的内容，如果表头不存在，则返回空字符串
+func (this *S_Row) GetCellText(name string) string {
+	cell := this.GetCell(name)
+	if cell == nil {
+		return ""
+	}
+	return cell.Text()
+}
+
+// 获取指定表头单元格中的内容，如果表头不存在，则返回空字符串
+func (this *S_Row) GetCellTrimText(name string) string {
+	return strings.TrimSpace(this.GetCellText(name))
 }
 
 // 获取所有单元格
@@ -127,7 +145,9 @@ func (this *S_Col) Order() string {
 // 通过表头名称获取单元格
 func (this *S_Col) GetCell(name string) *S_Cell {
 	header := this.table.nameHeaders[name]
-	if header == nil { return nil }
+	if header == nil {
+		return nil
+	}
 	text := ""
 	if header.index < len(this.table.data[this.index]) {
 		text = this.table.data[this.index][header.index]

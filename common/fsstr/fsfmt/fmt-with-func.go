@@ -18,7 +18,7 @@ import (
 
 func SfuncPrintf(format string, fun func(string) (any, bool)) string {
 	buf := bytes.NewBuffer([]byte{})
-	args := make([]interface{}, 0)
+	args := make([]any, 0)
 	count := len(format) // 格式化串长度
 	inFmt := false       // 是否进入格式化
 	inKey := false       // 是否进入 key 解释中

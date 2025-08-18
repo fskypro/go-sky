@@ -38,10 +38,10 @@ func makeErrNoCndMember(t reflect.Type, key string) ErrNoCndMember {
 type ErrLegalMatcher struct {
 	error
 	Key     string
-	Matcher string
+	Matcher T_MatchType
 }
 
-func makeErrLegalMatcher(key, matcher string) ErrLegalMatcher {
+func makeErrLegalMatcher(key string, matcher T_MatchType) ErrLegalMatcher {
 	return ErrLegalMatcher{
 		error:   fmt.Errorf("condition match-type %q is not supported for key %q", matcher, key),
 		Key:     key,

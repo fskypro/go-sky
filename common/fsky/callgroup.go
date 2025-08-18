@@ -9,6 +9,10 @@
 
 package fsky
 
+import (
+	"fmt"
+)
+
 type E_CGLevel int
 
 // CG_L1 优先于 CG_L5 调用
@@ -93,7 +97,36 @@ func (self CallGroup1[A]) Call(arg A) {
 			continue
 		}
 		for _, call := range calls {
+			/*
+				pc := reflect.ValueOf(call).Pointer()
+				fn := runtime.FuncForPC(pc)
+				file, line := fn.FileLine(pc)
+				fmt.Println(1111, file, line)
+			*/
 			call(arg)
+		}
+	}
+}
+
+// 异步调用初始化接收函数
+// 注意：异步调用，优先级不起作用
+func (self CallGroup1[A]) AsyncCall(arg A, errFunc func(error)) {
+	caller := func(call func(A)) {
+		defer func() {
+			if err := recover(); err != nil {
+				errFunc(fmt.Errorf("%v", err))
+			}
+		}()
+		call(arg)
+	}
+
+	for l := CG_L1; l < cg_LMax; l++ {
+		calls := self[l]
+		if calls == nil {
+			continue
+		}
+		for _, call := range calls {
+			go caller(call)
 		}
 	}
 }

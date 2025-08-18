@@ -41,8 +41,8 @@ type S_Member struct {
 	table      *S_Table              // 成员所属的表
 	name       string                // 成员名称
 	buildInfo  string                // 构建列描述
+	dbQuote    string                // 引用字段的别名
 	dbkey      string                // 在数据库中对应的列关键字
-	tbkey      string                // 所属表的key(从 *S_Table.Join 函数传入)
 	dbout      string                // 列传出时的表达式
 	field      reflect.StructField   // 成员所属结构体的域
 	pathFields []reflect.StructField // 继承链的域列表
@@ -59,15 +59,13 @@ func (this *S_Member) quote() string {
 
 // 带表名引用字段
 func (this *S_Member) quoteWithTable() string {
-	if this.tbkey == "" {
-		return this.table.quote() + "." + this.quote()
+	if this.dbQuote != "" {
+		return fmt.Sprintf("%q.%q", this.dbQuote, this.dbkey)
 	}
-	var tbName = this.tbkey
-	tb := this.table.joinTables[this.tbkey]
-	if tb != nil {
-		tbName = tb.name
+	if this.table.aliasName != "" {
+		return fmt.Sprintf("%q.%q", this.table.aliasName, this.dbkey)
 	}
-	return fmt.Sprintf("%q.%q", tbName, this.dbkey)
+	return fmt.Sprintf("%q.%q", this.table.name, this.dbkey)
 }
 
 // 输出表达式中，通配符：
@@ -83,6 +81,10 @@ func (this *S_Member) isList() bool {
 	t := this.field.Type
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
+	}
+	if t == jsonbType {
+		// 排除 JSONB 类型，JSONB 类型不能被 pg.Array 包装
+		return false
 	}
 	return t.Kind() == reflect.Array || t.Kind() == reflect.Slice
 }
@@ -163,6 +165,10 @@ func (this *S_Member) valuePtr(obj any) (any, error) {
 // -----------------------------------------------------------------------------
 // public
 // -----------------------------------------------------------------------------
+func (this *S_Member) Type() reflect.Type {
+	return this.field.Type
+}
+
 func (this *S_Member) Name() string {
 	return this.name
 }
@@ -178,25 +184,21 @@ func (this *S_Member) DBKey() string {
 
 // 所属表名
 func (this *S_Member) TableName() string {
-	if this.tbkey == "" {
-		return this.table.name
-	}
-	tb := this.table.joinTables[this.tbkey]
-	if tb == nil {
-		return "<unknow>"
-	}
-	return tb.name
+	return this.table.name
 }
 
 // 获取字段引用
 func (this *S_Member) AutoQuote() string {
-	if len(this.table.joinTables) > 0 {
-		return this.quoteWithTable()
+	if this.dbQuote != "" {
+		return fmt.Sprintf("%q.%q", this.dbQuote, this.dbkey)
 	}
-	if this.tbkey == "" || this.table.name == "" {
+	if this.table.aliasName != "" {
+		return fmt.Sprintf("%q.%q", this.table.aliasName, this.dbkey)
+	}
+	if this.table.name == "" {
 		return this.quote()
 	}
-	return this.quoteWithTable()
+	return fmt.Sprintf("%q.%q", this.table.name, this.dbkey)
 }
 
 // ---------------------------------------------------------------------------------------
@@ -206,12 +208,12 @@ func (this *S_Member) AutoQuote() string {
 var _tbcache = map[reflect.Type]*S_Table{}
 
 type S_Table struct {
-	name       string              // 表在 DB 中的名称
-	dbkey      string              // 对应的数据库键
-	tobj       reflect.Type        // 表对应的 go 对象反射类型
-	dbFields   T_DBFields          // 数据库字段映射
-	members    []*S_Member         // 成员列表
-	joinTables map[string]*S_Table // 关联表
+	name      string       // 表在 DB 中的名称
+	aliasName string       // 别名
+	dbkey     string       // 对应的数据库键
+	tobj      reflect.Type // 表对应的 go 对象反射类型
+	dbFields  T_DBFields   // 数据库字段映射
+	members   []*S_Member  // 成员列表
 }
 
 var tableType = reflect.TypeOf(new(S_Table)).Elem()
@@ -219,10 +221,9 @@ var tableType = reflect.TypeOf(new(S_Table)).Elem()
 // 创建对象映射数据库表
 func NewTable(name string, obj any) (*S_Table, error) {
 	table := &S_Table{
-		name:       name,
-		dbkey:      `"` + name + `"`,
-		members:    []*S_Member{},
-		joinTables: map[string]*S_Table{},
+		name:    name,
+		dbkey:   `"` + name + `"`,
+		members: []*S_Member{},
 	}
 	err := table.bindObjType(obj)
 	if err != nil {
@@ -234,11 +235,10 @@ func NewTable(name string, obj any) (*S_Table, error) {
 // 创建对象映射数据库表，不使用结构体 tag，单独指定字段映射
 func NewTableWithScheme(name string, obj any, dbFields T_DBFields) (*S_Table, error) {
 	table := &S_Table{
-		name:       name,
-		dbkey:      `"` + name + `"`,
-		dbFields:   dbFields,
-		members:    []*S_Member{},
-		joinTables: map[string]*S_Table{},
+		name:     name,
+		dbkey:    `"` + name + `"`,
+		dbFields: dbFields,
+		members:  []*S_Member{},
 	}
 	err := table.bindObjType(obj)
 	if err != nil {
@@ -312,7 +312,7 @@ func (this *S_Table) takeMembers(table *S_Table, obj any) {
 		if info.IsBase {
 			return true
 		}
-		tbkey, dbkey := this.getMemberDBKey(info.Field)
+		dbQuote, dbkey := this.getMemberDBKey(info.Field)
 		if dbkey == "-" {
 			return true
 		} // “-” 为，排除标记，表示该成员不映射到数据库
@@ -326,8 +326,8 @@ func (this *S_Table) takeMembers(table *S_Table, obj any) {
 			table:      table,
 			name:       fieldName,
 			buildInfo:  this.getDBBuildInfo(info.Field),
+			dbQuote:    dbQuote,
 			dbkey:      dbkey,
-			tbkey:      tbkey,
 			dbout:      this.getMemberDBOut(info.Field),
 			field:      info.Field,
 			pathFields: info.PathFields,
@@ -364,11 +364,6 @@ func (this *S_Table) quote() string {
 // -----------------------------------------------------------------------------
 // public
 // -----------------------------------------------------------------------------
-func (this *S_Table) Join(key string, table *S_Table) *S_Table {
-	this.joinTables[key] = table
-	return this
-}
-
 func (this *S_Table) Name() string {
 	return this.name
 }
@@ -380,6 +375,13 @@ func (this *S_Table) String() string {
 // table 对应的 go 结构体所在包路径
 func (this *S_Table) ObjectPath() string {
 	return this.tobj.PkgPath() + ":" + this.tobj.String()
+}
+
+// 给表设置别名
+// 注意：设置别名后，如果不清除，每次引用表成员时，都会通过别名引用
+func (this *S_Table) Alias(name string) *S_Table {
+	this.aliasName = name
+	return this
 }
 
 // -------------------------------------------------------------------

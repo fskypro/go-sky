@@ -72,7 +72,7 @@ func SliceIndexOf[T comparable](items []T, value T) int {
 }
 
 // ---------------------------------------------------------
-// 获取符合条件的元素
+// 获取符合条件的元素列表
 func SliceGetsFunc[T any](items []T, f func(T) bool) []T {
 	newItems := []T{}
 	for _, item := range items {

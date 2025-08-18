@@ -72,8 +72,8 @@ func (this *T_SerDateTime) UnmarshalJSON(b []byte) error {
 }
 
 // json marshal
-func (this *T_SerDateTime) MarshalJSON() ([]byte, error) {
-	str := `"` + time.Time(*this).Format(time.DateTime) + `"`
+func (self T_SerDateTime) MarshalJSON() ([]byte, error) {
+	str := `"` + time.Time(self).Format(time.DateTime) + `"`
 	return []byte(str), nil
 }
 

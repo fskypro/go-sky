@@ -178,8 +178,8 @@ func (s_Function) callFunc(L i_LState, lfunc glua.LValue, nret int, args ...any)
 		if m == nil || m == glua.LNil {
 			return fmt.Errorf(`the function or callable object is not exists`)
 		}
-		call := L.GetField(m, "__call") // 可调用对象
-		if call == nil || call.Type() != glua.LTFunction {
+		call, err := GetField(L, m, "__call") // 可调用对象
+		if err != nil || call == nil || call.Type() != glua.LTFunction {
 			return fmt.Errorf("lua obj is not a function")
 		}
 	}
@@ -364,9 +364,12 @@ func CallGlobalFunc3[R1, R2, R3 any](L *glua.LState, name string, args ...any) (
 // -------------------------------------------------------------------
 // 调用 lua 脚本中的对象的成员函数
 func CallMethodN(L i_LState, obj glua.LValue, name string, nret int, args ...any) error {
-	lfunc := L.GetField(obj, name)
+	lfunc, err := GetField(L, obj, name)
+	if err != nil {
+		return fmt.Errorf("get method %q fail, %v", name, err)
+	}
 	args = append([]any{obj}, args...)
-	err := s_Function{}.callFunc(L, lfunc, nret, args...)
+	err = s_Function{}.callFunc(L, lfunc, nret, args...)
 	if err != nil {
 		return fmt.Errorf("call object function %q fail, %v", name, err)
 	}

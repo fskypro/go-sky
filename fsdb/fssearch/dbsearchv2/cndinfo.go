@@ -13,14 +13,16 @@ import (
 	"errors"
 	"fmt"
 
-	"fsky.pro/fstype"
+	"fsky.pro/fssearch"
 )
 
+// 匹配类型
+type T_MatchType = fssearch.T_MatchType
+
 type S_CndInfo struct {
-	MatchName string `json:"match"` // 条件匹配器名称（如：匹配、包含、等于、小于、大于等）
-	FieldName string `json:"field"` // 数据库字段对外映射的名称
-	FieldType string `json:"ftype"` // 字段值类型
-	Value     any    `json:"value"` // 条件判断值
+	MatchType T_MatchType `json:"match"` // 条件匹配器（不同数据库有各自不同的匹配器，需要数据库引擎自己定义）
+	FieldName string      `json:"field"` // 数据库字段对外映射的名称
+	Value     any         `json:"value"` // 条件判断值
 }
 
 // 把 map 形式的条件转换为对象
@@ -34,10 +36,11 @@ func (this *S_CndInfo) parse(mcnd map[string]any) error {
 	if !ok {
 		return fmt.Errorf("sql condition must contains %q key", "match")
 	}
-	this.MatchName, ok = match.(string)
+	matchType, ok := match.(string)
 	if !ok {
 		return fmt.Errorf("value of sql condition key %q must be a string", "match")
 	}
+	this.MatchType = T_MatchType(matchType)
 
 	// Field
 	field, ok := mcnd["field"]
@@ -48,16 +51,6 @@ func (this *S_CndInfo) parse(mcnd map[string]any) error {
 	if !ok {
 		return fmt.Errorf("value of sql condition key %q or %q must be a string", "field", "col")
 	}
-
-	// Quote
-	if _, ok := mcnd["ftype"]; !ok {
-		return fmt.Errorf("sql condition must contains key %q", "ftype")
-	}
-	ftype, err := fstype.Convert[string](mcnd["ftype"])
-	if err != nil {
-		return fmt.Errorf("value of sql condition key %q must be an int value", "quote")
-	}
-	this.FieldType = ftype
 
 	// Value
 	value, ok := mcnd["value"]

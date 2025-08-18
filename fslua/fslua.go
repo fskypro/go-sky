@@ -43,6 +43,20 @@ type i_LState interface {
 	SetMetatable(obj glua.LValue, mt glua.LValue)
 }
 
+// gopher-lua 中，对于 GetField 方法有可能会产生 panic
+// 个人认为底层库会产生 panic 是非常不正确的，应该使用 error 返回
+// 因此这里对底层的 GetField 方法进行封装，以防止 panic
+// 上层应该全部使用该函数替代底层的 GetField 方法
+func GetField(L i_LState, obj glua.LValue, skey string) (lv glua.LValue, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("get field %q fail, %v", skey, e)
+		}
+	}()
+	lv = L.GetField(obj, skey)
+	return
+}
+
 // -------------------------------------------------------------------
 // LState
 // -------------------------------------------------------------------
@@ -159,13 +173,21 @@ func (this *S_LState) CallGlobalFunc3(name string, args ...any) (ret1, ret2, ret
 }
 
 // -------------------------------------------------------------------
+func (this *S_LState) GetFieldOf(obj glua.LValue, skey string) (lv glua.LValue, err error) {
+	return GetField(this.LState, obj, skey)
+}
+
+// -------------------------------------------------------------------
 // 调用 lua 脚本中的对象的成员函数
 func (this *S_LState) CallMethodN(obj glua.LValue, name string, nret int, args ...any) error {
-	lfunc := this.GetField(obj, name)
+	lfunc, err := this.GetFieldOf(obj, name)
+	if err != nil {
+		return fmt.Errorf("get object method %q fail, %v", name, err)
+	}
 	if lfunc.Type() == glua.LTFunction {
 		args = append([]any{obj}, args...)
 	}
-	err := s_Function{}.callFunc(this, lfunc, nret, args...)
+	err = s_Function{}.callFunc(this, lfunc, nret, args...)
 	if err != nil {
 		return fmt.Errorf("call object function %q fail, %v", name, err)
 	}

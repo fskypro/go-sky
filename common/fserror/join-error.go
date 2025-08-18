@@ -65,7 +65,7 @@ type S_JError struct {
 	errs   []error
 }
 
-func (this *S_JError) Join(errs ...error) error {
+func (this *S_JError) Join(errs ...error) *S_JError {
 	n := 0
 	for _, err := range errs {
 		if err != nil {
@@ -87,6 +87,10 @@ func (this *S_JError) Join(errs ...error) error {
 		}
 	}
 	return this
+}
+
+func (this *S_JError) Joinf(efmt string, args ...any) *S_JError {
+	return this.Join(fmt.Errorf(efmt, args...))
 }
 
 func (this *S_JError) Error() string {

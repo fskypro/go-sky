@@ -22,12 +22,12 @@ func IndexN(str string, n int, sub string) int {
 	return fsbytes.IndexN(convert.String2Bytes(str), n, convert.String2Bytes(sub))
 }
 
-// -------------------------------------------------------------------   
-// 字符串形态判断   
-// -------------------------------------------------------------------   
-// 判断字符串中的字符，是不是全部都是数字   
-func IsNum(str string) bool {   
-  return regexp.MustCompile("\\d+").MatchString(str)   
+// -------------------------------------------------------------------
+// 字符串形态判断
+// -------------------------------------------------------------------
+// 判断字符串中的字符，是不是全部都是数字
+func IsNum(str string) bool {
+	return regexp.MustCompile("\\d+").MatchString(str)
 }
 
 // -------------------------------------------------------------------
@@ -89,12 +89,30 @@ func JoinFunc[T any](s []T, sep string, f func(e T) string) string {
 
 // 将 s 中的元素以 v% 的形式与 sep 逐个拼接
 func JoinAny[T any](s []T, sep string) string {
-	if len(s) == 0 { return "" }
+	if len(s) == 0 {
+		return ""
+	}
 	ss := []string{}
 	for _, item := range s {
 		ss = append(ss, fmt.Sprintf("%v", item))
 	}
 	return strings.Join(ss, sep)
+}
+
+// 将 slice 中所有元素用 sep 分割
+// a 必须是一个 slice 或者 array
+// sep 为分隔字符串
+// f 传入 a 的每一个元素， 返回元素的字符串表现形式
+func JoinAnyFunc[T any](s []T, sep string, f func(e T) any) string {
+	var sb strings.Builder
+	if len(s) > 0 {
+		sb.WriteString(fmt.Sprintf("%v", f(s[0])))
+	}
+	for i := 1; i < len(s); i++ {
+		sb.WriteString(sep)
+		sb.WriteString(fmt.Sprintf("%v", f(s[i])))
+	}
+	return sb.String()
 }
 
 // 将以固定字符分割元素的字符串，分割成指定的 slice

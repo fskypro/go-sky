@@ -22,7 +22,10 @@ import (
 type String string
 
 func (this *String) Scan(value any) error {
-	if value == nil { return nil }
+	if value == nil {
+		*this = ""
+		return nil
+	}
 	switch value.(type) {
 	case string:
 		*this = String(value.(string))
@@ -42,7 +45,10 @@ func (this *String) Scan(value any) error {
 type Int int
 
 func (this *Int) Scan(value any) error {
-	if value == nil { return nil }
+	if value == nil {
+		*this = 0
+		return nil
+	}
 	switch value.(type) {
 	case int64:
 		*this = Int(value.(int64))
@@ -55,7 +61,10 @@ func (this *Int) Scan(value any) error {
 type Int8 int8
 
 func (this *Int8) Scan(value any) error {
-	if value == nil { return nil }
+	if value == nil {
+		*this = 0
+		return nil
+	}
 	switch value.(type) {
 	case int64:
 		*this = Int8(value.(int64))
@@ -68,7 +77,10 @@ func (this *Int8) Scan(value any) error {
 type Int16 int16
 
 func (this *Int16) Scan(value any) error {
-	if value == nil { return nil }
+	if value == nil {
+		*this = 0
+		return nil
+	}
 	switch value.(type) {
 	case int64:
 		*this = Int16(value.(int64))
@@ -81,7 +93,10 @@ func (this *Int16) Scan(value any) error {
 type Int32 int32
 
 func (this *Int32) Scan(value any) error {
-	if value == nil { return nil }
+	if value == nil {
+		*this = 0
+		return nil
+	}
 	switch value.(type) {
 	case int64:
 		*this = Int32(value.(int64))
@@ -94,7 +109,10 @@ func (this *Int32) Scan(value any) error {
 type Int64 int64
 
 func (this *Int64) Scan(value any) error {
-	if value == nil { return nil }
+	if value == nil {
+		*this = 0
+		return nil
+	}
 	switch value.(type) {
 	case int64:
 		*this = Int64(value.(int64))
@@ -109,7 +127,10 @@ func (this *Int64) Scan(value any) error {
 type Float32 float32
 
 func (this *Float32) Scan(value any) error {
-	if value == nil { return nil }
+	if value == nil {
+		*this = 0
+		return nil
+	}
 	switch value.(type) {
 	case float64:
 		*this = Float32(value.(float64))
@@ -128,7 +149,10 @@ func (this *Float32) Scan(value any) error {
 type Float64 float64
 
 func (this *Float64) Scan(value any) error {
-	if value == nil { return nil }
+	if value == nil {
+		*this = 0
+		return nil
+	}
 	switch value.(type) {
 	case float64:
 		*this = Float64(value.(float64))
@@ -149,7 +173,10 @@ func (this *Float64) Scan(value any) error {
 type Bool bool
 
 func (this *Bool) Scan(value any) error {
-	if value == nil { return nil }
+	if value == nil {
+		*this = false
+		return nil
+	}
 	switch value.(type) {
 	case bool:
 		*this = Bool(value.(bool))
@@ -167,7 +194,10 @@ func (this *Bool) Scan(value any) error {
 type DateTime time.Time
 
 func (this *DateTime) Scan(value any) error {
-	if value == nil { return nil }
+	if value == nil {
+		*this = DateTime(time.Time{})
+		return nil
+	}
 	switch value.(type) {
 	case time.Time:
 		*this = DateTime(value.(time.Time))

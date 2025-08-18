@@ -66,7 +66,7 @@ func TestFsoo(t *testing.T) {
 		Hand:     &S_Hand{"right hand"},
 	}
 	// 封装 go 对象
-	ud, err := WrapUserData(L, s)
+	ud, err := WrapUserData(L, s, nil, nil)
 	if err != nil {
 		log.Fatalf("wrap s fail, %v", err)
 	}

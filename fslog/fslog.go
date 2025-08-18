@@ -50,9 +50,12 @@ type I_Logger interface {
 	ShieldAll()
 	Unshield(...string)
 	UnshieldAll()
+	SetOutoutStatus(bool, ...string)
 
 	Direct(T_Level, string)
 	Directf(T_Level, string, ...any)
+
+	Write(string)
 }
 
 // -----------------------------------------------------------------------------
@@ -185,6 +188,10 @@ func UnshieldAll() {
 	logger.UnshieldAll()
 }
 
+func SetOutoutStatus(output bool, lvs ...string) {
+	logger.SetOutoutStatus(output, lvs...)
+}
+
 // ---------------------------------------------------------
 func Direct(lv T_Level, msg string) {
 	logger.Direct(lv, msg)
@@ -192,4 +199,8 @@ func Direct(lv T_Level, msg string) {
 
 func Directf(lv T_Level, msg string, args ...any) {
 	logger.Directf(lv, msg, args...)
+}
+
+func Write(msg string) {
+	logger.Write(msg)
 }

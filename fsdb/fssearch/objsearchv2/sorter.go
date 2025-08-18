@@ -20,10 +20,10 @@ import (
 // -----------------------------------------------------------------------------
 type s_Sorter[T any] struct {
 	searchArg *S_SearchArg[T]
-	items     []T
+	items     []*T
 }
 
-func newSorter[T any](arg *S_SearchArg[T], items []T) *s_Sorter[T] {
+func newSorter[T any](arg *S_SearchArg[T], items []*T) *s_Sorter[T] {
 	return &s_Sorter[T]{
 		searchArg: arg,
 		items:     items,
@@ -37,9 +37,9 @@ func (self s_Sorter[T]) Len() int {
 func (self s_Sorter[T]) Less(i, j int) bool {
 	v1, _ := cmpHandlers.getMemberValue(self.items[i], self.searchArg.OrderBy)
 	v2, _ := cmpHandlers.getMemberValue(self.items[j], self.searchArg.OrderBy)
-	if v1.Type().Kind() == reflect.String {
-		s1 := v1.Interface().(string)
-		s2 := v2.Interface().(string)
+	if v1.CanConvert(refString) {
+		s1 := v1.Convert(refString).Interface().(string)
+		s2 := v2.Convert(refString).Interface().(string)
 		if self.searchArg.Desc > 0 {
 			return strings.Compare(s2, s1) < 0
 		}

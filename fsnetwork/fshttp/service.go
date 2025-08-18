@@ -87,7 +87,7 @@ func NewService() *S_Service {
 // ---------------------------------------------------------
 // private
 // ---------------------------------------------------------
-func (this *S_Service) getRemoteAddr(req *http.Request) string {
+func (this *S_Service) GetRemoteAddr(req *http.Request) string {
 	remoteAddr := req.RemoteAddr
 	if ip := req.Header.Get("XRealIP"); ip != "" {
 		remoteAddr = ip
@@ -115,7 +115,7 @@ func (this *S_Service) onPanic(stack string, r *http.Request) {
 // public
 // ---------------------------------------------------------
 // 添加 url 路径请求处理函数，函数格式为：
-//	func(http.ResponseWriter, *http.Request)
+// -> func(http.ResponseWriter, *http.Request)
 // 如果 path 以 [re] 开头，则表示该路径为正则表达式
 func (this *S_Service) AddHandler(path string, f func(http.ResponseWriter, *http.Request)) error {
 	this.locker.Lock()
@@ -142,7 +142,7 @@ func (this *S_Service) AddHandler(path string, f func(http.ResponseWriter, *http
 }
 
 // 添加 url 路径请求处理函数，函数格式为：
-//	func(*S_Request)
+// -> func(*S_Request)
 // 如果 path 以 [re] 开头，则表示该路径为正则表达式
 func (this *S_Service) AddHandler2(path string, f func(*S_Request)) error {
 	this.locker.Lock()
@@ -217,15 +217,9 @@ func (this *S_Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			lines := bytes.Split(blines, []byte("\n"))
 			trace := bytes.Join(lines[7:], []byte("\n"))
 			this.OnPanic(fmt.Sprintf("panic for handling request(path=%q) from client(%s): %v.\n%s",
-				r.URL.Path, r.Header.Get("ClientAddr"), err, trace), r)
+				r.URL.Path, r.Header.Get("X-Forwarded-For"), err, trace), r)
 		}
 	}()
-	if r.Header.Get("ClientAddr") != "" {
-		r.RemoteAddr = r.Header.Get("ClientAddr")
-	}
-	host, port, _ := net.SplitHostPort(r.RemoteAddr)
-	r.Header.Add("RemoteHost", host)
-	r.Header.Add("RemotePort", port)
 
 	this.locker.RLock()
 	defer this.locker.RUnlock()

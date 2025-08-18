@@ -461,7 +461,7 @@ func TrivalStructMembers(v any, baseFirst bool, f func(*S_TrivalStructInfo) bool
 		}
 		infos := []*S_TrivalStructInfo{}
 		inheritInfos := []*InheritInfo{}
-		for i := 0; i < rt.NumField(); i++ {
+		for i := range rt.NumField() {
 			field := rt.Field(i)
 			vfield := reflect.ValueOf(nil)
 			if rv.IsValid() {

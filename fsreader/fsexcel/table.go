@@ -9,6 +9,10 @@
 
 package fsexcel
 
+import (
+	"regexp"
+)
+
 // -------------------------------------------------------------------
 // 表头
 // -------------------------------------------------------------------
@@ -92,10 +96,26 @@ func (this *s_Table[T]) GetHeaderByName(name string) *T {
 	return this.nameHeaders[name]
 }
 
+// 通过正则表达式获取表头
+func (this *s_Table[T]) GetHeaderByRe(expr string) *T {
+	re, err := regexp.Compile(expr)
+	if err != nil {
+		return nil
+	}
+	for name, h := range this.nameHeaders {
+		if re.MatchString(name) {
+			return h
+		}
+	}
+	return nil
+}
+
 // -------------------------------------------------------------------
 // 以某一行为表头的表格
 // -------------------------------------------------------------------
-type S_RowsTable struct{ *s_Table[S_RowHeader] }
+type S_RowsTable struct {
+	*s_Table[S_RowHeader]
+}
 
 func newRowsTable(data [][]string, headerIndex, validIndex int) *S_RowsTable {
 	return &S_RowsTable{newTable[S_RowHeader](data, headerIndex, validIndex)}
@@ -144,7 +164,9 @@ func (this *S_RowsTable) For(f func(*S_Row) bool) {
 // -------------------------------------------------------------------
 // 以某一列为表头的表格
 // -------------------------------------------------------------------
-type S_ColsTable struct{ *s_Table[S_ColHeader] }
+type S_ColsTable struct {
+	*s_Table[S_ColHeader]
+}
 
 func newColsTable(data [][]string, headerIndex, validIndex int) *S_ColsTable {
 	return &S_ColsTable{newTable[S_ColHeader](data, headerIndex, validIndex)}

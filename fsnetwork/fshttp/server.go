@@ -86,8 +86,19 @@ func (this *S_Server) AddTLSFiles(domain string, pem, key string) error {
 
 // -------------------------------------------------------------------
 // 程序会一直处于监听状态，直到主动关闭后，返回 nil
-func (this *S_Server) ServeTLS(ln net.Listener) error {
+func (this *S_Server) ServeTLS(ln net.Listener, servie I_Service) error {
+	this.Handler = servie
 	err := this.Server.ServeTLS(ln, "", "")
+	if err == http.ErrServerClosed {
+		return nil
+	}
+	return err
+}
+
+// 对指定 listener 执行 serve
+func (this *S_Server) Serve(ln net.Listener, service I_Service) error {
+	this.Handler = service
+	err := this.Server.Serve(ln)
 	if err == http.ErrServerClosed {
 		return nil
 	}
@@ -115,12 +126,12 @@ func (this *S_Server) ListenAndServeTLS(service I_Service) error {
 	if err != nil {
 		return err
 	}
-	this.Handler = service
 
 	defer ln.Close()
-	return this.ServeTLS(ln)
+	return this.ServeTLS(ln, service)
 }
 
+// 如果设置了 SSL 证书，则会启用 HTTPS，否则启用 HTTP
 // 程序会一直处于监听状态，直到主动关闭后，返回 nil
 func (this *S_Server) ServeAuto(service I_Service) error {
 	if this.TLSConfig != nil &&

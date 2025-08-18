@@ -31,7 +31,8 @@ func (self s_Table) luaValueToRefArray(lv glua.LValue, ra reflect.Value) (reflec
 	tb := lv.(*glua.LTable)
 	newArray := reflect.New(ra.Type()).Elem()
 	for i := 0; i < ra.Len(); i++ {
-		value := tb.RawGetInt(i)
+		// 因为 lua table 的索引从 1 开始，所以这里 +1
+		value := tb.RawGetInt(i + 1)
 		rvNew, err := self.luaValueToRefValue(value, newArray.Index(i))
 		if err != nil {
 			return ra, fmt.Errorf("can't assign lua value <%v> to go array %v, %v", value, ra.Type(), err)
@@ -569,6 +570,8 @@ func MarshalTable(obj any) (*glua.LTable, error) {
 	return s_Table{}.refMarshalTable(reflect.ValueOf(obj))
 }
 
+// -------------------------------------------------------------------
+// 格式化 lua 值
 func FmtLValue(lv glua.LValue) string {
 	if lv.Type() == glua.LTString {
 		return fmt.Sprintf(`"%v"`, lv)

@@ -108,14 +108,16 @@ func (this *S_SQL) addInput(value any) (string, error) {
 	}
 	// 如果传入 []byte 类型的值，则认为数据库中对应的字段类型为 bytea
 	if rt.Kind() == reflect.Slice || rt.Kind() == reflect.Array {
-		// 注意：
-		//  如果 sql 语句中有如：
-		//    SELECT * FROM <table> WHERE col IN (1,2,3);
-		//  其中 (1,2,3) 是不定的传入 slice，则以上语句需要这样写：
-		//    SELECT * FROM %TN WHERE col=ANY(%v);
-		//  然后 []int{1,2,3} 作为 SQL(...) 函数的第二个参数传入
-		//  同理 NOT IN 的话，就是 <>ANY(%v)
-		value = pq.Array(value)
+		if rt != jsonbType {
+			// 注意：
+			//  如果 sql 语句中有如：
+			//    SELECT * FROM <table> WHERE col IN (1,2,3);
+			//  其中 (1,2,3) 是不定的传入 slice，则以上语句需要这样写：
+			//    SELECT * FROM %TN WHERE col=ANY(%v);
+			//  然后 []int{1,2,3} 作为 SQL(...) 函数的第二个参数传入
+			//  同理 NOT IN 的话，就是 <>ANY(%v)
+			value = pq.Array(value)
+		}
 	} else if rt == reflect.TypeOf(time.Now()) {
 		value = pq.FormatTimestamp(value.(time.Time))
 	}
@@ -649,12 +651,14 @@ func (this *S_SQL) SQL(tx string, args ...any) *S_SQL {
 	return this
 }
 
+// 添加 SQL 输入值
 func (this *S_SQL) AddInputs(inputs []any) {
 	for _, input := range inputs {
 		this.addInput(input)
 	}
 }
 
+// 返回 SQL 下一个输入值的序号
 func (this *S_SQL) NextInputOrder() int {
 	return len(this.Inputs) + 1
 }
@@ -712,7 +716,7 @@ func (this *S_SQL) NextInputOrder() int {
 //	19、%[参数索引(可选)]TU{成员名称1, 成员名称2}
 //	    将大括号中指定的对象名称所以对应的数据字段，生成以下形式的 SQL 子句：m1=EXCLUDED.m1, m2=EXCLUDED.m2
 //	    如：%TU{M1, M2} 则生成的 SQL 为：m1=EXCLUDED.m1, m2=EXCLUDED.m2
-//	20、%[参数索引(可选)]TUi-{成员名称1, 成员名称2}
+//	20、%[参数索引(可选)]TU-{成员名称1, 成员名称2}
 //	    将除了大括号中指定成员名称以外的成员，其对应的数据库字段，生成以下格式的 SQL 子句：m1=EXCLUDED.m1, m2=EXCLUDED.m2
 //	    如：假设对象有四个成员 M1/M2/M3/M4，则，%TU-{M1, M2} 则生成的 SQL 子句为：m2=EXCLUDED.m2, m3=EXCLUDED.m3
 //
