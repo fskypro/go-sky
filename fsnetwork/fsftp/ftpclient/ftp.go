@@ -552,7 +552,6 @@ func (c *ServerConn) getDataConnPort() (string, int, error) {
 		// if there is an error, skip EPSV for the next attempts
 		c.skipEPSV = true
 	}
-
 	return c.pasv()
 }
 
@@ -618,14 +617,20 @@ func (c *ServerConn) cmdDataConnFrom(offset uint64, format string, args ...inter
 	sendCmd := func() error {
 		if offset != 0 {
 			_, _, err := c.cmd(StatusRequestFilePending, "REST %d", offset)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 		}
 
 		_, err := c.conn.Cmd(format, args...)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 
 		code, msg, err := c.conn.ReadResponse(-1)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 
 		if code != StatusAlreadyOpen && code != StatusAboutToSend {
 			return &textproto.Error{Code: code, Msg: msg}
@@ -663,7 +668,9 @@ func (c *ServerConn) cmdDataConnFrom(offset uint64, format string, args ...inter
 
 		// 等待回复连接超时处理
 		timeout := c.options.shutTimeout
-		if timeout <= 0 { timeout = DefaultDialTimeout }
+		if timeout <= 0 {
+			timeout = DefaultDialTimeout
+		}
 		timer := time.AfterFunc(timeout, func() {
 			c.activeInfo.listener.Close()
 			c.activeInfo = nil
@@ -703,7 +710,9 @@ func (this *ServerConn) SetToActive() error {
 	var listener net.Listener
 	for i := 0; i < 10; i++ {
 		listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
-		if err == nil { break }
+		if err == nil {
+			break
+		}
 		port = 10000 + rand.Intn(55535)
 	}
 	if err != nil {
@@ -776,7 +785,7 @@ func (c *ServerConn) List(path string) (entries []*Entry, err error) {
 	}
 	conn, err := c.cmdDataConnFrom(0, "%s%s%s", cmd, space, path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("exec ftp cmd(%s%s%s) fail, %v", cmd, space, path, err)
 	}
 
 	var errs *multierror.Error

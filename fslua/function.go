@@ -64,11 +64,11 @@ func (this *S_FuncWrap) luaFunc(L *glua.LState) int {
 		fixArgGount -= 1
 		if this.isMethod {
 			if lcount-1 < fixArgGount {
-				L.RaiseError(fmt.Sprintf("call function %q fail, at least %d arguments must be given but not %d", this.luaName, fixArgGount, lcount-1))
+				L.RaiseError("call function %q fail, at least %d arguments must be given but not %d", this.luaName, fixArgGount, lcount-1)
 				return funcType.NumOut()
 			}
 		} else if lcount < fixArgGount {
-			L.RaiseError(fmt.Sprintf("call function %q fail, at least %d arguments must be given but not %d", this.luaName, fixArgGount, lcount))
+			L.RaiseError("call function %q fail, at least %d arguments must be given but not %d", this.luaName, fixArgGount, lcount)
 			return funcType.NumOut()
 		}
 	} else {
@@ -76,11 +76,11 @@ func (this *S_FuncWrap) luaFunc(L *glua.LState) int {
 		if this.isMethod {
 			// 如果是对象的方法，则第一个参数为对象本身 lua.UserData
 			if lcount-1 != fixArgGount {
-				L.RaiseError(fmt.Sprintf("call function %q fail, %d arguments must be given but not %d", this.luaName, fixArgGount, lcount-1))
+				L.RaiseError("call function %q fail, %d arguments must be given but not %d", this.luaName, fixArgGount, lcount-1)
 				return funcType.NumOut()
 			}
 		} else if lcount != fixArgGount {
-			L.RaiseError(fmt.Sprintf("call function %q fail, %d arguments must be given but not %d", this.luaName, fixArgGount, lcount))
+			L.RaiseError("call function %q fail, %d arguments must be given but not %d", this.luaName, fixArgGount, lcount)
 			return funcType.NumOut()
 		}
 	}
@@ -91,7 +91,7 @@ func (this *S_FuncWrap) luaFunc(L *glua.LState) int {
 		inType := this.refFun.Type().In(i - 1)
 		rparm, err := this.paramFromLua(i, L.Get(fsky.IfElse(this.isMethod, i+1, i)), inType)
 		if err != nil {
-			L.RaiseError(fmt.Sprintf("call function %q fail, arguments error, %v", this.luaName, err))
+			L.RaiseError("call function %q fail, arguments error, %v", this.luaName, err)
 			return funcType.NumOut()
 		}
 		fixArgs = append(fixArgs, rparm)
@@ -103,7 +103,7 @@ func (this *S_FuncWrap) luaFunc(L *glua.LState) int {
 		for ; i <= lcount; i++ {
 			arg, err := LuaValueToGoValue[any](L.Get(fsky.IfElse(this.isMethod, i+1, i)))
 			if err != nil {
-				L.RaiseError(fmt.Sprintf("call function %q fail, convert free argument fail, %v", this.luaName, err))
+				L.RaiseError("call function %q fail, convert free argument fail, %v", this.luaName, err)
 				return funcType.NumOut()
 			}
 			freeArgs = append(freeArgs, arg)
@@ -127,7 +127,7 @@ func (this *S_FuncWrap) luaFunc(L *glua.LState) int {
 			L.Push(glua.LNil)
 			continue
 		}
-		if ret.Kind() == reflect.Ptr && ret.IsNil() {
+		if ret.Kind() == reflect.Pointer && ret.IsNil() {
 			L.Push(glua.LNil)
 			continue
 		}
@@ -201,7 +201,7 @@ F:
 		}
 
 		varg := reflect.ValueOf(arg)
-		for targ.Kind() == reflect.Ptr {
+		for targ.Kind() == reflect.Pointer {
 			if varg.IsNil() {
 				luaArgs = append(luaArgs, glua.LNil)
 				continue F

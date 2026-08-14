@@ -88,16 +88,8 @@ func (this *S_SQL) errorf(m string, args ...any) {
 }
 
 // 将大括号中的内容转换为数据对象成员名称列表
-func (this *S_SQL) takeContentMembers(content string) []string {
-	members := []string{}
-	for _, m := range strings.Split(content, ",") {
-		m = strings.TrimSpace(m)
-		if m == "" {
-			continue
-		}
-		members = append(members, m)
-	}
-	return members
+func (this *S_SQL) formatTimestamp(t time.Time) string {
+	return t.Format("2006-01-02 15:04:05.999999999Z07:00")
 }
 
 // 添加传入值
@@ -119,7 +111,7 @@ func (this *S_SQL) addInput(value any) (string, error) {
 			value = pq.Array(value)
 		}
 	} else if rt == reflect.TypeOf(time.Now()) {
-		value = pq.FormatTimestamp(value.(time.Time))
+		value = this.formatTimestamp(value.(time.Time))
 	}
 	this.Inputs = append(this.Inputs, value)
 	ret := fmt.Sprintf("$%d", this.inOrder)
@@ -198,7 +190,7 @@ func (this *S_SQL) parse_o(exp string, argOrder int, exclude bool, alias string,
 		this.errorf("argument %d must be a pointer for expression %q", argOrder, exp)
 		return exp
 	}
-	if rarg.Type().Kind() != reflect.Ptr {
+	if rarg.Type().Kind() != reflect.Pointer {
 		this.errorf("argument %d must be a pointer for expression %q", argOrder, exp)
 		return exp
 	}
@@ -634,9 +626,9 @@ func (this *S_SQL) Fmt() string {
 			index++
 			te := reflect.TypeOf(e)
 			if te != nil && te.Kind() == reflect.String {
-				return fmt.Sprintf(`$%d="%v"`, index, e)
+				return fmt.Sprintf(`$%d=(%v)"%v"`, index, te, e)
 			}
-			return fmt.Sprintf("$%d=%v", index, e)
+			return fmt.Sprintf("$%d=(%v)%v", index, te, e)
 		}))
 }
 

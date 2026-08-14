@@ -50,7 +50,7 @@ type I_Logger interface {
 	ShieldAll()
 	Unshield(...string)
 	UnshieldAll()
-	SetOutoutStatus(bool, ...string)
+	SetOutputStatus(bool, ...string)
 
 	Direct(T_Level, string)
 	Directf(T_Level, string, ...any)
@@ -188,8 +188,8 @@ func UnshieldAll() {
 	logger.UnshieldAll()
 }
 
-func SetOutoutStatus(output bool, lvs ...string) {
-	logger.SetOutoutStatus(output, lvs...)
+func SetOutputStatus(output bool, lvs ...string) {
+	logger.SetOutputStatus(output, lvs...)
 }
 
 // ---------------------------------------------------------

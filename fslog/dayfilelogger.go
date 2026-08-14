@@ -17,7 +17,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"fsky.pro/fstime"
@@ -45,7 +48,9 @@ func newLogCmd(cmd string, args ...string) *s_NewLogCmd {
 }
 
 func (this *s_NewLogCmd) exec(logger *S_DayfileLogger, log string) {
-	if this.cmd == "" { return }
+	if this.cmd == "" {
+		return
+	}
 	args := []string{log}
 	args = append(args, this.args...)
 	cmd := exec.Command(this.cmd, args...)
@@ -68,6 +73,7 @@ type S_DayfileLogger struct {
 	logPath     string
 	file        *os.File
 	nextDayTime time.Time
+	keepDays    atomic.Int32 // 日志保留的天数，如果为 0，则永远保留
 
 	newLogCmd   *s_NewLogCmd
 	newLogCB    func(string, error)
@@ -87,6 +93,7 @@ func NewDayfileLogger(root string, filePrefix string) *S_DayfileLogger {
 		nextDayTime: fstime.Dawn(time.Now()).AddDate(0, 0, 1),
 		newLogCmd:   newLogCmd(""),
 	}
+	logger.keepDays.Store(30)
 	logger.S_Logger = NewLogger(logger.write)
 	logger.logPath, logger.file, _ = logger.newLogFile(time.Now())
 	return logger
@@ -98,6 +105,12 @@ func (this *S_DayfileLogger) GetRoot() string {
 
 func (this *S_DayfileLogger) GetPrefix() string {
 	return this.prefix
+}
+
+// 设置日志保留的天数
+// 如果设置为 0，则表示长期保存
+func (this *S_DayfileLogger) SetKeepDays(days int) {
+	this.keepDays.Store(int32(days))
 }
 
 // -------------------------------------------------------------------
@@ -114,8 +127,9 @@ func (this *S_DayfileLogger) newLogFile(t time.Time) (string, *os.File, error) {
 	exists := fileExists(logPath)
 	if !exists {
 		file, err := os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE, 0666)
-		if this.newLogCB != nil {
-			this.newLogCB(logPath, err)
+		cb := this.newLogCB
+		if cb != nil {
+			cb(logPath, err)
 		}
 		if err != nil {
 			err = fmt.Errorf("create log file %q fail, %v", logPath, err)
@@ -123,6 +137,7 @@ func (this *S_DayfileLogger) newLogFile(t time.Time) (string, *os.File, error) {
 			go this.linkTo(logPath)
 			this.newLogCmd.exec(this, logPath)
 		}
+		go this.delExpireFiles()
 		return logPath, file, err
 	}
 
@@ -137,6 +152,46 @@ func (this *S_DayfileLogger) newLogFile(t time.Time) (string, *os.File, error) {
 	file.WriteString(splitter)
 	file.WriteString("\n")
 	return logPath, file, nil
+}
+
+// 删除过期的日志
+func (this *S_DayfileLogger) delExpireFiles() {
+	if this.keepDays.Load() <= 0 {
+		return
+	}
+	entries, err := os.ReadDir(this.dir)
+	if err != nil {
+		this.Errorf("delete expire log files fail, can't read log dir %q", this.dir)
+		return
+	}
+
+	ptn := "^" + regexp.QuoteMeta(this.prefix) + `_(\d{4,})-(\d{2})-(\d{2})\.log$`
+	re := regexp.MustCompile(ptn)
+	for _, ent := range entries {
+		if ent.IsDir() {
+			continue
+		}
+		gs := re.FindStringSubmatch(ent.Name())
+		if len(gs) < 4 {
+			continue
+		}
+		year, _ := strconv.Atoi(gs[1])
+		mon, _ := strconv.Atoi(gs[2])
+		day, _ := strconv.Atoi(gs[3])
+		if mon == 0 || mon > 12 || day == 0 || day > 31 {
+			continue
+		}
+		t := time.Date(year, time.Month(mon), day, 0, 0, 0, 0, time.Local)
+		if t.After(time.Now().AddDate(0, 0, -int(this.keepDays.Load()))) {
+			continue
+		}
+
+		logFile := filepath.Join(this.dir, ent.Name())
+		err = os.Remove(logFile)
+		if err != nil {
+			this.Errorf("delete the expire file %q fail, %v", logFile, err)
+		}
+	}
 }
 
 // 父类中的 send 函数中已经 lock，因此这里不需要再上锁了
@@ -165,7 +220,9 @@ func (this *S_DayfileLogger) write(t time.Time, lv T_Level, msg []byte) {
 }
 
 func (this *S_DayfileLogger) linkTo(logPath string) {
-	if this.newLinkFile == "" { return }
+	if this.newLinkFile == "" {
+		return
+	}
 	_, err := os.Lstat(this.newLinkFile)
 	if err == nil {
 		os.Remove(this.newLinkFile)

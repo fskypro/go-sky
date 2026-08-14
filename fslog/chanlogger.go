@@ -16,7 +16,7 @@ import (
 )
 
 type S_ChanLog struct {
-	Level string
+	Level T_Level
 	Msg   []byte
 }
 
@@ -29,14 +29,17 @@ type S_ChanLogger struct {
 // root 为 log 的根目录
 // filePrefix 为 log 文件名前缀
 func NewChanLogger(ch chan *S_ChanLog) *S_ChanLogger {
-	logger := &S_ChanLogger{chMsg: ch}
+	logger := &S_ChanLogger{
+		chMsg: ch,
+	}
+	logger.S_Logger = NewLogger(logger.write)
 	return logger
 }
 
 // -------------------------------------------------------------------
 // private
 // -------------------------------------------------------------------
-func (this *S_ChanLogger) write(t time.Time, level string, msg []byte) {
+func (this *S_ChanLogger) write(_ time.Time, level T_Level, msg []byte) {
 	this.chMsg <- &S_ChanLog{level, msg}
 }
 

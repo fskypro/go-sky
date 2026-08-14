@@ -27,7 +27,7 @@ func IndexN(str string, n int, sub string) int {
 // -------------------------------------------------------------------
 // 判断字符串中的字符，是不是全部都是数字
 func IsNum(str string) bool {
-	return regexp.MustCompile("\\d+").MatchString(str)
+	return regexp.MustCompile("^\\d+$").MatchString(str)
 }
 
 // -------------------------------------------------------------------

@@ -1,11 +1,12 @@
 module fsky.pro
 
-go 1.23
+go 1.26
 
 //replace fsky.pro => github.com/fskypro/gosky/common
 replace fsky.pro => ./common
 
 require (
+	github.com/djherbis/times v1.6.0 // indirect
 	github.com/elastic/go-sysinfo v1.13.1 // indirect
 	github.com/elastic/go-windows v1.0.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect

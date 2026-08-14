@@ -33,7 +33,11 @@ func NewStdoutLogger() *S_StdoutLogger {
 // private
 // -------------------------------------------------------------------
 func (this *S_StdoutLogger) write(t time.Time, lv T_Level, msg []byte) {
-	os.Stdout.Write(msg)
+	if lv == "INFO" || lv == "NOTIC" {
+		os.Stdout.Write(msg)
+	} else {
+		os.Stderr.Write(msg)
+	}
 }
 
 // -------------------------------------------------------------------

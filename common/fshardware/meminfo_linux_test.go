@@ -1,4 +1,4 @@
-package fsos
+package fshardware
 
 import (
 	"fmt"

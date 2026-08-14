@@ -23,7 +23,7 @@ import (
 // 根据参数中的 get 函数，反序列化请求参数中的每个字段
 func UnmarshalRequestArgs(obj any, get func(string) (string, bool)) error {
 	tobj := reflect.TypeOf(obj)
-	if tobj == nil || tobj.Kind() != reflect.Ptr {
+	if tobj == nil || tobj.Kind() != reflect.Pointer {
 		return fmt.Errorf("output obj argument must be a un-nil struct object pointer")
 	}
 	vobj := reflect.ValueOf(obj)
@@ -47,8 +47,14 @@ L:
 		tfield := vfield.Type()
 
 		tag := sfield.Tag.Get("urlkey")
+		if tag == "-" {
+			continue
+		}
 		if tag == "" {
 			tag = sfield.Tag.Get("json")
+			if tag == "-" {
+				continue
+			}
 			if tag == "" {
 				tag = sfield.Name
 			}
@@ -64,7 +70,7 @@ L:
 			if defValue.Type() != tfield {
 				return fmt.Errorf("the type of default value for member is not match, name=%q, default-name=%q", sfield.Name, sfield.Name+"__")
 			}
-			reflect.NewAt(tfield, unsafe.Pointer(vobj.UnsafeAddr()+sfield.Offset)).Elem().Set(defValue)
+			reflect.NewAt(tfield, unsafe.Add(unsafe.Pointer(vobj.UnsafeAddr()), sfield.Offset)).Elem().Set(defValue)
 			continue L
 		} else if svalue == "" {
 			continue L
@@ -167,7 +173,7 @@ L:
 			return fmt.Errorf("unsupport value type %v", tfield)
 		}
 		vvalue := reflect.ValueOf(value).Convert(tfield)
-		reflect.NewAt(tfield, unsafe.Pointer(vobj.UnsafeAddr()+sfield.Offset)).Elem().Set(vvalue)
+		reflect.NewAt(tfield, unsafe.Add(unsafe.Pointer(vobj.UnsafeAddr()), sfield.Offset)).Elem().Set(vvalue)
 	}
 	return nil
 }
@@ -191,14 +197,14 @@ func UnmarshalPostJsonBody(data []byte, obj any) error {
 	if tobj == nil {
 		return fmt.Errorf("output object mustn't be nil value")
 	}
-	if tobj.Kind() != reflect.Ptr {
+	if tobj.Kind() != reflect.Pointer {
 		return fmt.Errorf("output object must be a pointer")
 	}
 	var vobj = reflect.ValueOf(obj)
 
 	// 定位到终极类型
 	for {
-		if tobj.Kind() == reflect.Ptr {
+		if tobj.Kind() == reflect.Pointer {
 			if vobj.IsNil() {
 				return fmt.Errorf("output object's pointer mustn't be nil")
 			}
@@ -264,7 +270,7 @@ func UnmarshalPostJsonBody(data []byte, obj any) error {
 			}
 			// 匿名结构体
 			tfield := field.Type
-			for tfield.Kind() == reflect.Ptr {
+			for tfield.Kind() == reflect.Pointer {
 				if !vfield.IsValid() {
 					break
 				}
@@ -308,7 +314,7 @@ func UnmarshalPostJsonBody(data []byte, obj any) error {
 				def.field.Name, m.field.Name, def.field.Type, m.field.Type)
 		}
 		// 将默认值拷贝给对应字段成员
-		reflect.NewAt(m.field.Type, unsafe.Pointer(m.rv.UnsafeAddr()+m.field.Offset)).Elem().Set(def.vfield)
+		reflect.NewAt(m.field.Type, unsafe.Add(unsafe.Pointer(m.rv.UnsafeAddr()), m.field.Offset)).Elem().Set(def.vfield)
 	}
 	return nil
 }

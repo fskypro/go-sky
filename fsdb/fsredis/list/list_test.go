@@ -15,7 +15,7 @@ type S_Item struct {
 }
 
 func TestList(t *testing.T) {
-	fstest.PrintTestBegin("AnyKeySet")
+	fstest.PrintTestBegin("List")
 	defer fstest.PrintTestEnd()
 
 	rdb := redis.NewClient(&redis.Options{

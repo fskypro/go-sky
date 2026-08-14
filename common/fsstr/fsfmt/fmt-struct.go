@@ -151,7 +151,7 @@ func (this *s_Writer) isInStruct(ptr reflect.Value) bool {
 }
 
 // ---------------------------------------------------------
-func (this *s_Writer) writeStringf(s string, args ...interface{}) {
+func (this *s_Writer) writeStringf(s string, args ...any) {
 	this.w.WriteString(fmt.Sprintf(s, args...))
 }
 
@@ -336,7 +336,7 @@ func _printArray(w *s_Writer, v reflect.Value, tag string) {
 		}
 		// 只显示部分
 		w.writeStringf("%v[", v.Type())
-		for i := 0; i < fcount; i++ {
+		for i := range fcount {
 			w.writeStringf("%#v, ", v.Index(i))
 		}
 		w.writeStringf("...]")
@@ -484,7 +484,7 @@ func _printStructField(w *s_Writer, v reflect.Value, tag string) {
 
 	// 写成员
 	t := v.Type()
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		tf := t.Field(i)
 		tags := tf.Tag.Get("fsfmt")
 		if w.hasFieldTag(tags, "hide") { // 隐藏
@@ -616,7 +616,7 @@ func _isBaseType(t reflect.Type) bool {
 
 var _printers map[reflect.Kind]func(*s_Writer, reflect.Value, string)  // 类型打印方法
 var _pprinters map[reflect.Kind]func(*s_Writer, reflect.Value, string) // 指针类型方法
-var _baseTypes map[reflect.Kind]interface{}                            // 基础类型，这些类型如果为 array、slice、map 的成员，则分列成员时，不换行
+var _baseTypes map[reflect.Kind]any                                    // 基础类型，这些类型如果为 array、slice、map 的成员，则分列成员时，不换行
 
 func init() {
 	_printers = map[reflect.Kind]func(*s_Writer, reflect.Value, string){
@@ -660,7 +660,7 @@ func init() {
 		reflect.Complex128: _printPComplex,
 	}
 
-	_baseTypes = map[reflect.Kind]interface{}{
+	_baseTypes = map[reflect.Kind]any{
 		reflect.Bool:       nil,
 		reflect.Int:        nil,
 		reflect.Int8:       nil,
@@ -704,7 +704,7 @@ type S_FmtOpts struct {
 //			m int     `fsfmt:"hide"`	// 不会打印
 //			mm string `fsfmt:"fold"`    // 折叠输出
 //		}
-func FPrintStruct(w io.Writer, obj interface{}, opts *S_FmtOpts) {
+func FPrintStruct(w io.Writer, obj any, opts *S_FmtOpts) {
 	if opts == nil {
 		opts = &S_FmtOpts{"    ", 4, nil}
 	}
@@ -720,7 +720,7 @@ func FPrintStruct(w io.Writer, obj interface{}, opts *S_FmtOpts) {
 	vobj := reflect.ValueOf(obj)
 	if tobj.Kind() == reflect.Ptr {
 		if !vobj.IsValid() {
-			writer.w.Write([]byte(fmt.Sprintf("(%v)(nil)", tobj)))
+			writer.w.Write(fmt.Appendf([]byte{}, "(%v)(nil)", tobj))
 			return
 		}
 		if vobj.IsNil() {
@@ -728,7 +728,7 @@ func FPrintStruct(w io.Writer, obj interface{}, opts *S_FmtOpts) {
 				writer.writePStructType(vobj)
 				writer.w.WriteString("(nil)")
 			} else {
-				writer.w.Write([]byte(fmt.Sprintf("(%v)(nil)", tobj)))
+				writer.w.Write(fmt.Appendf([]byte{}, "(%v)(nil)", tobj))
 			}
 			return
 		}
@@ -754,7 +754,7 @@ func FPrintStruct(w io.Writer, obj interface{}, opts *S_FmtOpts) {
 //		m int     `fsfmt:"hide"`    // 打印不输出
 //		mm string `fsfmt:"fold"`    // 折叠
 //	}
-func SprintStruct(obj interface{}, opts *S_FmtOpts) string {
+func SprintStruct(obj any, opts *S_FmtOpts) string {
 	out := bytes.NewBuffer([]byte{})
 	FPrintStruct(out, obj, opts)
 	return out.String()

@@ -30,12 +30,13 @@ import (
 		hostssl   all      all  0.0.0.0/0     cert clientcert=1
 */
 type S_DBInfo struct {
-	MaxOpenConns    int           // 打开数据库的最大连接数
-	MaxIdleConns    int           // 连接池中保持连接的最大连接数
-	ConnMaxLifetime time.Duration // 控线连接的最长有效期
-	SSLMode         bool          // 是否使用 SSL 私密连接
-	Timeout         int           // 超时（秒）
-	LocalAddr       string        // 本地地址
+	MaxOpenConns int           // 打开数据库的最大连接数
+	MaxIdleConns int           // 连接池中保持连接的最大连接数
+	MaxIdleTime  time.Duration // 空闲连接保持的连接时长
+	MaxLifetime  time.Duration // 空闲连接的最长有效期
+	SSLMode      bool          // 是否使用 SSL 私密连接
+	Timeout      int           // 超时（秒）
+	LocalAddr    string        // 本地地址
 
 	Host     string // 数据库主机地址
 	Port     int    // 数据库连接端口

@@ -172,7 +172,7 @@ func (this *S_Request) WriteRspString(str string) {
 }
 
 func (this *S_Request) WriteRspStringf(str string, args ...any) {
-	this.buff.WriteString(fmt.Sprintf(str, args...))
+	fmt.Fprintf(&this.buff, str, args...)
 }
 
 // 直接写入回复字符

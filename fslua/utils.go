@@ -11,6 +11,7 @@ package fslua
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"unsafe"
 
@@ -78,6 +79,9 @@ func AddPaths(L *glua.LState, paths ...string) {
 	currentPaths := L.GetField(packageTable, "path").String()
 
 	for _, path := range paths {
+		if filepath.Ext(path) != ".lua" {
+			path = filepath.Join(path, "?.lua")
+		}
 		currentPaths += ";" + path
 	}
 	L.SetField(packageTable, "path", lua.LString(currentPaths))

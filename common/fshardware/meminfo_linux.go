@@ -7,7 +7,7 @@
 @date: 2022-06-06
 **/
 
-package fsos
+package fshardware
 
 import (
 	"bufio"

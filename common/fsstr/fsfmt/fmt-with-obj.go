@@ -17,21 +17,24 @@ import (
 )
 
 // SobjPrintf
-//  通过传入一个 object 参数，并以 object 的成员值作为字符串格式化参数
-//	format: 要被格式化的字符串
-//	args：格式化参数所属的对象
-//  type Arg struct {
-//		Value1 string  `fm:"k1"`
-//		value2 float64 `fm:"k2"`
-//  }
-//	譬如：Smprintf("123 %[k1]s 456; %.2[k2]f", &Arg{"xxx", 3.33}, "fm")
-//	返回：123 xxx 456; 3.33
+//
+//	 通过传入一个 object 参数，并以 object 的成员值作为字符串格式化参数
+//		format: 要被格式化的字符串
+//		args：格式化参数所属的对象
+//	 type Arg struct {
+//			Value1 string  `fm:"k1"`
+//			value2 float64 `fm:"k2"`
+//	 }
+//		譬如：Smprintf("123 %[k1]s 456; %.2[k2]f", &Arg{"xxx", 3.33}, "fm")
+//		返回：123 xxx 456; 3.33
 func SobjPrintf(format string, obj any, tag string) string {
 	return SfuncPrintf(format, func(key string) (any, bool) {
 		ok := false
 		var member reflect.Value
 		fsreflect.TrivalStructMembers(obj, false, func(info *fsreflect.S_TrivalStructInfo) bool {
-			if info.IsBase { return true }
+			if info.IsBase {
+				return true
+			}
 			if tag == "" {
 				if info.Field.Name == key {
 					ok = true
@@ -45,15 +48,21 @@ func SobjPrintf(format string, obj any, tag string) string {
 			}
 			return true
 		})
-		if !ok { return nil, false }
+		if !ok {
+			return nil, false
+		}
 
-		if !member.IsValid() { return nil, false }
+		if !member.IsValid() {
+			return nil, false
+		}
 
 		if member.CanInterface() {
 			return member.Interface(), true
 		}
-		if member.Type().Kind() == reflect.Ptr {
-			if member.IsNil() { return 0, true }
+		if member.Type().Kind() == reflect.Pointer {
+			if member.IsNil() {
+				return 0, true
+			}
 			return "<can't access ptr>", true
 		} else if member.CanAddr() {
 			vv := reflect.NewAt(member.Type(), unsafe.Pointer(member.UnsafeAddr()))

@@ -388,6 +388,12 @@ func (this *S_Table) RenameColumnSQL(oldName, newName string, ctype string, tail
 	return newExecInfo2(nil, sqltx)
 }
 
+// 修改字段类型
+func (this *S_Table) ModifyColumnTypeSQL(colName string, ctype string) *S_ExecInfo {
+	sqltx := fmt.Sprintf("ALTER TABLE %s MODIFY `%s` %s", this.quote(), colName, ctype)
+	return newExecInfo2(nil, sqltx)
+}
+
 // -------------------------------------------------------------------
 // 添加字段
 func (this *S_Table) AddColumnSQL(col string, ctype string, tail string) *S_ExecInfo {

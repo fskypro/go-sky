@@ -1,3 +1,5 @@
+//go:build linux
+
 /**
 @copyright: fantasysky 2016
 @website: https://www.fsky.pro
@@ -7,12 +9,13 @@
 @date: 2022-06-06
 **/
 
-package fsos
+package fshardware
 
 import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,22 +24,6 @@ import (
 // -----------------------------------------------------------------------------
 // cpu 核心数、主频等在 /proc/cpuinfo 中获取
 // -----------------------------------------------------------------------------
-type S_CpuCore struct {
-	Order      int    `json:"processor"`
-	VendorID   string `json:"vendor_id"`
-	CpuFamily  string `json:"cpu family"`
-	Model      int    `json:"model"`
-	ModelName  string `json:"model name"`
-	MicroCode  string `json:"microcode"`
-	CpuMHz     int    `json:"cpu MHz"`
-	CacheSize  int    `json:"cache size"`
-	PhysicalID int    `json:"physical id"`
-	CpuCores   string `json:"cpu cores"`
-	Flags      string `json:"flags"`
-	Bugs       string `json:"bugs"`
-	AddrSize   string `json:"address sizes"`
-}
-
 func (this *S_CpuCore) parse(block string) error {
 	lines := strings.Split(block, "\n")
 	members := make(map[string]string)
@@ -60,35 +47,16 @@ func (this *S_CpuCore) parse(block string) error {
 	this.ModelName = members["model name"]
 	this.MicroCode = members["microcode"]
 	this.CacheSize = cache
-	this.CpuCores = members["cpu cores"]
-	this.Flags = members["flags"]
+	this.CpuCores, _ = strconv.Atoi(members["cpu cores"])
+	this.Flags = strings.Fields(members["flags"])
 	this.Bugs = members["bugs"]
 	this.AddrSize = members["address sizes"]
 
 	this.Order, _ = strconv.Atoi(members["processor"])
-	this.Model, _ = strconv.Atoi(members["model"])
+	this.Model, _ = members["model"]
 	this.PhysicalID, _ = strconv.Atoi(members["physical id"])
 	cpuMHz, _ := strconv.ParseFloat(members["cpu MHz"], 32)
 	this.CpuMHz = int(cpuMHz)
-	return nil
-}
-
-type S_CpuInfo struct {
-	Cores []*S_CpuCore
-}
-
-// 核心个数
-func (this *S_CpuInfo) CoreNum() int {
-	return len(this.Cores)
-}
-
-// 获取指定序号的核心信息
-func (this *S_CpuInfo) GetCore(order int) *S_CpuCore {
-	for _, core := range this.Cores {
-		if order == core.Order {
-			return core
-		}
-	}
 	return nil
 }
 
@@ -119,29 +87,33 @@ func GetCpuInfo() (*S_CpuInfo, error) {
 // -----------------------------------------------------------------------------
 // CPU 使用率统计，数据来自于：/proc/stat
 // $ cat /proc/stat
-//   cpu  92609 13781 80309 301104595 2755 127740 41005 0 0 0
-//   cpu0 12597 2846  11307 75328250  781  11008  2820  0 0 0
-//   cpu1 27766 4608  26706 75257664  523  34279  20154 0 0 0
-//   cpu2 33055 4758  24332 75281648  971  28668  3276  0 0 0
-//   cpu3 19189 1567  17962 75237030  478  53784  14754 0 0 0
-//   ...
+//
+//	cpu  92609 13781 80309 301104595 2755 127740 41005 0 0 0
+//	cpu0 12597 2846  11307 75328250  781  11008  2820  0 0 0
+//	cpu1 27766 4608  26706 75257664  523  34279  20154 0 0 0
+//	cpu2 33055 4758  24332 75281648  971  28668  3276  0 0 0
+//	cpu3 19189 1567  17962 75237030  478  53784  14754 0 0 0
+//	...
 //
 // 数值每列代表的是：
-//   user        用户态
-//   nice        低优先级用户态（nice 的进程）
-//   system      内核态（特权模式）
-//   idle        空闲
-//   iowait      IO等待
-//   irq         硬中断 （Interrupt request）
-//   softirq     软中断
-//   steal       虚拟化环境下其他系统的运行时间
-//   guest       运行虚拟宿主机
-//   guest_nice  虚拟宿主机nice
+//
+//	user        用户态
+//	nice        低优先级用户态（nice 的进程）
+//	system      内核态（特权模式）
+//	idle        空闲
+//	iowait      IO等待
+//	irq         硬中断 （Interrupt request）
+//	softirq     软中断
+//	steal       虚拟化环境下其他系统的运行时间
+//	guest       运行虚拟宿主机
+//	guest_nice  虚拟宿主机nice
 //
 // CPU 使用率统计方法：
-//   work = user +  nice + system + irq + softirq + steal
-//   idle = idle + iowait
-//   usage = work / (work + idle)
+//
+//	work = user +  nice + system + irq + softirq + steal
+//	idle = idle + iowait
+//	usage = work / (work + idle)
+//
 // -----------------------------------------------------------------------------
 type S_CoreStat struct {
 	Order   int
@@ -197,7 +169,7 @@ type S_CpuStat struct {
 }
 
 func GetCpuStat() (*S_CpuStat, error) {
-	data, err := ioutil.ReadFile("/proc/stat")
+	data, err := os.ReadFile("/proc/stat")
 	if err != nil {
 		return nil, fmt.Errorf("read cpu stat file fail, %v", err)
 	}

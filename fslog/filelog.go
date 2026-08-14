@@ -47,13 +47,13 @@ func NewFileLogger(file string) (*S_FileLogger, error) {
 func (this *S_FileLogger) write(t time.Time, lv T_Level, msg []byte) {
 	if this.file == nil {
 		now := this.nowTime()
-		os.Stderr.WriteString(fmt.Sprintf("%s: %v", now.Format("[ERROR]|2006/01/02 15:04:05.999999 "), "file logger has been closed"))
+		fmt.Fprintf(os.Stderr, "%s: %v", now.Format("[ERROR]|2006/01/02 15:04:05.999999 "), "file logger has been closed")
 		os.Stdout.Write(msg)
 		return
 	}
 	if _, err := this.file.Write(msg); err != nil {
 		now := this.nowTime()
-		os.Stderr.WriteString(fmt.Sprintf("%s: %v", now.Format("[ERROR]|2006/01/02 15:04:05.999999 "), err))
+		fmt.Fprintf(os.Stderr, "%s: %v", now.Format("[ERROR]|2006/01/02 15:04:05.999999 "), err)
 		os.Stdout.Write(msg)
 	}
 }

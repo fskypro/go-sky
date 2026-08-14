@@ -1,4 +1,6 @@
-package fsos
+//go:build linux
+
+package fshardware
 
 import (
 	"fmt"
@@ -10,7 +12,7 @@ import (
 func TestGetCpuInfo(t *testing.T) {
 	fstest.PrintTestBegin("GetCpuInfo")
 	defer fstest.PrintTestEnd()
-	info , err := GetCpuInfo()
+	info, err := GetCpuInfo()
 	if err != nil {
 		fmt.Printf("get cpu info fail, %v\n", err)
 		return
@@ -35,4 +37,3 @@ func TestGetCpuStat(t *testing.T) {
 		fmt.Printf("%#v\n", coreStat)
 	}
 }
-

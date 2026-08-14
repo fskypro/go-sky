@@ -68,18 +68,23 @@ func NewListContext[T any](ctx context.Context, client *redis.Client, key string
 // public
 // -------------------------------------------------------------------
 // 获取数组长度
+func (this *S_List[T]) CountCtx(ctx context.Context) (int64, error) {
+	return this.client.LLen(ctx, this.key).Result()
+}
+
+// 获取数组长度
 func (this *S_List[T]) Count() (int64, error) {
 	return this.client.LLen(this.ctx, this.key).Result()
 }
 
 // 返回指定元素的索引
 // 如果不存在，则返回第一个参数为 -1
-func (this *S_List[T]) Index(value T) (int64, error) {
+func (this *S_List[T]) IndexCtx(ctx context.Context, value T) (int64, error) {
 	bvalue, err := this.codec.Encode(value)
 	if err != nil {
 		return -1, fmt.Errorf("encode the after item fail, %v", err)
 	}
-	index, err := this.client.LPos(this.ctx, this.key, string(bvalue), redis.LPosArgs{}).Result()
+	index, err := this.client.LPos(ctx, this.key, string(bvalue), redis.LPosArgs{}).Result()
 	if err == redis.Nil {
 		return -1, nil
 	} else if err != nil {
@@ -88,11 +93,17 @@ func (this *S_List[T]) Index(value T) (int64, error) {
 	return index, nil
 }
 
+// 返回指定元素的索引
+// 如果不存在，则返回第一个参数为 -1
+func (this *S_List[T]) Index(value T) (int64, error) {
+	return this.IndexCtx(this.ctx, value)
+}
+
 // 获取指定索引处的元素
 // 如果索引不存在，则第一个返回值的 Exists 字段为 false
-func (this *S_List[T]) Get(index int64) (S_RetValue[T], error) {
+func (this *S_List[T]) GetCtx(ctx context.Context, index int64) (S_RetValue[T], error) {
 	ret := S_RetValue[T]{Data: []byte{}}
-	data, err := this.client.LIndex(this.ctx, this.key, index).Result()
+	data, err := this.client.LIndex(ctx, this.key, index).Result()
 	if err == redis.Nil {
 		return ret, nil
 	}
@@ -108,10 +119,16 @@ func (this *S_List[T]) Get(index int64) (S_RetValue[T], error) {
 	return ret, nil
 }
 
+// 获取指定索引处的元素
+// 如果索引不存在，则第一个返回值的 Exists 字段为 false
+func (this *S_List[T]) Get(index int64) (S_RetValue[T], error) {
+	return this.GetCtx(this.ctx, index)
+}
+
 // 获取指定范围的元素，获取范围是 start~stop（包含 stop）
 // stop 支持负索引，-1 表示最后一个元素
-func (this *S_List[T]) GetRange(start, stop int64) ([]S_RetValue[T], error) {
-	datas, err := this.client.LRange(this.ctx, this.key, start, stop).Result()
+func (this *S_List[T]) GetRangeCtx(ctx context.Context, start, stop int64) ([]S_RetValue[T], error) {
+	datas, err := this.client.LRange(ctx, this.key, start, stop).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -127,12 +144,18 @@ func (this *S_List[T]) GetRange(start, stop int64) ([]S_RetValue[T], error) {
 	return values, nil
 }
 
+// 获取指定范围的元素，获取范围是 start~stop（包含 stop）
+// stop 支持负索引，-1 表示最后一个元素
+func (this *S_List[T]) GetRange(start, stop int64) ([]S_RetValue[T], error) {
+	return this.GetRangeCtx(this.ctx, start, stop)
+}
+
 // 遍历所有元素
-func (this *S_List[T]) Fetch(fun func(S_RetValue[T]) bool) error {
+func (this *S_List[T]) FetchCtx(ctx context.Context, fun func(S_RetValue[T]) bool) error {
 	const gap = 100
 	var index int64 = 0
 	for {
-		rets, err := this.GetRange(index, index+gap)
+		rets, err := this.GetRangeCtx(ctx, index, index+gap)
 		if err != nil {
 			return err
 		}
@@ -148,10 +171,15 @@ func (this *S_List[T]) Fetch(fun func(S_RetValue[T]) bool) error {
 	}
 }
 
+// 遍历所有元素
+func (this *S_List[T]) Fetch(fun func(S_RetValue[T]) bool) error {
+	return this.FetchCtx(this.ctx, fun)
+}
+
 // -------------------------------------------------------------------
 // 往数组左边添加元素
 // 返回的第一个参数为数组的新长度
-func (this *S_List[T]) LPush(values ...T) (int64, error) {
+func (this *S_List[T]) LPushCtx(ctx context.Context, values ...T) (int64, error) {
 	if len(values) == 0 {
 		return 0, nil
 	}
@@ -163,31 +191,69 @@ func (this *S_List[T]) LPush(values ...T) (int64, error) {
 		}
 		bvalues = append(bvalues, string(bvalue))
 	}
-	return this.client.LPush(this.ctx, this.key, bvalues...).Result()
+	return this.client.LPush(ctx, this.key, bvalues...).Result()
+}
+
+// 往数组左边添加元素
+// 返回的第一个参数为数组的新长度
+func (this *S_List[T]) LPush(values ...T) (int64, error) {
+	return this.LPushCtx(this.ctx, values...)
+}
+
+// 往数组右边添加元素
+// 返回的第一个参数为数组的新长度
+func (this *S_List[T]) RPushCtx(ctx context.Context, values ...T) (int64, error) {
+	if len(values) == 0 {
+		return 0, nil
+	}
+	bvalues := make([]any, 0, len(values))
+	for _, value := range values {
+		bvalue, err := this.codec.Encode(value)
+		if err != nil {
+			return 0, fmt.Errorf("encode value fail, %v", err)
+		}
+		bvalues = append(bvalues, string(bvalue))
+	}
+	return this.client.RPush(ctx, this.key, bvalues...).Result()
 }
 
 // 往数组右边添加元素
 // 返回的第一个参数为数组的新长度
 func (this *S_List[T]) RPush(values ...T) (int64, error) {
-	if len(values) == 0 {
-		return 0, nil
+	return this.RPushCtx(this.ctx, values...)
+}
+
+// 弹出左边第一个元素
+// 如果 List 为空，则第一个返回值的 Exists 字段值为 false
+func (this *S_List[T]) LPopCtx(ctx context.Context) (S_RetValue[T], error) {
+	ret := S_RetValue[T]{}
+	data, err := this.client.LPop(ctx, this.key).Result()
+	if err == redis.Nil {
+		return ret, nil
 	}
-	bvalues := make([]any, 0, len(values))
-	for _, value := range values {
-		bvalue, err := this.codec.Encode(value)
-		if err != nil {
-			return 0, fmt.Errorf("encode value fail, %v", err)
-		}
-		bvalues = append(bvalues, string(bvalue))
+	if err != nil {
+		return ret, err
 	}
-	return this.client.RPush(this.ctx, this.key, bvalues...).Result()
+	ret.Data = []byte(data)
+	ret.Exists = true
+	err = this.codec.Decode(ret.Data, &ret.Value)
+	if err != nil {
+		ret.DecodeErr = err
+	}
+	return ret, nil
 }
 
 // 弹出左边第一个元素
 // 如果 List 为空，则第一个返回值的 Exists 字段值为 false
 func (this *S_List[T]) LPop() (S_RetValue[T], error) {
+	return this.LPopCtx(this.ctx)
+}
+
+// 弹出最右边一个元素
+// 如果 List 为空，则第一个返回值的 Exists 字段值为 false
+func (this *S_List[T]) RPopCtx(ctx context.Context) (S_RetValue[T], error) {
 	ret := S_RetValue[T]{}
-	data, err := this.client.LPop(this.ctx, this.key).Result()
+	data, err := this.client.RPop(ctx, this.key).Result()
 	if err == redis.Nil {
 		return ret, nil
 	}
@@ -206,26 +272,12 @@ func (this *S_List[T]) LPop() (S_RetValue[T], error) {
 // 弹出最右边一个元素
 // 如果 List 为空，则第一个返回值的 Exists 字段值为 false
 func (this *S_List[T]) RPop() (S_RetValue[T], error) {
-	ret := S_RetValue[T]{}
-	data, err := this.client.RPop(this.ctx, this.key).Result()
-	if err == redis.Nil {
-		return ret, nil
-	}
-	if err != nil {
-		return ret, err
-	}
-	ret.Data = []byte(data)
-	ret.Exists = true
-	err = this.codec.Decode(ret.Data, &ret.Value)
-	if err != nil {
-		ret.DecodeErr = err
-	}
-	return ret, nil
+	return this.RPopCtx(this.ctx)
 }
 
 // 在指定元素前面插入一个新的元素
 // 如果插入成功，则第一个返回值为新 List 的长度，否则第一个返回值为 -1
-func (this *S_List[T]) InsertBefore(back T, value T) (int64, error) {
+func (this *S_List[T]) InsertBeforeCtx(ctx context.Context, back T, value T) (int64, error) {
 	bback, err := this.codec.Encode(back)
 	if err != nil {
 		return -1, fmt.Errorf("encode the after item fail, %v", err)
@@ -234,12 +286,18 @@ func (this *S_List[T]) InsertBefore(back T, value T) (int64, error) {
 	if err != nil {
 		return -1, fmt.Errorf("encode value fail, %v", err)
 	}
-	return this.client.LInsertBefore(this.ctx, this.key, bback, string(bvalue)).Result()
+	return this.client.LInsertBefore(ctx, this.key, bback, string(bvalue)).Result()
+}
+
+// 在指定元素前面插入一个新的元素
+// 如果插入成功，则第一个返回值为新 List 的长度，否则第一个返回值为 -1
+func (this *S_List[T]) InsertBefore(back T, value T) (int64, error) {
+	return this.InsertBeforeCtx(this.ctx, back, value)
 }
 
 // 在指定元素后面插入一个新的元素
 // 如果插入成功，则第一个返回值为新 List 的长度，否则第一个返回值为 -1
-func (this *S_List[T]) InsertAfter(ahead T, value T) (int64, error) {
+func (this *S_List[T]) InsertAfterCtx(ctx context.Context, ahead T, value T) (int64, error) {
 	bahead, err := this.codec.Encode(ahead)
 	if err != nil {
 		return -1, fmt.Errorf("encode the after item fail, %v", err)
@@ -248,25 +306,36 @@ func (this *S_List[T]) InsertAfter(ahead T, value T) (int64, error) {
 	if err != nil {
 		return -1, fmt.Errorf("encode value fail, %v", err)
 	}
-	return this.client.LInsertAfter(this.ctx, this.key, bahead, string(bvalue)).Result()
+	return this.client.LInsertAfter(ctx, this.key, bahead, string(bvalue)).Result()
+}
+
+// 在指定元素后面插入一个新的元素
+// 如果插入成功，则第一个返回值为新 List 的长度，否则第一个返回值为 -1
+func (this *S_List[T]) InsertAfter(ahead T, value T) (int64, error) {
+	return this.InsertAfterCtx(this.ctx, ahead, value)
 }
 
 // -------------------------------------------------------------------
 // 设置指定位置的元素
-func (this *S_List[T]) Set(index int64, value T) error {
+func (this *S_List[T]) SetCtx(ctx context.Context, index int64, value T) error {
 	bvalue, err := this.codec.Encode(value)
 	if err != nil {
 		return fmt.Errorf("encode value fail, %v", err)
 	}
-	err = this.client.LSet(this.ctx, this.key, index, string(bvalue)).Err()
+	err = this.client.LSet(ctx, this.key, index, string(bvalue)).Err()
 	if err != nil {
 		return fmt.Errorf("index %d is out of range", index)
 	}
 	return err
 }
 
+// 设置指定位置的元素
+func (this *S_List[T]) Set(index int64, value T) error {
+	return this.SetCtx(this.ctx, index, value)
+}
+
 // 删除指定位置的值
-func (this *S_List[T]) Remove(index int64) (bool, error) {
+func (this *S_List[T]) RemoveCtx(ctx context.Context, index int64) (bool, error) {
 	marker := "__MARKER__" + uuid.NewString()
 	script := `
 		local idx = tonumber(ARGV[1])
@@ -277,22 +346,38 @@ func (this *S_List[T]) Remove(index int64) (bool, error) {
 		redis.call("LREM", KEYS[1], 1, marker)
 		return 1
 `
-	res, err := this.client.Eval(this.ctx, script, []string{this.key}, index, marker).Int()
+	res, err := this.client.Eval(ctx, script, []string{this.key}, index, marker).Int()
 	if err != nil {
 		return false, err
 	}
 	return res == 1, nil
 }
 
+// 删除指定位置的值
+func (this *S_List[T]) Remove(index int64) (bool, error) {
+	return this.RemoveCtx(this.ctx, index)
+}
+
 // 删除指定值
 // 如果要删除的元素不存在，则返回的第一个参数为 false
-func (this *S_List[T]) RemoveValue(value T) (bool, error) {
+func (this *S_List[T]) RemoveValueCtx(ctx context.Context, value T) (bool, error) {
 	bvalue, err := this.codec.Encode(value)
 	if err != nil {
 		return false, fmt.Errorf("encode value fail, %v", err)
 	}
-	n, err := this.client.LRem(this.ctx, this.key, 0, string(bvalue)).Result()
+	n, err := this.client.LRem(ctx, this.key, 0, string(bvalue)).Result()
 	return n > 0, nil
+}
+
+// 删除指定值
+// 如果要删除的元素不存在，则返回的第一个参数为 false
+func (this *S_List[T]) RemoveValue(value T) (bool, error) {
+	return this.RemoveValueCtx(this.ctx, value)
+}
+
+// 除了指定范围内的元素保留以外，其他元素全部删除
+func (this *S_List[T]) TrimCtx(ctx context.Context, start, stop int64) error {
+	return this.client.LTrim(ctx, this.key, start, stop).Err()
 }
 
 // 除了指定范围内的元素保留以外，其他元素全部删除
@@ -302,6 +387,11 @@ func (this *S_List[T]) Trim(start, stop int64) error {
 
 // -------------------------------------------------------------------
 // 删除整个列表
+func (this *S_List[T]) ClearCtx(ctx context.Context) error {
+	return this.client.Del(ctx, this.key).Err()
+}
+
+// 删除整个列表
 func (this *S_List[T]) Clear() error {
 	return this.client.Del(this.ctx, this.key).Err()
 }
@@ -309,9 +399,9 @@ func (this *S_List[T]) Clear() error {
 // -------------------------------------------------------------------
 // 移动元素到另一个列表中
 // 如果移动成功，则第一个返回值的 Exists == true
-func (this *S_List[T]) MoveTo(dst *S_List[T], srcDiirect, dstDirect E_Direct) (S_RetValue[T], error) {
+func (this *S_List[T]) MoveToCtx(ctx context.Context, dst *S_List[T], srcDiirect, dstDirect E_Direct) (S_RetValue[T], error) {
 	ret := S_RetValue[T]{}
-	data, err := this.client.LMove(this.ctx, this.key, dst.key, string(srcDiirect), string(dstDirect)).Result()
+	data, err := this.client.LMove(ctx, this.key, dst.key, string(srcDiirect), string(dstDirect)).Result()
 	if err == redis.Nil {
 		return ret, nil
 	}
@@ -324,4 +414,10 @@ func (this *S_List[T]) MoveTo(dst *S_List[T], srcDiirect, dstDirect E_Direct) (S
 		ret.DecodeErr = err
 	}
 	return ret, nil
+}
+
+// 移动元素到另一个列表中
+// 如果移动成功，则第一个返回值的 Exists == true
+func (this *S_List[T]) MoveTo(dst *S_List[T], srcDiirect, dstDirect E_Direct) (S_RetValue[T], error) {
+	return this.MoveToCtx(this.ctx, dst, srcDiirect, dstDirect)
 }

@@ -23,20 +23,36 @@ import (
 )
 
 // 整理路径
+/*
 func CleanPath(path string) string {
 	path = filepath.Clean(path)
 	path = strings.ReplaceAll(path, "/", string(os.PathSeparator))
 	return strings.ReplaceAll(path, "\\", string(os.PathSeparator))
 }
+*/
 
-// 获取文件路径的去掉扩展名部分
-func FileNoExt(file string) string {
-	ext := path.Ext(file)
-	return file[:len(file)-len(ext)]
+// 切掉目录的根部分
+func CutRoot(path, root string) string {
+	path = filepath.Clean(path)
+	root = filepath.Clean(root)
+	rpath := strings.TrimPrefix(path, root)
+	return strings.TrimPrefix(rpath, string(filepath.Separator))
 }
 
+// 获取文件路径的去掉扩展名部分
+func CutExt(file string) string {
+	return strings.TrimSuffix(file, filepath.Ext(file))
+}
+
+// 获取文件名不带扩展名部分
+func BaseCutExt(file string) string {
+	return CutExt(filepath.Base(file))
+}
+
+// -------------------------------------------------------------------
 // IsPathExists 判断路径是否存在(包括文件和文件夹)
 // 注意：
+//
 //	如果参数 path 为空字符串，则返回 false
 func IsPathExists(path string) bool {
 	_, err := os.Stat(path)
@@ -48,6 +64,7 @@ func IsPathExists(path string) bool {
 
 // IsDir 判断指定路径，是否是已经存在的路径
 // 注意：
+//
 //	如果 path 为空字符串，则返回 false，而不会认为是当前路径
 func IsDirExists(path string) bool {
 	s, err := os.Stat(path)
@@ -69,9 +86,13 @@ func IsFileExists(path string) bool {
 // IsFileAccess 文件是否可被存取
 func IsFileAccessable(filePath string) bool {
 	file, err := os.OpenFile(filePath, os.O_RDWR, 0666)
-	if err != nil { return false }
+	if err != nil {
+		return false
+	}
 	fileInfo, err := file.Stat()
-	if err != nil { return false }
+	if err != nil {
+		return false
+	}
 	return fileInfo.Mode().Perm()&0400 == 0
 }
 
@@ -99,7 +120,9 @@ func ExecuteDir() (string, error) {
 // 判断指定文件或目录是否为另一个目录的子目录或子文件
 func IsSubFilePathOf(sub string, parent string) bool {
 	relPath, err := filepath.Rel(parent, sub)
-	if err != nil { return false }
+	if err != nil {
+		return false
+	}
 	return !filepath.IsAbs(relPath) && !strings.HasPrefix(relPath, "..")
 }
 
@@ -108,17 +131,21 @@ func IsSubFilePathOf(sub string, parent string) bool {
 // fun 的第一个参数是当前遍历到的文件相对于 root 的路径；第二个参数表示是否是文件夹
 // 如果 fun 返回 false 则退出遍历
 func WorkDir(root string, fun func(string, fs.FileInfo) bool) error {
-	cache := [][2]string{[2]string{root, ""}}
+	cache := [][2]string{{root, ""}}
 	for len(cache) > 0 {
 		subRoot := cache[0]
 		cache = cache[1:]
 		finfos, err := ioutil.ReadDir(subRoot[0])
-		if err != nil { return fmt.Errorf("read dir %q fail", subRoot[0]) }
+		if err != nil {
+			return fmt.Errorf("read dir %q fail", subRoot[0])
+		}
 		for _, finfo := range finfos {
 			if finfo.IsDir() {
 				root := path.Join(subRoot[0], finfo.Name())
 				sub := path.Join(subRoot[1], finfo.Name())
-				if !fun(sub, finfo) { return nil }
+				if !fun(sub, finfo) {
+					return nil
+				}
 				cache = append(cache, [2]string{root, sub})
 			} else {
 				sub := path.Join(subRoot[1], finfo.Name())
@@ -171,7 +198,7 @@ func CopyDir(src, dst string, allowDstHasFile bool, out *os.File) error {
 	src = filepath.Clean(src)
 	// 不允许目标文件夹有文件
 	if !allowDstHasFile {
-		fs, err := ioutil.ReadDir(dst)
+		fs, err := os.ReadDir(dst)
 		if err == nil && len(fs) > 0 {
 			return errors.New(fmt.Sprintf("dst folder(%q) has been exist and it is not empty", dst))
 		}
@@ -196,7 +223,7 @@ func CopyDir(src, dst string, allowDstHasFile bool, out *os.File) error {
 		}
 		dstFile := filepath.Join(dst, srcFile[srcPathLen:])
 		if out != nil {
-			out.Write([]byte(fmt.Sprintf("%s->%s%s", srcFile, dstFile, fsdef.Endline)))
+			out.Write(fmt.Appendf([]byte("%s->%s%s"), srcFile, dstFile, fsdef.Endline))
 		}
 		return CopyFile(srcFile, dstFile)
 	})

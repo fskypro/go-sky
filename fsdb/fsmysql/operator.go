@@ -14,8 +14,8 @@ import (
 	"errors"
 	"fmt"
 
-	"fsky.pro/fsmysql/fssql"
 	"fsky.pro/fsky"
+	"fsky.pro/fsmysql/fssql"
 )
 
 // -----------------------------------------------------------------------------
@@ -216,6 +216,13 @@ func (this *s_Operator) DelColumn(table *fssql.S_Table, colName string) *S_OPRes
 // 重命名字段
 func (this *s_Operator) RenameColumn(table *fssql.S_Table, oldName, newName string, ctype string, tail string) *S_OPResult {
 	sqlInfo := table.RenameColumnSQL(oldName, newName, ctype, tail)
+	_, err := this.wrapper.Exec(sqlInfo.SQLText())
+	return newOPResult(sqlInfo, err)
+}
+
+// 修改字段类型
+func (this *s_Operator) ModColumnType(table *fssql.S_Table, colName string, ctype string) *S_OPResult {
+	sqlInfo := table.ModifyColumnTypeSQL(colName, ctype)
 	_, err := this.wrapper.Exec(sqlInfo.SQLText())
 	return newOPResult(sqlInfo, err)
 }

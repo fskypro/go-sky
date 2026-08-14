@@ -436,7 +436,7 @@ func getObjTable(obj any) (*S_Table, error) {
 		return nil, errors.New("the db table's maps go object mustn't be a nil value")
 	}
 	tobj := reflect.TypeOf(obj)
-	if tobj.Kind() == reflect.Ptr {
+	if tobj.Kind() == reflect.Pointer {
 		tobj = tobj.Elem()
 	}
 	tb := _tbcache[tobj]

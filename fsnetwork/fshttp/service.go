@@ -35,6 +35,7 @@ type s_Handler struct {
 }
 
 func (this *s_Handler) call(service *S_Service, w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
 	if this.h1 != nil {
 		this.h1(w, r)
 	}
@@ -203,6 +204,12 @@ func (this *S_Service) RemoveHandler(path string) bool {
 	delete(this.handlers, path)
 	delete(this.rehandlers, path)
 	return ok1 || ok2
+}
+
+func (this *S_Service) ClearHandlers() {
+	this.locker.Lock()
+	defer this.locker.Unlock()
+	this.handlers = map[string]*s_Handler{}
 }
 
 // ---------------------------------------------------------

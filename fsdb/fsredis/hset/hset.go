@@ -12,6 +12,7 @@ package hset
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"fsky.pro/fsredis/codec"
 
@@ -100,19 +101,33 @@ func newHSet[K comparable, V any, Sub i_Sub[K]](ctx context.Context, client *red
 // -------------------------------------------------------------------
 // public
 // -------------------------------------------------------------------
+func (this *s_HSet[K, V, Sub]) Clent() *redis.Client {
+	return this.client
+}
+
+// 获取 set 中键值对的总数
+func (this *s_HSet[K, V, Sub]) CountCtx(ctx context.Context) (int64, error) {
+	return this.client.HLen(ctx, this.hashKey).Result()
+}
+
 // 获取 set 中键值对的总数
 func (this *s_HSet[K, V, Sub]) Count() (int64, error) {
 	return this.client.HLen(this.ctx, this.hashKey).Result()
 }
 
 // 查找是否存在指定 key
+func (this *s_HSet[K, V, Sub]) HasKeyCtx(ctx context.Context, key K) (bool, error) {
+	return this.client.HExists(ctx, this.hashKey, this.sub.keyToString(key)).Result()
+}
+
+// 查找是否存在指定 key
 func (this *s_HSet[K, V, Sub]) HasKey(key K) (bool, error) {
-	return this.client.HExists(this.ctx, this.hashKey, this.sub.keyToString(key)).Result()
+	return this.HasKeyCtx(this.ctx, key)
 }
 
 // 获取所有键
-func (this *s_HSet[K, V, Sub]) GetKeys() (S_RetKeys[K], error) {
-	fields, err := this.client.HKeys(this.ctx, this.hashKey).Result()
+func (this *s_HSet[K, V, Sub]) GetKeysCtx(ctx context.Context) (S_RetKeys[K], error) {
+	fields, err := this.client.HKeys(ctx, this.hashKey).Result()
 	if err != nil {
 		return S_RetKeys[K]{}, err
 	}
@@ -129,15 +144,20 @@ func (this *s_HSet[K, V, Sub]) GetKeys() (S_RetKeys[K], error) {
 	return S_RetKeys[K]{InvalidKeys: loses, Keys: keys}, nil
 }
 
+// 获取所有键
+func (this *s_HSet[K, V, Sub]) GetKeys() (S_RetKeys[K], error) {
+	return this.GetKeysCtx(this.ctx)
+}
+
 // 获取映射值
+// 注意：
 //
-//	注意：
-//	  返回错误不等于 nil，只是表示访问数据库失败
-//	  还需要判断 S_RetValue[V].DecodeErr 是否等于 nil，不等于 nil，则表示反序列化值错误
-func (this *s_HSet[K, V, Sub]) Get(key K) (S_RetValue[V], error) {
+//	返回错误不等于 nil，只是表示访问数据库失败
+//	还需要判断 S_RetValue[V].DecodeErr 是否等于 nil，不等于 nil，则表示反序列化值错误
+func (this *s_HSet[K, V, Sub]) GetCtx(ctx context.Context, key K) (S_RetValue[V], error) {
 	ret := S_RetValue[V]{}
 	strKey := this.sub.keyToString(key)
-	data, err := this.client.HGet(this.ctx, this.hashKey, strKey).Bytes()
+	data, err := this.client.HGet(ctx, this.hashKey, strKey).Bytes()
 	if err == redis.Nil {
 		return ret, nil
 	}
@@ -153,8 +173,17 @@ func (this *s_HSet[K, V, Sub]) Get(key K) (S_RetValue[V], error) {
 	return ret, nil
 }
 
+// 获取映射值
+// 注意：
+//
+//	返回错误不等于 nil，只是表示访问数据库失败
+//	还需要判断 S_RetValue[V].DecodeErr 是否等于 nil，不等于 nil，则表示反序列化值错误
+func (this *s_HSet[K, V, Sub]) Get(key K) (S_RetValue[V], error) {
+	return this.GetCtx(this.ctx, key)
+}
+
 // 获取指定一组 key 的值
-func (this *s_HSet[K, V, Sub]) Gets(keys ...K) (S_RetItems[K, V], error) {
+func (this *s_HSet[K, V, Sub]) GetsCtx(ctx context.Context, keys ...K) (S_RetItems[K, V], error) {
 	ret := S_RetItems[K, V]{
 		UnexistKeys: []K{},
 		InvalidKeys: make([]string, 0),
@@ -166,7 +195,7 @@ func (this *s_HSet[K, V, Sub]) Gets(keys ...K) (S_RetItems[K, V], error) {
 	for _, key := range keys {
 		strKeys = append(strKeys, this.sub.keyToString(key))
 	}
-	datas, err := this.client.HMGet(this.ctx, this.hashKey, strKeys...).Result()
+	datas, err := this.client.HMGet(ctx, this.hashKey, strKeys...).Result()
 	if err != nil {
 		return ret, err
 	}
@@ -191,8 +220,13 @@ func (this *s_HSet[K, V, Sub]) Gets(keys ...K) (S_RetItems[K, V], error) {
 	return ret, nil
 }
 
+// 获取指定一组 key 的值
+func (this *s_HSet[K, V, Sub]) Gets(keys ...K) (S_RetItems[K, V], error) {
+	return this.GetsCtx(this.ctx, keys...)
+}
+
 // 获取并删除指定键值
-func (this *s_HSet[K, V, Sub]) GetDels(keys ...K) (S_RetItems[K, V], error) {
+func (this *s_HSet[K, V, Sub]) GetDelsCtx(ctx context.Context, keys ...K) (S_RetItems[K, V], error) {
 	ret := S_RetItems[K, V]{
 		UnexistKeys: []K{},
 		InvalidKeys: make([]string, 0),
@@ -207,7 +241,7 @@ func (this *s_HSet[K, V, Sub]) GetDels(keys ...K) (S_RetItems[K, V], error) {
 	for _, key := range keys {
 		strKeys = append(strKeys, this.sub.keyToString(key))
 	}
-	datas, err := this.client.HGetDel(this.ctx, this.hashKey, strKeys...).Result()
+	datas, err := this.client.HGetDel(ctx, this.hashKey, strKeys...).Result()
 	if err != nil {
 		return ret, err
 	}
@@ -230,9 +264,14 @@ func (this *s_HSet[K, V, Sub]) GetDels(keys ...K) (S_RetItems[K, V], error) {
 	return ret, nil
 }
 
+// 获取并删除指定键值
+func (this *s_HSet[K, V, Sub]) GetDels(keys ...K) (S_RetItems[K, V], error) {
+	return this.GetDelsCtx(this.ctx, keys...)
+}
+
 // ---------------------------------------------------------
 // 获取全部映射值
-func (this *s_HSet[K, V, Sub]) GetAll() (S_RetItems[K, V], error) {
+func (this *s_HSet[K, V, Sub]) GetAllCtx(ctx context.Context) (S_RetItems[K, V], error) {
 	ret := S_RetItems[K, V]{
 		UnexistKeys: []K{},
 		InvalidKeys: make([]string, 0),
@@ -241,7 +280,7 @@ func (this *s_HSet[K, V, Sub]) GetAll() (S_RetItems[K, V], error) {
 		Datas:       map[string][]byte{},
 	}
 
-	datas, err := this.client.HGetAll(this.ctx, this.hashKey).Result()
+	datas, err := this.client.HGetAll(ctx, this.hashKey).Result()
 	if err != nil {
 		return ret, err
 	}
@@ -266,6 +305,11 @@ func (this *s_HSet[K, V, Sub]) GetAll() (S_RetItems[K, V], error) {
 	return ret, nil
 }
 
+// 获取全部映射值
+func (this *s_HSet[K, V, Sub]) GetAll() (S_RetItems[K, V], error) {
+	return this.GetAllCtx(this.ctx)
+}
+
 // 扫描分批获取键值对
 // 参数 match 表示 key 的匹配器：
 //
@@ -276,14 +320,14 @@ func (this *s_HSet[K, V, Sub]) GetAll() (S_RetItems[K, V], error) {
 //	\：转义下一个字符
 //
 // 如 "user:*" 只返回 field 以 user: 开头的项
-func (this *s_HSet[K, V, Sub]) Fetch(match string, fun func(S_IterItem[K, V]) bool) error {
+func (this *s_HSet[K, V, Sub]) FetchCtx(ctx context.Context, match string, fun func(S_IterItem[K, V]) bool) error {
 	if match == "" {
 		match = "*"
 	}
 	// 游标，上一次遍历的位置
 	var cursor uint64
 	for {
-		fields, newCursor, err := this.client.HScan(this.ctx, this.hashKey, cursor, match, 100).Result()
+		fields, newCursor, err := this.client.HScan(ctx, this.hashKey, cursor, match, 100).Result()
 		if err != nil {
 			return fmt.Errorf("scan fail, %v", err)
 		}
@@ -330,14 +374,28 @@ func (this *s_HSet[K, V, Sub]) Fetch(match string, fun func(S_IterItem[K, V]) bo
 	}
 }
 
+// 扫描分批获取键值对
+// 参数 match 表示 key 的匹配器：
+//
+//	*：匹配任意长度、任意字符（包括空字符串）
+//	?：匹配任意一个字符
+//	[abc]：匹配 a、b、c 中的任意一个字符
+//	[a-z]：匹配 a 到 z 的任意一个字符
+//	\：转义下一个字符
+//
+// 如 "user:*" 只返回 field 以 user: 开头的项
+func (this *s_HSet[K, V, Sub]) Fetch(match string, fun func(S_IterItem[K, V]) bool) error {
+	return this.FetchCtx(this.ctx, match, fun)
+}
+
 // 遍历指定匹配规则的键
-func (this *s_HSet[K, V, Sub]) FetchKeys(match string, fun func(S_IterKey[K]) bool) error {
+func (this *s_HSet[K, V, Sub]) FetchKeysCtx(ctx context.Context, match string, fun func(S_IterKey[K]) bool) error {
 	if match == "" {
 		match = "*"
 	}
 	var cursor uint64
 	for {
-		strKeys, newCursor, err := this.client.HScanNoValues(this.ctx, this.hashKey, cursor, match, 100).Result()
+		strKeys, newCursor, err := this.client.HScanNoValues(ctx, this.hashKey, cursor, match, 100).Result()
 		if err != nil {
 			return fmt.Errorf("scan fail, %v", err)
 		}
@@ -358,9 +416,14 @@ func (this *s_HSet[K, V, Sub]) FetchKeys(match string, fun func(S_IterKey[K]) bo
 	return nil
 }
 
+// 遍历指定匹配规则的键
+func (this *s_HSet[K, V, Sub]) FetchKeys(match string, fun func(S_IterKey[K]) bool) error {
+	return this.FetchKeysCtx(this.ctx, match, fun)
+}
+
 // ---------------------------------------------------------
 // 更新一组映射
-func (this *s_HSet[K, V, Sub]) Update(values map[K]V) error {
+func (this *s_HSet[K, V, Sub]) UpdateCtx(ctx context.Context, values map[K]V) error {
 	if len(values) == 0 {
 		return nil
 	}
@@ -376,17 +439,27 @@ func (this *s_HSet[K, V, Sub]) Update(values map[K]V) error {
 		// 这可以说是 go-redis 的一个 bug
 		datas[strKey] = string(value)
 	}
-	_, err := this.client.HSet(this.ctx, this.hashKey, datas).Result()
+	_, err := this.client.HSet(ctx, this.hashKey, datas).Result()
 	return err
+}
+
+// 更新一组映射
+func (this *s_HSet[K, V, Sub]) Update(values map[K]V) error {
+	return this.UpdateCtx(this.ctx, values)
+}
+
+// 设置映射值
+func (this *s_HSet[K, V, Sub]) SetCtx(ctx context.Context, key K, value V) error {
+	return this.UpdateCtx(ctx, map[K]V{key: value})
 }
 
 // 设置映射值
 func (this *s_HSet[K, V, Sub]) Set(key K, value V) error {
-	return this.Update(map[K]V{key: value})
+	return this.UpdateCtx(this.ctx, map[K]V{key: value})
 }
 
 // 删除指定的键值
-func (this *s_HSet[K, V, Sub]) Dels(keys ...K) error {
+func (this *s_HSet[K, V, Sub]) DelsCtx(ctx context.Context, keys ...K) error {
 	if len(keys) == 0 {
 		return nil
 	}
@@ -394,11 +467,37 @@ func (this *s_HSet[K, V, Sub]) Dels(keys ...K) error {
 	for _, key := range keys {
 		strKeys = append(strKeys, this.sub.keyToString(key))
 	}
-	return this.client.HDel(this.ctx, this.hashKey, strKeys...).Err()
+	return this.client.HDel(ctx, this.hashKey, strKeys...).Err()
+}
+
+// 删除指定的键值
+func (this *s_HSet[K, V, Sub]) Dels(keys ...K) error {
+	return this.DelsCtx(this.ctx, keys...)
+}
+
+// 清空所有集合数据
+// save 表示是否立刻存盘
+func (this *s_HSet[K, V, Sub]) ClearCtx(ctx context.Context) error {
+	return this.client.Del(ctx, this.hashKey).Err()
 }
 
 // 清空所有集合数据
 // save 表示是否立刻存盘
 func (this *s_HSet[K, V, Sub]) Clear() error {
 	return this.client.Del(this.ctx, this.hashKey).Err()
+}
+
+// ---------------------------------------------------------
+// 设置过期时间
+func (this *s_HSet[K, V, Sub]) SetExpireCtx(ctx context.Context, du time.Duration, keys ...K) error {
+	strKeys := []string{}
+	for _, key := range keys {
+		strKeys = append(strKeys, this.sub.keyToString(key))
+	}
+	return this.client.HExpire(ctx, this.hashKey, du, strKeys...).Err()
+}
+
+// 设置过期时间
+func (this *s_HSet[K, V, Sub]) SetExpire(du time.Duration, keys ...K) error {
+	return this.SetExpireCtx(this.ctx, du, keys...)
 }

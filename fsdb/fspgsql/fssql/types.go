@@ -10,6 +10,7 @@
 package fssql
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -20,6 +21,10 @@ import (
 // String
 // -------------------------------------------------------------------
 type String string
+
+func (self String) Value() (driver.Value, error) {
+	return string(self), nil
+}
 
 func (this *String) Scan(value any) error {
 	if value == nil {
@@ -44,6 +49,10 @@ func (this *String) Scan(value any) error {
 // -------------------------------------------------------------------
 type Int int
 
+func (self Int) Value() (driver.Value, error) {
+	return int64(self), nil
+}
+
 func (this *Int) Scan(value any) error {
 	if value == nil {
 		*this = 0
@@ -59,6 +68,10 @@ func (this *Int) Scan(value any) error {
 
 // ---------------------------------------------------------
 type Int8 int8
+
+func (self Int8) Value() (driver.Value, error) {
+	return int64(self), nil
+}
 
 func (this *Int8) Scan(value any) error {
 	if value == nil {
@@ -76,6 +89,10 @@ func (this *Int8) Scan(value any) error {
 // ---------------------------------------------------------
 type Int16 int16
 
+func (self Int16) Value() (driver.Value, error) {
+	return int64(self), nil
+}
+
 func (this *Int16) Scan(value any) error {
 	if value == nil {
 		*this = 0
@@ -92,6 +109,10 @@ func (this *Int16) Scan(value any) error {
 // ---------------------------------------------------------
 type Int32 int32
 
+func (self Int32) Value() (driver.Value, error) {
+	return int64(self), nil
+}
+
 func (this *Int32) Scan(value any) error {
 	if value == nil {
 		*this = 0
@@ -107,6 +128,10 @@ func (this *Int32) Scan(value any) error {
 
 // ---------------------------------------------------------
 type Int64 int64
+
+func (self Int64) Value() (driver.Value, error) {
+	return int64(self), nil
+}
 
 func (this *Int64) Scan(value any) error {
 	if value == nil {
@@ -125,6 +150,10 @@ func (this *Int64) Scan(value any) error {
 // Float
 // -------------------------------------------------------------------
 type Float32 float32
+
+func (self Float32) Value() (driver.Value, error) {
+	return float64(self), nil
+}
 
 func (this *Float32) Scan(value any) error {
 	if value == nil {
@@ -147,6 +176,10 @@ func (this *Float32) Scan(value any) error {
 
 // ---------------------------------------------------------
 type Float64 float64
+
+func (self Float64) Value() (driver.Value, error) {
+	return float64(self), nil
+}
 
 func (this *Float64) Scan(value any) error {
 	if value == nil {
@@ -172,6 +205,10 @@ func (this *Float64) Scan(value any) error {
 // -------------------------------------------------------------------
 type Bool bool
 
+func (self Bool) Value() (driver.Value, error) {
+	return bool(self), nil
+}
+
 func (this *Bool) Scan(value any) error {
 	if value == nil {
 		*this = false
@@ -192,6 +229,10 @@ func (this *Bool) Scan(value any) error {
 // Time
 // -------------------------------------------------------------------
 type DateTime time.Time
+
+func (self DateTime) Value() (driver.Value, error) {
+	return time.Time(self), nil
+}
 
 func (this *DateTime) Scan(value any) error {
 	if value == nil {

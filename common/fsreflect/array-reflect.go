@@ -20,7 +20,7 @@ import (
 // private
 // -------------------------------------------------------------------
 func arrayGetItemPtr(varr reflect.Value, index int) (pv reflect.Value, err error) {
-	if varr.Type().Kind() != reflect.Ptr {
+	if varr.Type().Kind() != reflect.Pointer {
 		err = errors.New("the first argument must be a slice object pointer")
 		return
 	}
@@ -36,7 +36,7 @@ func arrayGetItemPtr(varr reflect.Value, index int) (pv reflect.Value, err error
 	vv := varr.Index(index)
 
 	// 如果元素本身就是指针，则返回本身
-	if vv.Type().Kind() == reflect.Ptr {
+	if vv.Type().Kind() == reflect.Pointer {
 		pv = vv
 	} else if vv.CanAddr() {
 		pv = reflect.NewAt(vv.Type(), unsafe.Pointer(vv.UnsafeAddr()))
@@ -77,7 +77,7 @@ func ArrayGet(arr interface{}, index int) (v interface{}, err error) {
 
 // 设置 array 元素
 // cvr 表示，如果追加元素类型不匹配，是否进行强制转换
-func ArraySet(parr interface{}, index int, value interface{}, cvr bool) (err error) {
+func ArraySet(parr any, index int, value interface{}, cvr bool) (err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("set array element fail: %s", e)
@@ -91,7 +91,7 @@ func ArraySet(parr interface{}, index int, value interface{}, cvr bool) (err err
 
 	tparr := reflect.TypeOf(parr)
 	vparr := reflect.ValueOf(parr)
-	if tparr.Kind() != reflect.Ptr {
+	if tparr.Kind() != reflect.Pointer {
 		err = errors.New("the first argument must be an array object pointer.")
 		return
 	}

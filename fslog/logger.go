@@ -13,12 +13,11 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
-
-	"fsky.pro/fspath"
 )
 
 type S_Logger struct {
@@ -81,7 +80,7 @@ func (this *S_Logger) send(t time.Time, lv T_Level, msg []byte) {
 
 // ---------------------------------------------------------
 func (this *S_Logger) writef(buff *bytes.Buffer, msg string, args ...any) {
-	buff.WriteString(fmt.Sprintf(msg, args...))
+	fmt.Fprintf(buff, msg, args...)
 }
 
 func (this *S_Logger) writeGoID(buff *bytes.Buffer) {
@@ -120,7 +119,7 @@ func (this *S_Logger) writeCallStack(buff *bytes.Buffer, depth int) {
 	for {
 		frame, more := frames.Next()
 		this.writef(buff, "\n\t%s(...):\n", frame.Function)
-		file := fspath.CleanPath(frame.File)
+		file := filepath.Clean(frame.File)
 		if this.cutSrcRoot != "" {
 			file = strings.TrimPrefix(file, this.cutSrcRoot)
 			file = strings.TrimSuffix(file, ".go")
@@ -138,7 +137,7 @@ func (this *S_Logger) writeCallTopStack(buff *bytes.Buffer, depth int) {
 		buff.WriteString("???:?")
 		return
 	}
-	file = fspath.CleanPath(file)
+	file = filepath.Clean(file)
 	if this.cutSrcRoot != "" {
 		file = strings.TrimPrefix(file, this.cutSrcRoot)
 		file = strings.TrimSuffix(file, ".go")
@@ -316,7 +315,7 @@ func (this *S_Logger) ToggleSite(showSite bool) {
 }
 
 func (this *S_Logger) CutSrcRoot(root string) {
-	this.cutSrcRoot = fspath.CleanPath(root) + string(os.PathSeparator)
+	this.cutSrcRoot = filepath.Clean(root) + string(os.PathSeparator)
 }
 
 func (this *S_Logger) SetOutputWriter(writer func(time.Time, T_Level, []byte)) {
@@ -411,7 +410,7 @@ func (this *S_Logger) UnshieldAll() {
 }
 
 // 设置指定等级是否输出
-func (this *S_Logger) SetOutoutStatus(output bool, lvs ...string) {
+func (this *S_Logger) SetOutputStatus(output bool, lvs ...string) {
 	this.Lock()
 	defer this.Unlock()
 	for _, l := range lvs {

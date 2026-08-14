@@ -70,11 +70,14 @@ func Open(dbInfo *S_DBInfo) (*S_DB, error) {
 	if dbInfo.MaxOpenConns > 0 {
 		sqldb.SetMaxOpenConns(dbInfo.MaxOpenConns)
 	}
-	if dbInfo.MaxIdleConns > 0 {
+	if dbInfo.MaxIdleConns != 2 {
 		sqldb.SetMaxIdleConns(dbInfo.MaxIdleConns)
 	}
-	if dbInfo.ConnMaxLifetime > 0 {
-		sqldb.SetConnMaxLifetime(dbInfo.ConnMaxLifetime)
+	if dbInfo.MaxIdleTime > 0 {
+		sqldb.SetConnMaxIdleTime(dbInfo.MaxIdleTime)
+	}
+	if dbInfo.MaxLifetime > 0 {
+		sqldb.SetConnMaxLifetime(dbInfo.MaxLifetime)
 	}
 	return &S_DB{
 		s_Operator: newOperator(sqldb),

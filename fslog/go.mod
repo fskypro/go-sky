@@ -1,8 +1,6 @@
 module fslog
 
-go 1.23
-
-toolchain go1.24.1
+go 1.26
 
 //replace fsky.pro => github.com/fskypro/gosky/common latest
 replace fsky.pro => ../common
